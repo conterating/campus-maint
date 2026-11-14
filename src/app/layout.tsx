@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Atkinson_Hyperlegible_Next, Atkinson_Hyperlegible_Mono } from "next/font/google";
+import { Atkinson_Hyperlegible_Next, Atkinson_Hyperlegible_Mono } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/NavLinks";
@@ -7,14 +7,13 @@ import { getContext } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { getClockOffsetMs } from "@/lib/clock";
 
-const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-archivo", display: "swap" });
 const atkinson = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--font-atkinson", display: "swap", adjustFontFallback: false });
 const atkinsonMono = Atkinson_Hyperlegible_Mono({ subsets: ["latin"], variable: "--font-atkinson-mono", display: "swap", adjustFontFallback: false });
 
 export const metadata: Metadata = {
-  title: { default: "FixIt GT", template: "%s · FixIt GT" },
+  title: { default: "Ramblin’ Repairs", template: "%s · Ramblin’ Repairs" },
   description: "Report, track, and see campus maintenance issues at Georgia Tech.",
-  applicationName: "FixIt GT",
+  applicationName: "Ramblin’ Repairs",
 };
 
 export const viewport: Viewport = {
@@ -31,7 +30,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   ]);
 
   return (
-    <html lang="en" className={`${archivo.variable} ${atkinson.variable} ${atkinsonMono.variable}`}>
+    <html lang="en" className={`${atkinson.variable} ${atkinsonMono.variable}`}>
       <body className="min-h-dvh flex flex-col antialiased">
         <a href="#main" className="skip-link">
           Skip to main content

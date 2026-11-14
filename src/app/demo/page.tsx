@@ -33,7 +33,7 @@ export default async function DemoPage() {
         <h2 id="students-title" className="h-section text-lg">
           Students
         </h2>
-        <ul className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {students.map((u) => (
             <li key={u.id}>
               <UserButton
@@ -52,11 +52,11 @@ export default async function DemoPage() {
         <h2 id="staff-title" className="h-section text-lg">
           Staff
         </h2>
-        <div className="mt-3 grid gap-x-5 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
           {DEPARTMENTS.map((d) => (
             <div key={d}>
               <h3 className="eyebrow mb-2">{DEPARTMENT_LABEL[d]}</h3>
-              <ul className="grid gap-2">
+              <ul className="grid grid-cols-1 gap-2">
                 {users
                   .filter((u) => u.role === "STAFF" && u.department === d)
                   .sort((a, b) => Number(a.isSupervisor) - Number(b.isSupervisor))
@@ -75,7 +75,7 @@ export default async function DemoPage() {
         <h2 id="admin-title" className="h-section text-lg">
           Administrator
         </h2>
-        <ul className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {admins.map((u) => (
             <li key={u.id}>
               <UserButton id={u.id} name={u.name} hue={u.avatarHue} detail={titles.get(u.id) ?? "Administrator"} current={u.id === viewer.id} />

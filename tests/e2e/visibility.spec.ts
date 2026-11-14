@@ -27,7 +27,7 @@ test("a dorm-room ticket opens for its residents and 404s for everyone else", as
     await viewAs(context, outsider);
     const res = await page.goto(url);
     expect(res?.status(), outsider).toBe(404);
-    await expect(page.getByRole("heading", { name: "No tag on this hook" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   }
 
   await viewAs(context, "u-kevin"); // staff from another department can still see it
@@ -38,13 +38,13 @@ test("a dorm-room ticket opens for its residents and 404s for everyone else", as
 test("an off-campus student sees no dorm issues in lists or on the map", async ({ page, context }) => {
   await viewAs(context, "u-alex");
   await page.goto("/tickets?view=open");
-  await expect(page.getByRole("link", { name: /Glenn|Towers|Fitten|Woodruff|North Avenue East/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Residence Hall|Apartments|Houses|Graduate Living|Tenth and Home/ })).toHaveCount(0);
 
   await page.goto("/map");
   await page.getByRole("button", { name: "List" }).click();
   const list = page.getByRole("region", { name: "List of issues" });
   await expect(list.getByRole("listitem").first()).toBeVisible();
-  await expect(list.getByText(/Residence Hall|Fitten Hall|North Avenue East/)).toHaveCount(0);
+  await expect(list.getByText(/Residence Hall|Apartments|Houses|Graduate Living|Tenth and Home/)).toHaveCount(0);
   await expect(page.getByText(/Showing \d+ of \d+ issues you can see/)).toBeVisible();
 });
 

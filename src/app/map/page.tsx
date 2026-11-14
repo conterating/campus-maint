@@ -45,5 +45,9 @@ export default async function MapPage() {
     createdAt: t.createdAt.toISOString(),
   }));
 
-  return <MapClient points={points} now={now.toISOString()} isStudent={viewer.role === "STUDENT"} />;
+  // A browser key for the Maps JavaScript API (restrict it to your domain in
+  // Google Cloud). Without one, the map falls back to OpenStreetMap tiles.
+  const googleKey = process.env.GOOGLE_MAPS_API_KEY?.trim() || null;
+
+  return <MapClient points={points} now={now.toISOString()} isStudent={viewer.role === "STUDENT"} googleKey={googleKey} />;
 }

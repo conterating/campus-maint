@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bot, Building2, CheckCircle2, ChevronLeft, Eye, Lock, MapPin, ShieldAlert, Users } from "lucide-react";
+import { Building2, CheckCircle2, ChevronLeft, Eye, Lock, MapPin, ShieldAlert, Sparkles, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/session";
 import { getTicketDetail, shortName } from "@/lib/tickets";
@@ -9,10 +9,11 @@ import { isStaff } from "@/lib/visibility";
 import { CATEGORY_LABEL, DEPARTMENT_LABEL, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, type Category, type Department, type Severity } from "@/lib/domain";
 import { APP_CONFIG } from "@/config/app";
 import { formatDateTime } from "@/lib/format";
-import { CategoryChip, SeverityBadge, StatusPill, StatusStamp } from "@/components/badges";
+import { CategoryChip, SeverityBadge, StatusPill } from "@/components/badges";
 import { Countdown } from "@/components/Countdown";
 import { EmergencyBanner } from "@/components/EmergencyBanner";
-import { StatusSteps, Timeline } from "@/components/Timeline";
+import { Timeline } from "@/components/Timeline";
+import { Progress, stageCaption, stageStamps } from "@/components/Progress";
 import { Avatar } from "@/components/Avatar";
 import { hueFor } from "@/components/AppHeader";
 import { StudentActions } from "./StudentActions";
@@ -52,7 +53,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
 
   // Students see other students anonymously; staff names are always shown.
   const actorLabel = (actor: { id: string; name: string; role: string; department: string | null } | null) => {
-    if (!actor) return "FixIt GT";
+    if (!actor) return "Ramblin’ Repairs";
     if (actor.id === viewer.id) return "You";
     if (actor.role === "STUDENT") return staff ? shortName(actor.name) : null;
     if (actor.role === "ADMIN") return `${shortName(actor.name)}, Campus Services`;
@@ -109,7 +110,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
     <div className="mx-auto max-w-6xl px-4 pt-5 md:pt-8">
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
         <Link href={staff ? "/staff" : "/tickets"} className="inline-flex items-center gap-1 rounded-md font-bold text-ink-2 hover:text-navy">
-          <ChevronLeft aria-hidden className="size-4" /> {staff ? "Back to queue" : "My issues"}
+          <ChevronLeft aria-hidden className="size-4" /> {staff ? "Back to queue" : "My reports"}
         </Link>
         <span aria-hidden className="text-line-2">
           /
@@ -145,48 +146,42 @@ export default async function TicketPage({ params, searchParams }: { params: Par
       {/* One actions panel, placed by the grid: after the header on phones, a sticky sidebar on desktop. */}
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:grid-rows-[auto_1fr] lg:gap-x-8">
         <div className="min-w-0 space-y-5 lg:col-start-1 lg:row-start-1">
-          {/* The work-order tag: the ticket's identity, used once on this page. */}
-          <div className="tag-wrap">
-            <header className="tag flex">
-              <div className="min-w-0 flex-1 py-5 pr-4 md:py-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  <SeverityBadge severity={t.severity} />
-                  <CategoryChip category={t.category} />
-                  {t.escalatedAt && open && (
-                    <span className="pill bg-emergency text-white">
-                      <ShieldAlert aria-hidden className="size-3.5" />
-                      Escalated
-                    </span>
-                  )}
-                </div>
-                <h1 className="mt-3 font-display text-[1.375rem] font-bold leading-tight tracking-[-0.02em] text-ink md:text-[1.75rem]">{t.summary}</h1>
-                <p className="mt-2 flex items-start gap-1.5 text-ink-2">
-                  <MapPin aria-hidden className="mt-1 size-4 shrink-0 text-ink-3" />
-                  {where}
-                </p>
-                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <Countdown dueAt={t.responseDueAt.toISOString()} serverNow={now.toISOString()} respondedAt={t.firstResponseAt?.toISOString() ?? null} closed={!open} escalated={!!t.escalatedAt} />
-                  {t.meTooCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-2">
-                      <Users aria-hidden className="size-4" />
-                      <span>{t.meTooCount + 1} people affected</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="tag-stub flex w-[6rem] shrink-0 flex-col items-center justify-between gap-3 py-5 pl-2 pr-3 text-center sm:w-32 md:py-6">
-                <span className="num text-sm font-bold text-ink-3">{formatTicketNumber(t.number)}</span>
-                <StatusStamp status={t.status} animate={!!flags.created} />
-              </div>
-            </header>
-          </div>
+          <header>
+            <div className="flex flex-wrap items-center gap-2">
+              <SeverityBadge severity={t.severity} />
+              <CategoryChip category={t.category} />
+              {t.escalatedAt && open && (
+                <span className="pill bg-emergency text-white">
+                  <ShieldAlert aria-hidden className="size-3.5" />
+                  Escalated
+                </span>
+              )}
+            </div>
+            <h1 className="mt-3 text-[1.625rem] font-extrabold leading-[1.15] tracking-[-0.025em] text-ink md:text-[2.125rem]">{t.summary}</h1>
+            <p className="mt-2 flex items-start gap-1.5 text-ink-2">
+              <MapPin aria-hidden className="mt-1 size-4 shrink-0 text-ink-3" />
+              {where}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <Countdown dueAt={t.responseDueAt.toISOString()} serverNow={now.toISOString()} respondedAt={t.firstResponseAt?.toISOString() ?? null} closed={!open} escalated={!!t.escalatedAt} />
+              {t.meTooCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-2">
+                  <Users aria-hidden className="size-4" />
+                  <span>{t.meTooCount + 1} people affected</span>
+                </span>
+              )}
+            </div>
+          </header>
 
-          <section aria-labelledby="progress-title" className="px-1">
-            <h2 id="progress-title" className="sr-only">
-              Progress
-            </h2>
-            <StatusSteps status={t.status} />
-            {t.status === "REOPENED" && <p className="mt-3 text-sm font-bold text-[var(--st-reopened)]">Reopened by the reporter. Back in the queue with a fresh response target.</p>}
+          <section aria-labelledby="progress-title" className="card p-5 md:p-6">
+            <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h2 id="progress-title" className="h-section">
+                {stageCaption(t.status)}
+              </h2>
+              {t.assignee && open && <p className="text-sm text-ink-3">Technician: {shortName(t.assignee.name)}</p>}
+            </div>
+            <Progress status={t.status} stamps={stageStamps(t.createdAt, t.events)} />
+            {t.status === "REOPENED" && <p className="mt-4 text-sm font-bold text-[var(--st-reopened)]">Reopened by the reporter. It&apos;s back in the queue with a fresh response target.</p>}
           </section>
         </div>
 
@@ -238,15 +233,15 @@ export default async function TicketPage({ params, searchParams }: { params: Par
               <img src={t.photoUrl} alt={`Photo of the problem: ${t.summary}`} className="max-h-[26rem] w-full bg-bg object-contain" />
             )}
             <div className="p-5">
-              <h2 id="report-title" className="eyebrow">
-                The report
+              <h2 id="report-title" className="h-section">
+                What was reported
               </h2>
               <p className="mt-2 whitespace-pre-line text-[1.0625rem] leading-relaxed text-ink">{t.description}</p>
-              <div className="mt-4 flex gap-2.5 rounded-[10px] bg-surface-2 px-3 py-2.5 text-sm text-ink-2 ring-1 ring-inset ring-line">
-                <Bot aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-3" />
+              <div className="mt-5 flex gap-2.5 border-t border-line pt-4 text-sm text-ink-3">
+                <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0" />
                 <p>
-                  {t.aiSource === "claude" ? "Claude" : "The routing rules"} classified this as <strong className="text-ink">{CATEGORY_LABEL[t.aiCategory as Category]}</strong>,{" "}
-                  <strong className="text-ink">{SEVERITY_LABEL[t.aiSeverity as Severity]}</strong>, for <strong className="text-ink">{DEPARTMENT_LABEL[t.aiDepartment as Department]}</strong>.
+                  {t.aiSource === "claude" ? "Claude" : "The routing rules"} sorted this as <strong className="text-ink-2">{CATEGORY_LABEL[t.aiCategory as Category]}</strong>,{" "}
+                  <strong className="text-ink-2">{SEVERITY_LABEL[t.aiSeverity as Severity]}</strong>, for <strong className="text-ink-2">{DEPARTMENT_LABEL[t.aiDepartment as Department]}</strong>.
                   {corrected && <> It was later changed; the activity below shows who changed what.</>}
                   {staff && t.aiRationale && <span className="mt-1 block text-ink-3">{t.aiRationale}</span>}
                 </p>

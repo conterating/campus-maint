@@ -58,7 +58,7 @@ export default async function AdminPage() {
       <h1 className="h-page">Insights</h1>
       <p className="mt-1 text-sm text-ink-3">Campus Services · all departments</p>
 
-      <section aria-labelledby="sla-title" className="mt-6 grid gap-4 lg:grid-cols-[1.15fr_2fr]">
+      <section aria-labelledby="sla-title" className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_2fr]">
         <div className="card p-5">
           <h2 id="sla-title" className="text-sm font-bold text-ink-2">
             First response on time
@@ -93,7 +93,7 @@ export default async function AdminPage() {
         </dl>
       </section>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <BarChart
           title="Response target met, by department"
           description="Share of tickets with a first response inside the target for their severity."
@@ -124,11 +124,12 @@ export default async function AdminPage() {
         />
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_1fr]">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_1fr]">
         <BarChart
           title="Issues by building"
-          description="All tickets on record, busiest buildings first."
+          description="All tickets on record. The ten busiest buildings."
           unit="Tickets"
+          limit={10}
           rows={byBuilding.map((b) => ({
             key: b.buildingId,
             label: b.name,

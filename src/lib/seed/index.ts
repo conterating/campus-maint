@@ -146,7 +146,7 @@ function planTicket(db: PrismaClient, spec: TicketSeed, index: number, nowMs: nu
       );
       ref.id = id;
       if (spec.untriaged) {
-        await db.ticket.update({ where: { id }, data: { status: "SUBMITTED" } });
+        await db.ticket.update({ where: { id }, data: { status: "SUBMITTED", updatedAt: new Date(created) } });
         await db.ticketEvent.deleteMany({ where: { ticketId: id, toStatus: "TRIAGED" } });
       }
     },

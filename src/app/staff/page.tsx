@@ -95,7 +95,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
             <ShieldAlert aria-hidden className="size-5" /> Escalated to you
           </h2>
           <p className="mt-0.5 text-sm text-ink-2">These missed their response target. Assign someone or post an update to stop the clock.</p>
-          <ul className="mt-3 grid gap-2 md:grid-cols-2">
+          <ul className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
             {escalatedToMe.map((t) => (
               <li key={t.id}>
                 <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 rounded-[10px] bg-surface px-3 py-2.5 text-sm shadow-[var(--shadow-xs)] ring-1 ring-emergency/20 hover:ring-emergency/50">
@@ -118,7 +118,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
               Emergencies skip the queue
             </h2>
           </div>
-          <TicketList tickets={emergencies} now={now} bare />
+          <TicketList tickets={emergencies} now={now} bare showDue />
         </section>
       )}
 
@@ -215,7 +215,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
           </div>
           {/* Phones */}
           <div className="mt-3 md:hidden">
-            <TicketList tickets={rows} now={now} />
+            <TicketList tickets={rows} now={now} showDue />
           </div>
         </>
       )}

@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 // End-to-end tests run against a production build on its own SQLite file, so
 // they never touch your dev data. Tests share one database, so they run serially.
 const PORT = 3200;
-const env = { DATABASE_URL: "file:./e2e.db", ANTHROPIC_API_KEY: "", PORT: String(PORT) };
+const env = { DATABASE_URL: "file:./e2e.db", ANTHROPIC_API_KEY: "", GOOGLE_MAPS_API_KEY: "", PORT: String(PORT) };
 
 export default defineConfig({
   testDir: "tests/e2e",

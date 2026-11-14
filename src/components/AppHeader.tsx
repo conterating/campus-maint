@@ -12,13 +12,13 @@ export function roleLine(v: Viewer): string {
   return "Student";
 }
 
+/** The mark: a navy roundel with a gold check, i.e. "reported, and getting fixed". */
 export function LogoMark({ className = "size-8" }: { className?: string }) {
   return (
-    <span aria-hidden className={`${className} relative grid shrink-0 place-items-center rounded-[9px] bg-navy text-buzz shadow-[inset_0_-2px_0_rgb(0_0_0/0.2)]`}>
-      <svg viewBox="0 0 24 24" className="size-[58%]" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3.6 17.4a1.9 1.9 0 1 0 2.7 2.7l5.7-5.7a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.3-.3-2.4z" />
-      </svg>
-    </span>
+    <svg aria-hidden viewBox="0 0 32 32" className={`${className} shrink-0`}>
+      <rect width="32" height="32" rx="9" fill="#003057" />
+      <path d="M9 16.5l4.6 4.6L23.5 11" fill="none" stroke="#eaaa00" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -28,8 +28,8 @@ export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; u
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 md:gap-4">
         <Link href="/" className="flex items-center gap-2.5 rounded-lg pr-1">
           <LogoMark />
-          <span className="font-display text-[1.0625rem] font-extrabold tracking-[-0.02em] text-ink">
-            FixIt <span className="text-navy">GT</span>
+          <span className="text-[1.125rem] font-extrabold tracking-[-0.03em] text-navy">
+            Ramblin’<span className="ml-1 text-gold-ink">Repairs</span>
           </span>
           <span className="sr-only"> home</span>
         </Link>
@@ -56,9 +56,9 @@ export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; u
         <Link
           href="/notifications"
           className="relative grid size-10 place-items-center rounded-full text-ink-2 hover:bg-bg hover:text-ink"
-          aria-label={unread ? `Alerts, ${unread} unread` : "Alerts"}
         >
           <Bell aria-hidden className="size-[1.2rem]" />
+          <span className="sr-only">{unread ? `Alerts, ${unread} unread` : "Alerts"}</span>
           {unread > 0 && (
             <span aria-hidden className="num absolute right-0.5 top-0.5 grid min-w-[1.15rem] place-items-center rounded-full bg-emergency px-1 text-[0.65rem] font-bold leading-[1.15rem] text-white ring-2 ring-surface">
               {unread > 9 ? "9+" : unread}

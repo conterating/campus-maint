@@ -25,7 +25,7 @@ export function navItemsFor(role: Role): NavItem[] {
     { href: "/", label: "Home", icon: "home" },
     { href: "/map", label: "Map", icon: "map" },
     { href: "/report", label: "Report", icon: "plus" },
-    { href: "/tickets", label: "My issues", icon: "list" },
+    { href: "/tickets", label: "My reports", icon: "list" },
     { href: "/notifications", label: "Alerts", icon: "bell" },
   ];
 }

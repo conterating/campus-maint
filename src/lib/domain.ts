@@ -1,4 +1,4 @@
-// Shared vocabulary for FixIt GT. Pure module: safe to import from client and server.
+// Shared vocabulary for Ramblin’ Repairs. Pure module: safe to import from client and server.
 
 export const SEVERITIES = ["EMERGENCY", "URGENT", "STANDARD", "LOW"] as const;
 export type Severity = (typeof SEVERITIES)[number];
@@ -112,6 +112,35 @@ export const BUILDING_KIND_LABEL: Record<BuildingKind, string> = {
   ACADEMIC: "Classroom building",
 };
 
+export const HOUSING_AREAS = ["EAST", "NORTH_AVE", "WEST", "GRAD"] as const;
+export type HousingArea = (typeof HOUSING_AREAS)[number];
+
+export const HOUSING_AREA_LABEL: Record<HousingArea, string> = {
+  EAST: "East Campus",
+  NORTH_AVE: "North Avenue",
+  WEST: "West Campus",
+  GRAD: "Graduate housing",
+};
+
+/** Option groups for building pickers, in the order people look for them. */
+export function buildingGroupLabel(b: { kind: string; area?: string | null }): string {
+  if (b.kind === "RESIDENCE") {
+    const area = HOUSING_AREA_LABEL[b.area as HousingArea];
+    return area ? `Residence halls · ${area}` : "Residence halls";
+  }
+  if (b.kind === "ACADEMIC") return "Classrooms & labs";
+  if (b.kind === "DINING") return "Dining";
+  return "Libraries, student center & recreation";
+}
+
+export const BUILDING_GROUP_ORDER = [
+  "Classrooms & labs",
+  "Libraries, student center & recreation",
+  "Dining",
+  ...HOUSING_AREAS.map((a) => `Residence halls · ${HOUSING_AREA_LABEL[a]}`),
+  "Residence halls",
+];
+
 /** How a Space relates to visibility. */
 export type SpaceScope = "DORM_ROOM" | "DORM_SHARED" | "PUBLIC";
 
@@ -186,5 +215,5 @@ export function ticketScopeFor(buildingKind: string, spaceScope?: string | null)
 }
 
 export function formatTicketNumber(n: number): string {
-  return `FX-${n}`;
+  return `RR-${n}`;
 }

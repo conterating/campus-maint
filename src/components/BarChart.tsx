@@ -6,8 +6,9 @@ export const CHART_BAR = "#1f5fa6";
 
 export type BarRow = { key: string; label: string; value: number | null; valueLabel: string; detail: string };
 
-export function BarChart({ title, description, rows, max, unit }: { title: string; description: string; rows: BarRow[]; max?: number; unit: string }) {
+export function BarChart({ title, description, rows, max, unit, limit }: { title: string; description: string; rows: BarRow[]; max?: number; unit: string; limit?: number }) {
   const top = max ?? Math.max(1, ...rows.map((r) => r.value ?? 0));
+  const shown = limit ? rows.slice(0, limit) : rows;
   const id = title.toLowerCase().replace(/\W+/g, "-");
   return (
     <figure className="card p-5" aria-labelledby={`${id}-title`}>
@@ -18,7 +19,7 @@ export function BarChart({ title, description, rows, max, unit }: { title: strin
         <p className="mt-0.5 text-sm text-ink-3">{description}</p>
       </figcaption>
       <ul className="mt-5 space-y-[2px]" aria-hidden>
-        {rows.map((r) => {
+        {shown.map((r) => {
           const pct = r.value === null ? 0 : Math.max(0.6, (r.value / top) * 100);
           return (
             <li key={r.key} className="group relative grid grid-cols-[minmax(6.5rem,36%)_1fr_4.75rem] items-center gap-3 rounded-md py-1.5">
@@ -41,7 +42,7 @@ export function BarChart({ title, description, rows, max, unit }: { title: strin
         })}
       </ul>
       <details className="mt-4 border-t border-line pt-3 text-sm">
-        <summary className="cursor-pointer font-bold text-ink-2 hover:text-ink">Show as a table</summary>
+        <summary className="cursor-pointer font-bold text-ink-2 hover:text-ink">{shown.length < rows.length ? `Show all ${rows.length} as a table` : "Show as a table"}</summary>
         <table className="mt-2 w-full text-left">
           <caption className="sr-only">{title}</caption>
           <thead className="text-xs text-ink-3">

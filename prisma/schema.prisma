@@ -1,4 +1,4 @@
-// FixIt GT data model.
+// Ramblin’ Repairs data model.
 // SQLite has no native enums, so string columns hold the values defined in
 // src/lib/domain.ts; the application validates them before writing.
 
@@ -21,6 +21,8 @@ model Building {
   lng     Float
   floors  Int
   address String?
+  // Housing area for residence halls: EAST | WEST | NORTH_AVE | GRAD
+  area    String?
 
   spaces    Space[]
   assets    Asset[]

@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Building, DoorClosed, MapPinned, QrCode } from "lucide-react";
+import { ArrowRight, QrCode } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/session";
-import { listMyTickets, listVisibleTickets } from "@/lib/tickets";
-import { OPEN_STATUSES, isOpenStatus } from "@/lib/domain";
-import { TicketList } from "@/components/TicketTag";
-import { NotificationIcon } from "@/components/NotificationIcon";
+import { listMyTickets, listVisibleTickets, shortName } from "@/lib/tickets";
+import { DEPARTMENT_LABEL, OPEN_STATUSES, formatTicketNumber, isOpenStatus, type Department } from "@/lib/domain";
 import { relativeTime } from "@/lib/format";
 import { compareQueue } from "@/lib/sla";
+import { ProgressBar, stageCaption } from "@/components/Progress";
 
 function greeting(now: Date): string {
   const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "America/New_York" }).format(now));
@@ -17,149 +16,195 @@ function greeting(now: Date): string {
   return "Good afternoon";
 }
 
+/** Short hall name for chips: "Glenn Residence Hall" → "Glenn". */
+function hallShort(name: string) {
+  return name.replace(/ (Residence Hall|Apartments|Houses)$/, "");
+}
+
 export default async function HomePage() {
   const { viewer, now } = await getContext();
   if (viewer.role === "STAFF") redirect("/staff");
   if (viewer.role === "ADMIN") redirect("/admin");
 
-  const [mine, nearby, alerts, user] = await Promise.all([
+  const [mine, nearby, user] = await Promise.all([
     listMyTickets(prisma, viewer),
     listVisibleTickets(prisma, viewer, { status: { in: OPEN_STATUSES } }),
-    prisma.notification.findMany({ where: { userId: viewer.id }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.user.findUnique({ where: { id: viewer.id }, include: { residenceBuilding: true, room: true } }),
   ]);
 
-  const myOpen = mine.filter((t) => isOpenStatus(t.status) || t.status === "RESOLVED");
+  const active = mine.filter((t) => isOpenStatus(t.status) || t.status === "RESOLVED").slice(0, 4);
+  const latest = active.length
+    ? await prisma.ticketEvent.findMany({
+        where: { ticketId: { in: active.map((t) => t.id) }, internal: false, type: { in: ["STATUS", "NOTE"] }, actor: { role: { not: "STUDENT" } } },
+        orderBy: { createdAt: "desc" },
+        include: { actor: { select: { name: true, department: true } } },
+      })
+    : [];
+  // The newest thing staff actually said: a note, or the message attached to a status change.
+  const latestFor = (id: string) => {
+    for (const e of latest) {
+      if (e.ticketId !== id) continue;
+      if (e.type === "NOTE") return { who: e.actor, text: e.message };
+      const note = e.message.split(" — ")[1];
+      if (note) return { who: e.actor, text: note };
+    }
+    return null;
+  };
+
   const mineIds = new Set(mine.map((t) => t.id));
   const trending = nearby
-    .filter((t) => !mineIds.has(t.id))
+    .filter((t) => !mineIds.has(t.id) && t.meTooCount > 0)
     .sort((a, b) => b.meTooCount - a.meTooCount || compareQueue(a, b, now))
-    .slice(0, 4);
+    .slice(0, 5);
+
   const first = viewer.name.split(" ")[0];
   const hall = user?.residenceBuilding;
   const room = user?.room;
-
-  const quickStarts = [
-    hall && room
-      ? { href: `/report?building=${hall.id}&space=${room.id}`, Icon: DoorClosed, title: "In my room", detail: `${room.label}, ${hall.name.replace(" Residence Hall", "")}` }
-      : null,
-    hall ? { href: `/report?building=${hall.id}`, Icon: Building, title: "Shared areas in my hall", detail: "Hallways, bathrooms, laundry" } : null,
-    { href: "/report", Icon: MapPinned, title: "Somewhere on campus", detail: "Library, dining, classrooms, gym" },
-  ].filter(Boolean) as { href: string; Icon: typeof Building; title: string; detail: string }[];
+  const places = [
+    room && hall ? { value: "room", label: "My room", detail: room.label } : null,
+    hall ? { value: "hall", label: `${hallShort(hall.name)} shared areas`, detail: "Halls, baths, laundry" } : null,
+    { value: "campus", label: "Somewhere on campus", detail: "Classrooms, library, dining, gym" },
+  ].filter(Boolean) as { value: string; label: string; detail: string }[];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-6 md:pt-10">
-      <p className="text-sm text-ink-3">
-        {greeting(now)}, {first}
-        {hall ? ` · ${hall.name}${room ? `, ${room.label}` : ""}` : " · Off-campus student"}
-      </p>
+    <div className="mx-auto max-w-5xl px-4 pt-8 md:pt-14">
+      <section aria-labelledby="hero-title" className="max-w-3xl">
+        <p className="text-ink-2">
+          {greeting(now)}, {first}.
+        </p>
+        <h1 id="hero-title" className="h-hero mt-1">
+          What needs fixing?
+        </h1>
 
-      {/* Hero: the one bold moment on the page, and it's the primary task. */}
-      <section aria-labelledby="hero-title" className="relative mt-3 overflow-hidden rounded-[20px] bg-navy text-white shadow-[0_20px_40px_-20px_rgb(0_48_87/0.6)]">
-        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full border-[28px] border-white/[0.04]" />
-        <div aria-hidden className="pointer-events-none absolute -right-6 -top-6 size-40 rounded-full border-[18px] border-buzz/10" />
-        <div className="relative p-6 md:p-9">
-          <h1 id="hero-title" className="h-display max-w-xl text-[2.25rem] md:text-[3.25rem]">
-            Something broken? <span className="text-buzz">Tag&nbsp;it.</span>
-          </h1>
-          <p className="mt-3 max-w-lg text-[1.0625rem] leading-relaxed text-white/80">
-            Tell us where. We route it to the right team in seconds, and you can watch it get fixed.
-          </p>
-          <ul className={`mt-6 grid gap-2.5 ${quickStarts.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-            {quickStarts.map((q) => (
-              <li key={q.title}>
-                <Link
-                  href={q.href}
-                  className="group flex h-full items-center gap-3 rounded-[14px] bg-white/[0.07] p-3.5 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/[0.12] focus-visible:bg-white/[0.12]"
-                >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-buzz text-navy-hover">
-                    <q.Icon aria-hidden className="size-5" strokeWidth={2.2} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-bold">{q.title}</span>
-                    <span className="block truncate text-sm text-white/70">{q.detail}</span>
-                  </span>
-                  <ArrowRight aria-hidden className="size-4 shrink-0 text-white/50 transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 flex items-center gap-2 text-sm text-white/65">
-            <QrCode aria-hidden className="size-4" /> See a FixIt QR code on a door or machine? Scan it with your camera to skip straight to the form.
-          </p>
-        </div>
+        <form action="/report" method="get" className="mt-6 rounded-[20px] border border-line-2 bg-surface shadow-[var(--shadow-sm)] transition-shadow focus-within:border-navy focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--buzz)_40%,transparent)]">
+          <label htmlFor="home-desc" className="sr-only">
+            Describe the problem
+          </label>
+          <textarea
+            id="home-desc"
+            name="desc"
+            rows={3}
+            maxLength={2000}
+            placeholder="The shower in the 2nd floor bathroom has no hot water…"
+            className="block w-full resize-none rounded-t-[20px] bg-transparent px-5 pb-2 pt-4 text-[1.0625rem] leading-relaxed text-ink outline-none placeholder:text-[#737f8f] focus-visible:shadow-none"
+          />
+          <div className="flex flex-col gap-3 border-t border-line px-3 py-3 sm:flex-row sm:items-center">
+            <fieldset className="min-w-0 flex-1">
+              <legend className="sr-only">Where is it?</legend>
+              <div className="flex flex-wrap gap-1.5">
+                {places.map((p, i) => (
+                  <label
+                    key={p.value}
+                    className="relative flex cursor-pointer items-center rounded-full px-3.5 py-2 text-sm font-bold text-ink-2 ring-1 ring-inset ring-line-2 transition-colors hover:bg-surface-2 has-[:checked]:bg-navy has-[:checked]:text-white has-[:checked]:ring-navy has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy"
+                  >
+                    <input type="radio" name="where" value={p.value} defaultChecked={i === 0} className="sr-only" />
+                    {p.label}
+                    <span className="sr-only">: {p.detail}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <button type="submit" className="btn btn-accent shrink-0">
+              Continue <ArrowRight aria-hidden className="size-4" />
+            </button>
+          </div>
+        </form>
+        <p className="mt-3 flex items-center gap-2 text-sm text-ink-3">
+          <QrCode aria-hidden className="size-4 shrink-0" />
+          Spotted a Ramblin’ Repairs sticker on a door or machine? Scan it to skip straight to the form.
+        </p>
       </section>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_20rem]">
-        <div className="min-w-0 space-y-10">
-          <section aria-labelledby="mine-title">
-            <div className="mb-3 flex items-end justify-between gap-2">
-              <h2 id="mine-title" className="h-section text-lg">
-                Your open tickets
-              </h2>
-              <Link href="/tickets" className="text-sm font-bold text-navy hover:underline">
-                All your issues
-              </Link>
-            </div>
-            {myOpen.length ? (
-              <TicketList tickets={myOpen.slice(0, 5)} now={now} />
-            ) : (
-              <div className="card px-6 py-10 text-center">
-                <p className="font-bold">Nothing open right now</p>
-                <p className="mt-1 text-sm text-ink-3">Issues you report or follow show up here with live status.</p>
-              </div>
-            )}
-          </section>
-
-          {trending.length > 0 && (
-            <section aria-labelledby="trending-title">
-              <div className="mb-3">
-                <h2 id="trending-title" className="h-section text-lg">
-                  Most reported near you
-                </h2>
-                <p className="mt-0.5 text-sm text-ink-3">Same problem? Open it and add a “me too” instead of filing a new one.</p>
-              </div>
-              <TicketList tickets={trending} now={now} />
-            </section>
-          )}
-        </div>
-
-        <aside aria-labelledby="alerts-title" className="space-y-4">
-          <div className="card">
-            <div className="flex items-center justify-between border-b border-line px-4 py-3">
-              <h2 id="alerts-title" className="h-section">
-                Latest alerts
-              </h2>
-              <Link href="/notifications" className="text-sm font-bold text-navy hover:underline">
-                See all
-              </Link>
-            </div>
-            {alerts.length ? (
-              <ul className="divide-y divide-line">
-                {alerts.map((n) => (
-                  <li key={n.id}>
-                    <Link href={n.ticketId ? `/tickets/${n.ticketId}` : "/notifications"} className="flex gap-3 px-4 py-3 hover:bg-surface-2">
-                      <NotificationIcon tone={n.tone} />
-                      <span className="min-w-0">
-                        <span className={`block text-sm leading-snug ${n.read ? "text-ink-2" : "font-bold text-ink"}`}>
-                          {!n.read && <span className="sr-only">Unread: </span>}
-                          {n.message}
+      <div className="mt-14 grid gap-12 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
+        <section aria-labelledby="mine-title" className="min-w-0">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 id="mine-title" className="h-section text-[1.25rem]">
+              Your reports
+            </h2>
+            <Link href="/tickets" className="text-sm font-bold text-navy hover:underline">
+              See all
+            </Link>
+          </div>
+          {active.length ? (
+            <ul className="grid grid-cols-[minmax(0,1fr)] gap-3">
+              {active.map((t) => {
+                const update = latestFor(t.id);
+                const needsYou = t.status === "RESOLVED" && t.reporterId === viewer.id;
+                return (
+                  <li key={t.id}>
+                    <Link href={`/tickets/${t.id}`} className="card group block p-4 transition-shadow hover:shadow-[var(--shadow-sm)] md:p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <h3 className="font-bold leading-snug text-ink group-hover:text-navy">{t.summary}</h3>
+                        <span className="num shrink-0 pt-0.5 text-xs text-ink-3">{formatTicketNumber(t.number)}</span>
+                      </div>
+                      <p className="mt-0.5 truncate text-sm text-ink-3">{[t.building.name, t.space?.label, t.asset?.name].filter(Boolean).join(" · ")}</p>
+                      <div className="mt-4">
+                        <ProgressBar status={t.status} />
+                      </div>
+                      <p className="mt-2.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
+                        <span className={`font-bold ${needsYou ? "text-resolved" : t.status === "REOPENED" ? "text-[var(--st-reopened)]" : "text-ink"}`}>
+                          {needsYou ? "Fixed? Tap to confirm" : stageCaption(t.status)}
                         </span>
-                        <span className="mt-0.5 block text-xs text-ink-3">{relativeTime(n.createdAt, now)}</span>
-                      </span>
+                        <span className="text-ink-3">Updated {relativeTime(t.updatedAt, now)}</span>
+                      </p>
+                      {update && (
+                        <p className="mt-3 border-t border-line pt-3 text-sm text-ink-2">
+                          <span className="font-bold text-ink">
+                            {update.who ? `${shortName(update.who.name)}, ${DEPARTMENT_LABEL[update.who.department as Department] ?? "Staff"}` : "Ramblin’ Repairs"}:
+                          </span>{" "}
+                          “{update.text}”
+                        </p>
+                      )}
                     </Link>
                   </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-4 py-6 text-sm text-ink-3">No alerts yet.</p>
-            )}
-          </div>
-          <Link href="/demo" className="flex items-center justify-between rounded-[14px] border border-dashed border-line-2 px-4 py-3 text-sm font-bold text-ink-2 hover:border-navy hover:text-navy">
-            Demo: switch user or fast-forward time <ArrowRight aria-hidden className="size-4" />
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="rounded-[16px] border border-dashed border-line-2 px-6 py-10 text-center">
+              <p className="font-bold text-ink">Nothing in progress</p>
+              <p className="mt-1 text-sm text-ink-3">Problems you report or follow show up here, with every update.</p>
+            </div>
+          )}
+        </section>
+
+        <section aria-labelledby="trending-title">
+          <h2 id="trending-title" className="h-section text-[1.25rem]">
+            Most reported near you
+          </h2>
+          <p className="mt-1 text-sm text-ink-3">Same problem? Add a “me too” instead of a new report.</p>
+          {trending.length ? (
+            <ol className="mt-3 divide-y divide-line border-y border-line">
+              {trending.map((t) => (
+                <li key={t.id}>
+                  <Link href={`/tickets/${t.id}`} className="group flex gap-3.5 py-3">
+                    <span className="flex w-11 shrink-0 flex-col items-center rounded-[10px] bg-surface py-1.5 ring-1 ring-inset ring-line">
+                      <span className="text-[1.0625rem] font-bold leading-tight text-ink">{t.meTooCount + 1}</span>
+                      <span className="text-[0.6875rem] leading-tight text-ink-3">people</span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-bold leading-snug text-ink group-hover:text-navy">{t.summary}</span>
+                      <span className="mt-0.5 block truncate text-sm text-ink-3">{t.building.name}</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-3 text-sm text-ink-3">Nothing popular right now.</p>
+          )}
+          <Link href="/map" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-navy hover:underline">
+            See everything on the map <ArrowRight aria-hidden className="size-4" />
           </Link>
-        </aside>
+        </section>
       </div>
+
+      <p className="mt-16 border-t border-line pt-5 text-sm text-ink-3">
+        Trying the demo?{" "}
+        <Link href="/demo" className="font-bold text-ink-2 underline decoration-line-2 underline-offset-4 hover:text-navy hover:decoration-navy">
+          Switch user or fast-forward the clock
+        </Link>
+      </p>
     </div>
   );
 }

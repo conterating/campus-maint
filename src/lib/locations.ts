@@ -7,6 +7,7 @@ export type LocBuilding = {
   name: string;
   code: string;
   kind: string;
+  area: string | null;
   spaces: { id: string; label: string; scope: string; floor: number | null; kind: string }[];
   assets: { id: string; name: string; type: string; spaceId: string | null }[];
 };
@@ -31,6 +32,7 @@ export async function reportableLocations(viewer: Viewer): Promise<LocBuilding[]
         name: b.name,
         code: b.code,
         kind: b.kind,
+        area: b.area,
         spaces: spaces.map((s) => ({ id: s.id, label: s.label, scope: s.scope, floor: s.floor, kind: s.kind })),
         assets: b.assets
           .filter((a) => a.spaceId === null || spaceIds.has(a.spaceId))

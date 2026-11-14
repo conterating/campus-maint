@@ -194,6 +194,7 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
         ownerUserId: studentOwned ? viewer.id : null,
         reporterId: viewer.id,
         createdAt: now,
+        updatedAt: now,
         responseDueAt: responseDueAt(now, severity),
       },
     });
@@ -225,7 +226,7 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
     if (severity === "EMERGENCY") {
       await notifyTicket(tx, {
         ticket,
-        message: `EMERGENCY ${`FX-${number}`}: ${summary} — ${building.name}`,
+        message: `EMERGENCY ${`RR-${number}`}: ${summary} — ${building.name}`,
         tone: "danger",
         actorId: viewer.id,
         now,
@@ -236,7 +237,7 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
     } else {
       await notifyTicket(tx, {
         ticket,
-        message: `New in your queue: FX-${number} ${summary} (${SEVERITY_LABEL[severity]})`,
+        message: `New in your queue: RR-${number} ${summary} (${SEVERITY_LABEL[severity]})`,
         actorId: viewer.id,
         now,
         includeWatchers: false,
@@ -342,7 +343,7 @@ export async function addMeToo(db: Db, viewer: Viewer, ticketId: string, now: Da
       create: { ticketId, userId: viewer.id, createdAt: now },
       update: {},
     });
-    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { meTooCount: { increment: 1 } } });
+    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { meTooCount: { increment: 1 }, updatedAt: now } });
     const count = updated.meTooCount;
 
     await tx.ticketEvent.create({
@@ -354,7 +355,7 @@ export async function addMeToo(db: Db, viewer: Viewer, ticketId: string, now: Da
     if (count === APP_CONFIG.meTooPriorityThreshold && raisedSeverity(current) !== current) {
       raisedTo = raisedSeverity(current);
       const dueAt = awaitingFirstResponse(updated) ? responseDueAt(updated.createdAt, raisedTo) : updated.responseDueAt;
-      await tx.ticket.update({ where: { id: ticketId }, data: { severity: raisedTo, responseDueAt: dueAt } });
+      await tx.ticket.update({ where: { id: ticketId }, data: { severity: raisedTo, responseDueAt: dueAt, updatedAt: now } });
       await tx.ticketEvent.create({
         data: {
           ticketId,
@@ -365,7 +366,7 @@ export async function addMeToo(db: Db, viewer: Viewer, ticketId: string, now: Da
       });
       await notifyTicket(tx, {
         ticket: updated,
-        message: `FX-${updated.number} raised to ${SEVERITY_LABEL[raisedTo]} after ${count} “me too” reports`,
+        message: `RR-${updated.number} raised to ${SEVERITY_LABEL[raisedTo]} after ${count} “me too” reports`,
         tone: "warning",
         actorId: viewer.id,
         now,
@@ -374,7 +375,7 @@ export async function addMeToo(db: Db, viewer: Viewer, ticketId: string, now: Da
     } else {
       await notifyTicket(tx, {
         ticket: updated,
-        message: `Another student reported FX-${updated.number} (${count} “me too”)`,
+        message: `Another student reported RR-${updated.number} (${count} “me too”)`,
         actorId: viewer.id,
         now,
         includeWatchers: false,
@@ -408,11 +409,11 @@ export async function confirmResolution(db: Db, viewer: Viewer, ticketId: string
   if (!canCloseOut(viewer, ticket)) throw new AppError("Only the student who reported this can confirm the fix.", "FORBIDDEN");
   if (ticket.status !== "RESOLVED") throw new AppError("You can confirm once staff mark this resolved.", "CONFLICT");
   return db.$transaction(async (tx) => {
-    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { status: "CONFIRMED", closedAt: now } });
+    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { status: "CONFIRMED", closedAt: now, updatedAt: now } });
     await tx.ticketEvent.create({
       data: { ticketId, type: "STATUS", fromStatus: "RESOLVED", toStatus: "CONFIRMED", message: "The reporter confirmed the fix", actorId: viewer.id, createdAt: now },
     });
-    await notifyTicket(tx, { ticket: updated, message: `FX-${updated.number} confirmed fixed by the reporter`, tone: "success", actorId: viewer.id, now, includeDepartment: true });
+    await notifyTicket(tx, { ticket: updated, message: `RR-${updated.number} confirmed fixed by the reporter`, tone: "success", actorId: viewer.id, now, includeDepartment: true });
     return updated;
   });
 }
@@ -435,12 +436,13 @@ export async function reopenTicket(db: Db, viewer: Viewer, ticketId: string, rea
         firstResponseAt: null,
         escalatedAt: null,
         responseDueAt: responseDueAt(now, ticket.severity as Severity),
+        updatedAt: now,
       },
     });
     await tx.ticketEvent.create({
       data: { ticketId, type: "STATUS", fromStatus: ticket.status, toStatus: "REOPENED", message: `The reporter reopened it: “${why.slice(0, 300)}”`, actorId: viewer.id, createdAt: now },
     });
-    await notifyTicket(tx, { ticket: updated, message: `FX-${updated.number} was reopened: ${why.slice(0, 80)}`, tone: "warning", actorId: viewer.id, now, includeDepartment: true });
+    await notifyTicket(tx, { ticket: updated, message: `RR-${updated.number} was reopened: ${why.slice(0, 80)}`, tone: "warning", actorId: viewer.id, now, includeDepartment: true });
     return updated;
   });
 }
@@ -498,6 +500,7 @@ export async function staffSetStatus(
         assigneeId,
         firstResponseAt: ticket.firstResponseAt ?? (isResponse ? now : null),
         resolvedAt: status === "RESOLVED" ? now : null,
+        updatedAt: now,
       },
     });
     const note = input.note?.trim();
@@ -511,8 +514,8 @@ export async function staffSetStatus(
       ticket: updated,
       message:
         status === "RESOLVED"
-          ? `FX-${updated.number} is resolved. Check it and confirm, or reopen it.`
-          : `FX-${updated.number} is now ${label.toLowerCase()}${assigneeName && status === "ASSIGNED" ? ` (${assigneeName})` : ""}`,
+          ? `RR-${updated.number} is resolved. Check it and confirm, or reopen it.`
+          : `RR-${updated.number} is now ${label.toLowerCase()}${assigneeName && status === "ASSIGNED" ? ` (${assigneeName})` : ""}`,
       tone: status === "RESOLVED" ? "success" : "info",
       actorId: viewer.id,
       now,
@@ -531,7 +534,7 @@ export async function staffReassign(db: Db, viewer: Viewer, ticketId: string, de
   return db.$transaction(async (tx) => {
     const updated = await tx.ticket.update({
       where: { id: ticketId },
-      data: { department, assigneeId: null, status: isOpenStatus(ticket.status) ? "TRIAGED" : ticket.status },
+      data: { department, assigneeId: null, status: isOpenStatus(ticket.status) ? "TRIAGED" : ticket.status, updatedAt: now },
     });
     await tx.ticketEvent.create({
       data: {
@@ -544,7 +547,7 @@ export async function staffReassign(db: Db, viewer: Viewer, ticketId: string, de
         createdAt: now,
       },
     });
-    await notifyTicket(tx, { ticket: updated, message: `FX-${updated.number} moved to ${to}`, actorId: viewer.id, now, includeDepartment: true });
+    await notifyTicket(tx, { ticket: updated, message: `RR-${updated.number} moved to ${to}`, actorId: viewer.id, now, includeDepartment: true });
     return updated;
   });
 }
@@ -575,7 +578,7 @@ export async function staffOverride(
   return db.$transaction(async (tx) => {
     const updated = await tx.ticket.update({
       where: { id: ticketId },
-      data: { category, severity, summary: summary.slice(0, 120), responseDueAt: dueAt, safetyFlag: severity === "EMERGENCY" ? ticket.safetyFlag : false },
+      data: { category, severity, summary: summary.slice(0, 120), responseDueAt: dueAt, safetyFlag: severity === "EMERGENCY" ? ticket.safetyFlag : false, updatedAt: now },
     });
     await tx.ticketEvent.create({
       data: {
@@ -586,7 +589,7 @@ export async function staffOverride(
         createdAt: now,
       },
     });
-    await notifyTicket(tx, { ticket: updated, message: `FX-${updated.number}: staff changed ${changes.join(", ")}`, actorId: viewer.id, now });
+    await notifyTicket(tx, { ticket: updated, message: `RR-${updated.number}: staff changed ${changes.join(", ")}`, actorId: viewer.id, now });
     return updated;
   });
 }
@@ -599,11 +602,11 @@ export async function staffAddNote(db: Db, viewer: Viewer, ticketId: string, tex
     const updated = await tx.ticket.update({
       where: { id: ticketId },
       // A note the student can read counts as a first response.
-      data: { firstResponseAt: ticket.firstResponseAt ?? (internal ? null : now) },
+      data: { firstResponseAt: ticket.firstResponseAt ?? (internal ? null : now), updatedAt: now },
     });
     await tx.ticketEvent.create({ data: { ticketId, type: "NOTE", message: message.slice(0, 1000), internal, actorId: viewer.id, createdAt: now } });
     if (!internal) {
-      await notifyTicket(tx, { ticket: updated, message: `Update on FX-${updated.number}: ${message.slice(0, 90)}`, actorId: viewer.id, now });
+      await notifyTicket(tx, { ticket: updated, message: `Update on RR-${updated.number}: ${message.slice(0, 90)}`, actorId: viewer.id, now });
     }
     return updated;
   });
@@ -629,7 +632,7 @@ export async function runEscalationSweep(db: Db, now: Date): Promise<number> {
   for (const t of overdue) {
     await db.$transaction(async (tx) => {
       // Re-check inside the transaction so concurrent sweeps don't double-escalate.
-      const claimed = await tx.ticket.updateMany({ where: { id: t.id, escalatedAt: null }, data: { escalatedAt: now } });
+      const claimed = await tx.ticket.updateMany({ where: { id: t.id, escalatedAt: null }, data: { escalatedAt: now, updatedAt: now } });
       if (claimed.count === 0) return;
       const sups = await tx.user.findMany({ where: { role: "STAFF", department: t.department, isSupervisor: true }, select: { id: true, name: true } });
       const dept = DEPARTMENT_LABEL[t.department as Department];
@@ -644,7 +647,7 @@ export async function runEscalationSweep(db: Db, now: Date): Promise<number> {
       });
       await notifyTicket(tx, {
         ticket: t,
-        message: `Overdue: FX-${t.number} ${t.summary} missed its ${target}h response target`,
+        message: `Overdue: RR-${t.number} ${t.summary} missed its ${target}h response target`,
         tone: "danger",
         now,
         includeWatchers: false,
@@ -653,7 +656,7 @@ export async function runEscalationSweep(db: Db, now: Date): Promise<number> {
       });
       await notifyTicket(tx, {
         ticket: t,
-        message: `FX-${t.number} is overdue and was escalated to the ${dept} supervisor`,
+        message: `RR-${t.number} is overdue and was escalated to the ${dept} supervisor`,
         tone: "warning",
         now,
       });

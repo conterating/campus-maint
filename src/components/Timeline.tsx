@@ -1,30 +1,7 @@
 import { AlertOctagon, ArrowRightLeft, Check, CircleDot, Lock, MessageSquare, PencilLine, RotateCcw, TrendingUp, Users } from "lucide-react";
-import { STATUS_LABEL, TIMELINE_STEPS, type Status } from "@/lib/domain";
+import { STATUS_LABEL, type Status } from "@/lib/domain";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { STATUS_COLOR } from "./badges";
-
-/** The six-step progress strip: Submitted → … → Confirmed (or Reopened). */
-export function StatusSteps({ status }: { status: string }) {
-  const reopened = status === "REOPENED";
-  const currentIndex = reopened ? TIMELINE_STEPS.indexOf("IN_PROGRESS") : TIMELINE_STEPS.indexOf(status as Status);
-  return (
-    <ol className="grid grid-cols-6 gap-1.5" aria-label="Progress">
-      {TIMELINE_STEPS.map((step, i) => {
-        const current = !reopened && step === status;
-        const done = i < currentIndex || current;
-        return (
-          <li key={step} className="flex min-w-0 flex-col gap-2" aria-current={current ? "step" : undefined}>
-            <span aria-hidden className="h-1 rounded-full" style={{ background: done ? STATUS_COLOR[status as Status] ?? "var(--navy)" : "var(--line)" }} />
-            <span className={`truncate text-[0.6875rem] sm:text-xs ${current ? "font-bold text-ink" : done ? "text-ink-2" : "text-ink-3"}`}>
-              {STATUS_LABEL[step]}
-              <span className="sr-only">{current ? " (current)" : done ? " (done)" : " (not yet)"}</span>
-            </span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
 
 type Event = {
   id: string;
@@ -86,7 +63,9 @@ export function Timeline({ events, now }: { events: Event[]; now: Date }) {
               ) : (
                 <p className="leading-snug text-ink-2">
                   {e.type === "STATUS" && e.toStatus && <span className="font-bold text-ink">{STATUS_LABEL[e.toStatus as Status]}: </span>}
-                  <span className={e.type === "ESCALATED" ? "font-bold text-emergency" : ""}>{e.message}</span>
+                  <span className={e.type === "ESCALATED" ? "font-bold text-emergency" : ""}>
+                    {e.type === "STATUS" && e.toStatus ? e.message.replace(new RegExp(`^${STATUS_LABEL[e.toStatus as Status]} — `), "") : e.message}
+                  </span>
                 </p>
               )}
               <p className="mt-1 text-[0.8125rem] text-ink-3">

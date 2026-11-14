@@ -9,14 +9,14 @@ import { CLOSED_STATUSES, OPEN_STATUSES, isOpenStatus } from "@/lib/domain";
 import { compareQueue } from "@/lib/sla";
 import { TicketList } from "@/components/TicketTag";
 
-export const metadata: Metadata = { title: "Issues" };
+export const metadata: Metadata = { title: "Reports" };
 
 type Search = Promise<{ view?: string }>;
 
 const TABS = [
-  { key: "mine", label: "Reported & following" },
-  { key: "open", label: "All open" },
-  { key: "closed", label: "Resolved" },
+  { key: "mine", label: "Mine" },
+  { key: "open", label: "Open on campus" },
+  { key: "closed", label: "Fixed" },
 ] as const;
 
 export default async function TicketsPage({ searchParams }: { searchParams: Search }) {
@@ -34,13 +34,13 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
     <div className="mx-auto max-w-4xl px-4 pt-6 md:pt-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="h-page">Issues</h1>
-          <p className="mt-1 text-sm text-ink-3">
-            {active === "mine" ? "Everything you reported, own, or follow." : isStaff(viewer) ? "Across every department." : "Everything you're able to see on campus."}
+          <h1 className="h-page">{isStaff(viewer) ? "All issues" : "My reports"}</h1>
+          <p className="mt-1 text-ink-2">
+            {active === "mine" ? "What you reported, live in, or follow." : isStaff(viewer) ? "Across every department." : "Everything you're able to see on campus."}
           </p>
         </div>
         <Link href="/report" className="btn btn-primary btn-sm">
-          <Plus aria-hidden className="size-4" /> New report
+          <Plus aria-hidden className="size-4" /> Report a problem
         </Link>
       </div>
 
@@ -59,13 +59,13 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
         {active === "open" && !isStaff(viewer) ? " you can see" : ""}
       </p>
       {sorted.length ? (
-        <TicketList tickets={sorted} now={now} headingLevel={2} />
+        <TicketList tickets={sorted} now={now} headingLevel={2} showDue={isStaff(viewer)} />
       ) : (
         <div className="card px-6 py-12 text-center">
           <p className="font-bold">{active === "mine" ? "You haven't reported or followed anything yet" : "Nothing here right now"}</p>
           <p className="mt-1 text-sm text-ink-3">Report a problem and you can track it here.</p>
           <Link href="/report" className="btn btn-primary mt-5">
-            Report an issue
+            Report a problem
           </Link>
         </div>
       )}

@@ -1,8 +1,8 @@
-# FixIt GT
+# Ramblin’ Repairs
 
 One place for Georgia Tech students to report, track, and see campus maintenance issues.
 
-Today a student has to know whether a broken thing belongs to Housing, Facilities, or IT, gets little visibility into what happens next, and waits days for someone to classify and route the request. FixIt GT classifies and routes each report in seconds (Claude, with a keyword fallback), shows live status with response-time countdowns, and puts open issues on a campus map so people add a "me too" instead of filing duplicates.
+Today a student has to know whether a broken thing belongs to Housing, Facilities, or IT, gets little visibility into what happens next, and waits days for someone to classify and route the request. Ramblin’ Repairs classifies and routes each report in seconds (Claude, with a keyword fallback), shows live status with response-time countdowns, and puts open issues on a campus map so people add a "me too" instead of filing duplicates.
 
 This is a campus solution challenge demo with realistic sample data. It does not connect to Georgia Tech's real systems.
 
@@ -30,13 +30,23 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-opus-5-5   # any Claude model id
 ```
 
-Without a key, FixIt GT classifies reports with its keyword rules (`src/lib/triage/keywords.ts`), so everything works end to end. If the API call fails or times out (25 s), the app falls back to the keyword rules and says so on the review screen. With a key, the report text and photo go to Claude using structured output at low effort, with the API's server-side refusal fallback enabled (`fallbacks: "default"`).
+Without a key, Ramblin’ Repairs classifies reports with its keyword rules (`src/lib/triage/keywords.ts`), so everything works end to end. If the API call fails or times out (25 s), the app falls back to the keyword rules and says so on the review screen. With a key, the report text and photo go to Claude using structured output at low effort, with the API's server-side refusal fallback enabled (`fallbacks: "default"`).
+
+### Google Maps (optional)
+
+The campus map uses Google Maps when you set a browser key for the **Maps JavaScript API** in `.env`:
+
+```bash
+GOOGLE_MAPS_API_KEY=AIza...
+```
+
+Restrict the key to your site's domain (HTTP referrers) in Google Cloud, since browsers can see it. Without a key the map uses OpenStreetMap tiles, and everything else works the same.
 
 ## How the demo works
 
 There's no real login. The person chip in the header opens **Demo**, where you can:
 
-- **View as** any seeded person: 8 students in five residence halls (one off campus), a technician and a supervisor for each of the six departments, and an administrator.
+- **View as** any seeded person: 14 students across East Campus, West Campus, North Avenue, and graduate housing (one off campus), a technician and a supervisor for each of the six departments, and an administrator.
 - **Fast-forward the clock** by 30 minutes up to 2 days, to watch tickets pass their response target and escalate. The header shows how far ahead the demo clock is.
 - **Reset demo data.**
 
@@ -45,25 +55,25 @@ There's no real login. The person chip in the header opens **Demo**, where you c
 Before you start: run `npm run db:reset` (or **Demo → Reset demo data**) so ticket numbers and timers match. The app opens as **Maya Patel**, who lives in Glenn Residence Hall, Room 214.
 
 **0:00 · A student reports a leak in her dorm room (45 s)**
-1. On Home, click **Report an issue**, then **My room**. The form notes that only Maya, her roommate, and staff will see this report.
-2. Describe it: `Water is leaking from under the bathroom sink and pooling on the floor.` Optionally add a photo.
+1. On Home, type `Water is leaking from under the bathroom sink and pooling on the floor.` into **What needs fixing?**, leave **My room** selected, and click **Continue**.
+2. The report form opens with Glenn, Room 214, and the description filled in. It notes that only Maya, her roommate, and staff will see this report. Optionally add a photo.
 3. Click **Check and route it**.
 
 **0:20 · Instant classification and routing**
 4. The review card shows **Goes to Housing Maintenance**, category **Plumbing & leaks**, severity **Urgent**, and first response within **4 hours**, plus why it was classified that way.
 5. Optional: change the category to Wi-Fi and back. The department re-routes live (the rules are in `src/config/routing.ts`).
-6. Click **Submit report**. Ticket **FX-1048** opens, owned by Maya and marked private to her room, showing the timeline (Submitted → Triaged) and a live countdown.
+6. Click **Submit report**. Ticket **RR-1061** opens, owned by Maya and marked private to her room, with the repair tracker (Reported → Assigned → In progress → Fixed) and a live response countdown.
 
 **0:45 · Staff update it (40 s)**
-7. Header chip → **Terrence Wallace** (Housing technician). His queue opens, sorted by severity and time remaining, with FX-1048 near the top.
+7. Header chip → **Terrence Wallace** (Housing technician). His queue opens, sorted by severity and time remaining, with RR-1061 near the top.
 8. Open it. In **Staff controls**, set **Assigned** and add the message `On my way with a new trap.`, then **Save status**. The timeline updates and the countdown becomes "Responded within target". Set **In progress** next.
 9. Switch back to **Maya**. The bell shows new alerts, one per change.
 
 **1:25 · A second student hits the duplicate check on a public issue (45 s)**
 10. Switch to **Ethan Brooks** (Glenn, Room 309). Optional: paste Maya's ticket URL and you get "not found", because room issues are private to that room's residents.
-11. **Report an issue** → Building **Price Gilbert Memorial Library** → **2nd floor quiet study** → `wifi keeps disconnecting on the 2nd floor quiet study` → **Check and route it**.
-12. **Already reported?** shows FX-1029 (Wi-Fi dropping, 5 me too). Click **Me too**. The ticket now shows 7 people affected, and Ethan is following it.
-13. Open **Map**: status-colored pins, me-too badges, and the heat layer. Tap a pin for **Me too / Follow**. Switch the view to **List** for the same issues without the map.
+11. **Report a problem** → Building **Price Gilbert Memorial Library** → **2nd floor quiet study** → `wifi keeps disconnecting on the 2nd floor quiet study` → **Check and route it**.
+12. **Already reported?** shows RR-1032 (Wi-Fi dropping, 5 me too). Click **Me too**. The ticket now shows 7 people affected, and Ethan is following it.
+13. Open **Map**: pins colored by severity with the category icon inside, "people affected" badges, and the heat layer. Tap a pin for **Me too / Follow**. Switch the view to **List** for the same issues without the map.
 
 **2:10 · An overdue ticket escalates (50 s)**
 14. Switch to **Aisha Rahman** (IT supervisor). In the IT queue, "Room 249 projector won't turn on before 2pm class" is Urgent with about **45 minutes** left and no response.
@@ -86,7 +96,7 @@ Bonus beats if you have time: type `There is smoke coming out of the outlet` as 
 | Timeline, in-app notifications on every change | `/tickets/[id]`, `/notifications`, `src/lib/notify.ts` |
 | Response countdowns, overdue flag, escalation to supervisor, demo clock | `src/lib/sla.ts`, `runEscalationSweep`, `src/lib/clock.ts` |
 | Safety: Emergency for gas, flooding, wiring, smoke, stuck elevators, and more | `src/lib/triage/safety.ts` |
-| Campus map with status pins, heat layer, filters, list view | `/map` |
+| Campus map (Google Maps, or OpenStreetMap without a key) with severity pins, heat layer, filters, list view | `/map`, `src/app/map/` |
 | Staff queue: sort, status changes, reassign, override, notes (public or internal) | `/staff`, `src/app/tickets/[id]/StaffPanel.tsx` |
 | Administrator analytics | `/admin`, `src/lib/analytics.ts` |
 
@@ -105,7 +115,7 @@ Students can also only *file* reports in public buildings, their own hall's shar
 
 ```bash
 npm test             # unit + integration (Vitest): 171 tests, ~25 s
-npm run test:e2e     # browser tests (Playwright): 30 scenarios × phone and desktop
+npm run test:e2e     # browser tests (Playwright): 32 scenarios × phone and desktop
 npm run test:all     # typecheck, lint, Vitest, Playwright
 ```
 
@@ -132,4 +142,5 @@ The first Playwright run needs a browser: `npx playwright install chromium`.
 - **Department comes from the routing rules, not the model.** The AI suggests category and severity, and the config decides the department, so routing is auditable and editable in one file. Students correct the category (the department follows); staff can reassign departments directly.
 - **The AI's original verdict is signed** between the analyze and submit steps, so the "what the AI said vs. what was filed" record can't be tampered with from the browser.
 - Photos are downscaled in the browser, checked by magic bytes, stored in `uploads/`, and served by a route handler. Their URLs are unguessable UUIDs but aren't permission-checked. Fine for a demo; a real deployment would put them behind the same visibility check.
-- Building coordinates come from OpenStreetMap (Nominatim). Map tiles come from OpenStreetMap with no API key.
+- **All 38 residence halls** are in the sample data (East Campus, West Campus, North Avenue, graduate housing), each with generated hallways, bathrooms (traditional halls), lounges, laundry rooms, washers, dryers, and elevators. Coordinates and addresses come from OpenStreetMap (Nominatim). The building picker groups them by area, with the student's own hall first.
+- **Maps.** With `GOOGLE_MAPS_API_KEY` set, the map uses Google Maps with a quiet custom style; pins, popups, and the heat layer are drawn as our own DOM and canvas overlays, so no Map ID is needed and pins stay keyboard-focusable buttons. Without a key, or if Google rejects the key, it falls back to OpenStreetMap tiles through Leaflet.

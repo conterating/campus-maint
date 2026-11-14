@@ -118,16 +118,6 @@ export function StatusPill({ status, size = "md" }: { status: string; size?: "sm
   );
 }
 
-/** The rubber stamp: reserved for the ticket header tag. */
-export function StatusStamp({ status, animate = false }: { status: string; animate?: boolean }) {
-  const s = asStatus(status);
-  return (
-    <span className={`stamp ${animate ? "stamp-in" : ""}`} style={{ color: STATUS_COLOR[s] }}>
-      {STATUS_LABEL[s]}
-    </span>
-  );
-}
-
 export function CategoryIcon({ category, size = "md" }: { category: string; size?: "sm" | "md" | "lg" }) {
   const c = (category in CATEGORY_LABEL ? category : "OTHER") as Category;
   const Icon = CATEGORY_ICON[c];

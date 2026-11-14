@@ -1,0 +1,215 @@
+// FixIt GT data model.
+// SQLite has no native enums, so string columns hold the values defined in
+// src/lib/domain.ts; the application validates them before writing.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Building {
+  id      String  @id
+  code    String  @unique
+  name    String
+  // RESIDENCE | LIBRARY | DINING | STUDENT_CENTER | RECREATION | ACADEMIC
+  kind    String
+  lat     Float
+  lng     Float
+  floors  Int
+  address String?
+
+  spaces    Space[]
+  assets    Asset[]
+  tickets   Ticket[]
+  residents User[]   @relation("Residence")
+}
+
+model Space {
+  id         String   @id
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id])
+  floor      Int?
+  label      String
+  // DORM_ROOM | DORM_SHARED | PUBLIC
+  scope      String
+  // Free-form kind for display: room, hallway, bathroom, lounge, laundry,
+  // classroom, study, dining, gym, lobby, ...
+  kind       String
+
+  assets    Asset[]
+  tickets   Ticket[]
+  residents User[]   @relation("Room")
+
+  @@index([buildingId])
+}
+
+model Asset {
+  id         String   @id
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id])
+  spaceId    String?
+  space      Space?   @relation(fields: [spaceId], references: [id])
+  name       String
+  // PROJECTOR | WASHER | DRYER | ELEVATOR | TREADMILL | ...
+  type       String
+  tag        String   @unique
+
+  tickets Ticket[]
+
+  @@index([buildingId])
+}
+
+model User {
+  id                  String    @id
+  name                String
+  email               String    @unique
+  // STUDENT | STAFF | ADMIN
+  role                String
+  // Department key for staff (see src/config/departments.ts)
+  department          String?
+  isSupervisor        Boolean   @default(false)
+  residenceBuildingId String?
+  residenceBuilding   Building? @relation("Residence", fields: [residenceBuildingId], references: [id])
+  roomId              String?
+  room                Space?    @relation("Room", fields: [roomId], references: [id])
+  avatarHue           Int       @default(210)
+
+  reported      Ticket[]       @relation("Reporter")
+  owned         Ticket[]       @relation("Owner")
+  assigned      Ticket[]       @relation("Assignee")
+  follows       Follow[]
+  meToos        MeToo[]
+  events        TicketEvent[]
+  notifications Notification[]
+}
+
+model Ticket {
+  id          String  @id @default(cuid())
+  number      Int     @unique
+  summary     String
+  description String
+  photoUrl    String?
+
+  // Final (possibly corrected or overridden) classification
+  category   String
+  severity   String
+  department String
+
+  // What the triage engine said originally
+  aiCategory   String
+  aiSeverity   String
+  aiDepartment String
+  aiSummary    String
+  aiSource     String // "claude" | "keywords"
+  aiRationale  String?
+  safetyFlag   Boolean @default(false)
+
+  status String @default("SUBMITTED")
+
+  // Location
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id])
+  spaceId    String?
+  space      Space?   @relation(fields: [spaceId], references: [id])
+  assetId    String?
+  asset      Asset?   @relation(fields: [assetId], references: [id])
+  floor      Int?
+  roomText   String?
+  lat        Float
+  lng        Float
+
+  // Visibility scope, derived from the location at creation time:
+  // ROOM (residents of spaceId + staff), DORM (residents of buildingId + staff), PUBLIC.
+  scope String
+
+  // Ownership
+  ownerType   String // STUDENT | DEPARTMENT
+  ownerUserId String?
+  ownerUser   User?   @relation("Owner", fields: [ownerUserId], references: [id])
+  reporterId  String
+  reporter    User    @relation("Reporter", fields: [reporterId], references: [id])
+  assigneeId  String?
+  assignee    User?   @relation("Assignee", fields: [assigneeId], references: [id])
+
+  meTooCount Int @default(0)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  responseDueAt   DateTime
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  escalatedAt     DateTime?
+
+  events        TicketEvent[]
+  followers     Follow[]
+  meToos        MeToo[]
+  notifications Notification[]
+
+  @@index([scope, buildingId])
+  @@index([department, status])
+  @@index([status])
+}
+
+model TicketEvent {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  // STATUS | NOTE | REASSIGN | OVERRIDE | ESCALATED | METOO | PRIORITY | FOLLOW
+  type       String
+  fromStatus String?
+  toStatus   String?
+  message    String
+  // Internal staff notes are never sent to students.
+  internal   Boolean  @default(false)
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+model Follow {
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([ticketId, userId])
+}
+
+model MeToo {
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([ticketId, userId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  ticketId  String?
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message   String
+  // info | success | warning | danger
+  tone      String   @default("info")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+// Key/value store for demo settings (e.g. the fast-forward clock offset).
+model Setting {
+  key   String @id
+  value String
+}

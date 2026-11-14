@@ -55,7 +55,7 @@ export type GoogleMapsConfig = { apiKey: string; mapId: string } | null;
 
 // Which Google Maps key was rejected in this tab. Stored per key, so fixing the
 // key in .env makes the next load try Google again.
-const REJECTED_KEY = "fx-gmaps-rejected-key";
+const REJECTED_KEY = "hm-gmaps-rejected-key";
 const noSubscribe = () => () => {};
 function keyWasRejected(apiKey: string | undefined): boolean {
   if (!apiKey) return false;

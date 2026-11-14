@@ -91,7 +91,7 @@ export default async function QrPage({ searchParams }: { searchParams: Search })
           <li key={l.key} className="card break-inside-avoid overflow-hidden print:shadow-none">
             <div className="flex items-center justify-between border-b border-line px-3 py-2">
               <span className="flex items-center gap-1.5 font-display text-sm font-extrabold tracking-[-0.02em] text-ink">
-                <LogoMark className="size-5" /> FixIt GT
+                <LogoMark className="size-5" /> Hivemind
               </span>
               <span className="text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-ink-3">Scan to report</span>
             </div>

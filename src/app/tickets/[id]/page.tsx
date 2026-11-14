@@ -52,7 +52,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
 
   // Students see other students anonymously; staff names are always shown.
   const actorLabel = (actor: { id: string; name: string; role: string; department: string | null } | null) => {
-    if (!actor) return "FixIt GT";
+    if (!actor) return "Hivemind";
     if (actor.id === viewer.id) return "You";
     if (actor.role === "STUDENT") return staff ? shortName(actor.name) : null;
     if (actor.role === "ADMIN") return `${shortName(actor.name)}, Campus Services`;

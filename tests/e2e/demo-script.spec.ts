@@ -30,7 +30,7 @@ test("1–2. a student reports a leak in their dorm room and it is classified an
 
   await page.getByRole("button", { name: "Submit report" }).click();
   await expect(page).toHaveURL(/\/tickets\/.+created=1/);
-  await expect(page.getByText(/Filed as FX-\d+/)).toBeVisible();
+  await expect(page.getByText(/Filed as HM-\d+/)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("leaking from under the bathroom sink");
   await expect(page.getByText("You (it's in your room)")).toBeVisible();
   await expect(page.getByText("Private to the residents of this room and staff.")).toBeVisible();
@@ -46,7 +46,7 @@ test("3. staff update the student's ticket and the student is notified", async (
   await page.getByRole("button", { name: "Submit report" }).click();
   await expect(page).toHaveURL(/\/tickets\//);
   const ticketUrl = page.url().split("?")[0];
-  const num = (await page.getByText(/Filed as FX-\d+/).textContent())!.match(/FX-\d+/)![0];
+  const num = (await page.getByText(/Filed as HM-\d+/).textContent())!.match(/HM-\d+/)![0];
 
   // Terrence (Housing) sees it in his queue and takes it.
   await viewAs(context, "u-terrence");

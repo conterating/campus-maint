@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// Every page in FixIt GT is per-user (the "view as" cookie decides what you can
+// Every page in Hivemind is per-user (the "view as" cookie decides what you can
 // see), so we use request-time rendering throughout rather than Cache Components.
 const nextConfig: NextConfig = {
   turbopack: {

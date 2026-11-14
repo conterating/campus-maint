@@ -85,7 +85,7 @@ export default async function HomePage() {
             ))}
           </ul>
           <p className="mt-4 flex items-center gap-2 text-sm text-white/65">
-            <QrCode aria-hidden className="size-4" /> See a FixIt QR code on a door or machine? Scan it with your camera to skip straight to the form.
+            <QrCode aria-hidden className="size-4" /> See a Hivemind QR code on a door or machine? Scan it with your camera to skip straight to the form.
           </p>
         </div>
       </section>

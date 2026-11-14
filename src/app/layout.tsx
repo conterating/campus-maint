@@ -12,9 +12,9 @@ const atkinson = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--f
 const atkinsonMono = Atkinson_Hyperlegible_Mono({ subsets: ["latin"], variable: "--font-atkinson-mono", display: "swap", adjustFontFallback: false });
 
 export const metadata: Metadata = {
-  title: { default: "FixIt GT", template: "%s · FixIt GT" },
+  title: { default: "Hivemind", template: "%s · Hivemind" },
   description: "Report, track, and see campus maintenance issues at Georgia Tech.",
-  applicationName: "FixIt GT",
+  applicationName: "Hivemind",
 };
 
 export const viewport: Viewport = {

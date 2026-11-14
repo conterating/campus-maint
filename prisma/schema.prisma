@@ -1,4 +1,4 @@
-// FixIt GT data model.
+// Hivemind data model.
 // SQLite has no native enums, so string columns hold the values defined in
 // src/lib/domain.ts; the application validates them before writing.
 

@@ -38,7 +38,7 @@ describe("location type and scope", () => {
   });
 
   it("formats ticket numbers and open statuses", () => {
-    expect(formatTicketNumber(1042)).toBe("FX-1042");
+    expect(formatTicketNumber(1042)).toBe("HM-1042");
     expect(isOpenStatus("REOPENED")).toBe(true);
     expect(isOpenStatus("RESOLVED")).toBe(false);
     expect(isOpenStatus("CONFIRMED")).toBe(false);

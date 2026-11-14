@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   FixIt GT — design tokens
+   Hivemind — design tokens
    Calm, precise chrome: white surfaces, hairline borders, GT Navy for ink and
    primary actions, Buzz Gold reserved for "report" and focus. Every text pair
    below meets WCAG AA on both --bg and --surface.
@@ -361,7 +361,7 @@ body {
   }
 
   /* ---------------------------------------------------------------------------
-     The work-order tag — FixIt GT's signature, used at most once per screen:
+     The work-order tag — Hivemind's signature, used at most once per screen:
      the ticket header and the routing slip at review. A chamfered left end with
      a Tech Gold grommet, and a perforated stub carrying the ticket number.
   --------------------------------------------------------------------------- */
@@ -442,11 +442,11 @@ body {
   line-height: 36px !important;
   color: var(--ink) !important;
 }
-.fx-pin {
+.hm-pin {
   background: transparent;
   border: 0;
 }
-.fx-pin:focus-visible {
+.hm-pin:focus-visible {
   outline: 2px solid var(--navy);
   outline-offset: 2px;
   border-radius: 999px;

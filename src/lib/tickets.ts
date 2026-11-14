@@ -225,7 +225,7 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
     if (severity === "EMERGENCY") {
       await notifyTicket(tx, {
         ticket,
-        message: `EMERGENCY ${`FX-${number}`}: ${summary} — ${building.name}`,
+        message: `EMERGENCY ${`HM-${number}`}: ${summary} — ${building.name}`,
         tone: "danger",
         actorId: viewer.id,
         now,
@@ -236,7 +236,7 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
     } else {
       await notifyTicket(tx, {
         ticket,
-        message: `New in your queue: FX-${number} ${summary} (${SEVERITY_LABEL[severity]})`,
+        message: `New in your queue: HM-${number} ${summary} (${SEVERITY_LABEL[severity]})`,
         actorId: viewer.id,
         now,
         includeWatchers: false,
@@ -365,7 +365,7 @@ export async function addMeToo(db: Db, viewer: Viewer, ticketId: string, now: Da
       });
       await notifyTicket(tx, {
         ticket: updated,
-        message: `FX-${updated.number} raised to ${SEVERITY_LABEL[raisedTo]} after ${count} “me too” reports`,
+        message: `HM-${updated.number} raised to ${SEVERITY_LABEL[raisedTo]} after ${count} “me too” reports`,
         tone: "warning",
         actorId: viewer.id,
         now,
@@ -374,7 +374,7 @@ export async function addMeToo(db: Db, viewer: Viewer, ticketId: string, now: Da
     } else {
       await notifyTicket(tx, {
         ticket: updated,
-        message: `Another student reported FX-${updated.number} (${count} “me too”)`,
+        message: `Another student reported HM-${updated.number} (${count} “me too”)`,
         actorId: viewer.id,
         now,
         includeWatchers: false,
@@ -412,7 +412,7 @@ export async function confirmResolution(db: Db, viewer: Viewer, ticketId: string
     await tx.ticketEvent.create({
       data: { ticketId, type: "STATUS", fromStatus: "RESOLVED", toStatus: "CONFIRMED", message: "The reporter confirmed the fix", actorId: viewer.id, createdAt: now },
     });
-    await notifyTicket(tx, { ticket: updated, message: `FX-${updated.number} confirmed fixed by the reporter`, tone: "success", actorId: viewer.id, now, includeDepartment: true });
+    await notifyTicket(tx, { ticket: updated, message: `HM-${updated.number} confirmed fixed by the reporter`, tone: "success", actorId: viewer.id, now, includeDepartment: true });
     return updated;
   });
 }
@@ -440,7 +440,7 @@ export async function reopenTicket(db: Db, viewer: Viewer, ticketId: string, rea
     await tx.ticketEvent.create({
       data: { ticketId, type: "STATUS", fromStatus: ticket.status, toStatus: "REOPENED", message: `The reporter reopened it: “${why.slice(0, 300)}”`, actorId: viewer.id, createdAt: now },
     });
-    await notifyTicket(tx, { ticket: updated, message: `FX-${updated.number} was reopened: ${why.slice(0, 80)}`, tone: "warning", actorId: viewer.id, now, includeDepartment: true });
+    await notifyTicket(tx, { ticket: updated, message: `HM-${updated.number} was reopened: ${why.slice(0, 80)}`, tone: "warning", actorId: viewer.id, now, includeDepartment: true });
     return updated;
   });
 }
@@ -511,8 +511,8 @@ export async function staffSetStatus(
       ticket: updated,
       message:
         status === "RESOLVED"
-          ? `FX-${updated.number} is resolved. Check it and confirm, or reopen it.`
-          : `FX-${updated.number} is now ${label.toLowerCase()}${assigneeName && status === "ASSIGNED" ? ` (${assigneeName})` : ""}`,
+          ? `HM-${updated.number} is resolved. Check it and confirm, or reopen it.`
+          : `HM-${updated.number} is now ${label.toLowerCase()}${assigneeName && status === "ASSIGNED" ? ` (${assigneeName})` : ""}`,
       tone: status === "RESOLVED" ? "success" : "info",
       actorId: viewer.id,
       now,
@@ -544,7 +544,7 @@ export async function staffReassign(db: Db, viewer: Viewer, ticketId: string, de
         createdAt: now,
       },
     });
-    await notifyTicket(tx, { ticket: updated, message: `FX-${updated.number} moved to ${to}`, actorId: viewer.id, now, includeDepartment: true });
+    await notifyTicket(tx, { ticket: updated, message: `HM-${updated.number} moved to ${to}`, actorId: viewer.id, now, includeDepartment: true });
     return updated;
   });
 }
@@ -586,7 +586,7 @@ export async function staffOverride(
         createdAt: now,
       },
     });
-    await notifyTicket(tx, { ticket: updated, message: `FX-${updated.number}: staff changed ${changes.join(", ")}`, actorId: viewer.id, now });
+    await notifyTicket(tx, { ticket: updated, message: `HM-${updated.number}: staff changed ${changes.join(", ")}`, actorId: viewer.id, now });
     return updated;
   });
 }
@@ -603,7 +603,7 @@ export async function staffAddNote(db: Db, viewer: Viewer, ticketId: string, tex
     });
     await tx.ticketEvent.create({ data: { ticketId, type: "NOTE", message: message.slice(0, 1000), internal, actorId: viewer.id, createdAt: now } });
     if (!internal) {
-      await notifyTicket(tx, { ticket: updated, message: `Update on FX-${updated.number}: ${message.slice(0, 90)}`, actorId: viewer.id, now });
+      await notifyTicket(tx, { ticket: updated, message: `Update on HM-${updated.number}: ${message.slice(0, 90)}`, actorId: viewer.id, now });
     }
     return updated;
   });
@@ -644,7 +644,7 @@ export async function runEscalationSweep(db: Db, now: Date): Promise<number> {
       });
       await notifyTicket(tx, {
         ticket: t,
-        message: `Overdue: FX-${t.number} ${t.summary} missed its ${target}h response target`,
+        message: `Overdue: HM-${t.number} ${t.summary} missed its ${target}h response target`,
         tone: "danger",
         now,
         includeWatchers: false,
@@ -653,7 +653,7 @@ export async function runEscalationSweep(db: Db, now: Date): Promise<number> {
       });
       await notifyTicket(tx, {
         ticket: t,
-        message: `FX-${t.number} is overdue and was escalated to the ${dept} supervisor`,
+        message: `HM-${t.number} is overdue and was escalated to the ${dept} supervisor`,
         tone: "warning",
         now,
       });

@@ -29,7 +29,7 @@ export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; u
         <Link href="/" className="flex items-center gap-2.5 rounded-lg pr-1">
           <LogoMark />
           <span className="font-display text-[1.0625rem] font-extrabold tracking-[-0.02em] text-ink">
-            FixIt <span className="text-navy">GT</span>
+            Hive<span className="text-navy">mind</span>
           </span>
           <span className="sr-only"> home</span>
         </Link>

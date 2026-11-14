@@ -1,4 +1,4 @@
-// Sample data for the FixIt GT demo. Building coordinates come from OpenStreetMap.
+// Sample data for the Hivemind demo. Building coordinates come from OpenStreetMap.
 import type { Category, Department, Severity } from "@/lib/domain";
 
 export type BuildingSeed = {
@@ -148,29 +148,29 @@ export type UserSeed = {
 
 export const USERS: UserSeed[] = [
   // Students
-  { id: "u-maya", name: "Maya Patel", email: "maya.patel@fixitgt.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-214", avatarHue: 340 },
-  { id: "u-jordan", name: "Jordan Lee", email: "jordan.lee@fixitgt.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-214", avatarHue: 200 },
-  { id: "u-ethan", name: "Ethan Brooks", email: "ethan.brooks@fixitgt.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-309", avatarHue: 120 },
-  { id: "u-sam", name: "Sam Okoro", email: "sam.okoro@fixitgt.test", role: "STUDENT", residenceBuildingId: "b-towers", roomId: "s-twr-305", avatarHue: 30 },
-  { id: "u-priya", name: "Priya Raman", email: "priya.raman@fixitgt.test", role: "STUDENT", residenceBuildingId: "b-nae", roomId: "s-nae-504", avatarHue: 280 },
-  { id: "u-chloe", name: "Chloe Nguyen", email: "chloe.nguyen@fixitgt.test", role: "STUDENT", residenceBuildingId: "b-woodruff", roomId: "s-wds-221", avatarHue: 10 },
-  { id: "u-diego", name: "Diego Alvarez", email: "diego.alvarez@fixitgt.test", role: "STUDENT", residenceBuildingId: "b-fitten", roomId: "s-fit-118", avatarHue: 170 },
-  { id: "u-alex", name: "Alex Kim", email: "alex.kim@fixitgt.test", role: "STUDENT", avatarHue: 240 },
+  { id: "u-maya", name: "Maya Patel", email: "maya.patel@hivemind.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-214", avatarHue: 340 },
+  { id: "u-jordan", name: "Jordan Lee", email: "jordan.lee@hivemind.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-214", avatarHue: 200 },
+  { id: "u-ethan", name: "Ethan Brooks", email: "ethan.brooks@hivemind.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-309", avatarHue: 120 },
+  { id: "u-sam", name: "Sam Okoro", email: "sam.okoro@hivemind.test", role: "STUDENT", residenceBuildingId: "b-towers", roomId: "s-twr-305", avatarHue: 30 },
+  { id: "u-priya", name: "Priya Raman", email: "priya.raman@hivemind.test", role: "STUDENT", residenceBuildingId: "b-nae", roomId: "s-nae-504", avatarHue: 280 },
+  { id: "u-chloe", name: "Chloe Nguyen", email: "chloe.nguyen@hivemind.test", role: "STUDENT", residenceBuildingId: "b-woodruff", roomId: "s-wds-221", avatarHue: 10 },
+  { id: "u-diego", name: "Diego Alvarez", email: "diego.alvarez@hivemind.test", role: "STUDENT", residenceBuildingId: "b-fitten", roomId: "s-fit-118", avatarHue: 170 },
+  { id: "u-alex", name: "Alex Kim", email: "alex.kim@hivemind.test", role: "STUDENT", avatarHue: 240 },
   // Staff: a technician and a supervisor for each department
-  { id: "u-terrence", name: "Terrence Wallace", email: "t.wallace@fixitgt.test", role: "STAFF", department: "HOUSING", avatarHue: 25, title: "Maintenance technician" },
-  { id: "u-linda", name: "Linda Okafor", email: "l.okafor@fixitgt.test", role: "STAFF", department: "HOUSING", isSupervisor: true, avatarHue: 300, title: "Maintenance supervisor" },
-  { id: "u-marcus", name: "Marcus Bell", email: "m.bell@fixitgt.test", role: "STAFF", department: "FACILITIES", avatarHue: 190, title: "Facilities technician" },
-  { id: "u-rosa", name: "Rosa Delgado", email: "r.delgado@fixitgt.test", role: "STAFF", department: "FACILITIES", isSupervisor: true, avatarHue: 0, title: "Facilities supervisor" },
-  { id: "u-kevin", name: "Kevin Tran", email: "k.tran@fixitgt.test", role: "STAFF", department: "IT", avatarHue: 220, title: "Support technician" },
-  { id: "u-aisha", name: "Aisha Rahman", email: "a.rahman@fixitgt.test", role: "STAFF", department: "IT", isSupervisor: true, avatarHue: 260, title: "Support supervisor" },
-  { id: "u-brenda", name: "Brenda Hollis", email: "b.hollis@fixitgt.test", role: "STAFF", department: "DINING", avatarHue: 45, title: "Dining operations" },
-  { id: "u-omar", name: "Omar Haddad", email: "o.haddad@fixitgt.test", role: "STAFF", department: "DINING", isSupervisor: true, avatarHue: 150, title: "Dining supervisor" },
-  { id: "u-grace", name: "Grace Liu", email: "g.liu@fixitgt.test", role: "STAFF", department: "LIBRARY", avatarHue: 320, title: "Library facilities" },
-  { id: "u-henry", name: "Henry Osei", email: "h.osei@fixitgt.test", role: "STAFF", department: "LIBRARY", isSupervisor: true, avatarHue: 90, title: "Library supervisor" },
-  { id: "u-tasha", name: "Tasha Green", email: "t.green@fixitgt.test", role: "STAFF", department: "RECREATION", avatarHue: 110, title: "Recreation facilities" },
-  { id: "u-paul", name: "Paul Fischer", email: "p.fischer@fixitgt.test", role: "STAFF", department: "RECREATION", isSupervisor: true, avatarHue: 205, title: "Recreation supervisor" },
+  { id: "u-terrence", name: "Terrence Wallace", email: "t.wallace@hivemind.test", role: "STAFF", department: "HOUSING", avatarHue: 25, title: "Maintenance technician" },
+  { id: "u-linda", name: "Linda Okafor", email: "l.okafor@hivemind.test", role: "STAFF", department: "HOUSING", isSupervisor: true, avatarHue: 300, title: "Maintenance supervisor" },
+  { id: "u-marcus", name: "Marcus Bell", email: "m.bell@hivemind.test", role: "STAFF", department: "FACILITIES", avatarHue: 190, title: "Facilities technician" },
+  { id: "u-rosa", name: "Rosa Delgado", email: "r.delgado@hivemind.test", role: "STAFF", department: "FACILITIES", isSupervisor: true, avatarHue: 0, title: "Facilities supervisor" },
+  { id: "u-kevin", name: "Kevin Tran", email: "k.tran@hivemind.test", role: "STAFF", department: "IT", avatarHue: 220, title: "Support technician" },
+  { id: "u-aisha", name: "Aisha Rahman", email: "a.rahman@hivemind.test", role: "STAFF", department: "IT", isSupervisor: true, avatarHue: 260, title: "Support supervisor" },
+  { id: "u-brenda", name: "Brenda Hollis", email: "b.hollis@hivemind.test", role: "STAFF", department: "DINING", avatarHue: 45, title: "Dining operations" },
+  { id: "u-omar", name: "Omar Haddad", email: "o.haddad@hivemind.test", role: "STAFF", department: "DINING", isSupervisor: true, avatarHue: 150, title: "Dining supervisor" },
+  { id: "u-grace", name: "Grace Liu", email: "g.liu@hivemind.test", role: "STAFF", department: "LIBRARY", avatarHue: 320, title: "Library facilities" },
+  { id: "u-henry", name: "Henry Osei", email: "h.osei@hivemind.test", role: "STAFF", department: "LIBRARY", isSupervisor: true, avatarHue: 90, title: "Library supervisor" },
+  { id: "u-tasha", name: "Tasha Green", email: "t.green@hivemind.test", role: "STAFF", department: "RECREATION", avatarHue: 110, title: "Recreation facilities" },
+  { id: "u-paul", name: "Paul Fischer", email: "p.fischer@hivemind.test", role: "STAFF", department: "RECREATION", isSupervisor: true, avatarHue: 205, title: "Recreation supervisor" },
   // Administrator
-  { id: "u-elena", name: "Elena Vasquez", email: "e.vasquez@fixitgt.test", role: "ADMIN", avatarHue: 55, title: "Director, Campus Services" },
+  { id: "u-elena", name: "Elena Vasquez", email: "e.vasquez@hivemind.test", role: "ADMIN", avatarHue: 55, title: "Director, Campus Services" },
 ];
 
 /** Something that happens to a ticket, `t` hours after it was created. */

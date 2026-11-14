@@ -338,7 +338,7 @@ export function ReportForm({ locations, prefill, myRoom, myHall, aiEnabled, poli
               )}
             </button>
             <p className="hint mt-2 text-center">
-              {aiEnabled ? "Claude classifies your report in a few seconds." : "Classified instantly by FixIt's routing rules."} Nothing is filed until you confirm.
+              {aiEnabled ? "Claude classifies your report in a few seconds." : "Classified instantly by Hivemind's routing rules."} Nothing is filed until you confirm.
             </p>
           </div>
         )}

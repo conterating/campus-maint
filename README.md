@@ -32,6 +32,17 @@ ANTHROPIC_MODEL=claude-opus-5-5   # any Claude model id
 
 Without a key, FixIt GT classifies reports with its keyword rules (`src/lib/triage/keywords.ts`), so everything works end to end. If the API call fails or times out (25 s), the app falls back to the keyword rules and says so on the review screen. With a key, the report text and photo go to Claude using structured output at low effort, with the API's server-side refusal fallback enabled (`fallbacks: "default"`).
 
+### Google Maps (optional)
+
+Set these in `.env`, then restart `npm run dev`:
+
+```bash
+GOOGLE_MAPS_API_KEY=...       # a key with the Maps JavaScript API enabled (needs billing on the Cloud project)
+GOOGLE_MAPS_MAP_ID=           # optional; blank uses Google's DEMO_MAP_ID
+```
+
+Without a key, the campus map uses OpenStreetMap, which is what the tests run against. With a key, the map is Google Maps, with the same pins, popups, filters and heat layer. The heat layer is drawn with deck.gl because Google removed its own heatmap layer in May 2026. The key reaches the browser, so restrict it to your site's HTTP referrers in Google Cloud. If Google rejects the key, the page reloads once into the OpenStreetMap view and says why; after fixing the key, reload to try Google again.
+
 ## How the demo works
 
 There's no real login. The person chip in the header opens **Demo**, where you can:
@@ -132,4 +143,4 @@ The first Playwright run needs a browser: `npx playwright install chromium`.
 - **Department comes from the routing rules, not the model.** The AI suggests category and severity, and the config decides the department, so routing is auditable and editable in one file. Students correct the category (the department follows); staff can reassign departments directly.
 - **The AI's original verdict is signed** between the analyze and submit steps, so the "what the AI said vs. what was filed" record can't be tampered with from the browser.
 - Photos are downscaled in the browser, checked by magic bytes, stored in `uploads/`, and served by a route handler. Their URLs are unguessable UUIDs but aren't permission-checked. Fine for a demo; a real deployment would put them behind the same visibility check.
-- Building coordinates come from OpenStreetMap (Nominatim). Map tiles come from OpenStreetMap with no API key.
+- Building coordinates come from OpenStreetMap (Nominatim). Map tiles come from OpenStreetMap with no API key, or from Google Maps when `GOOGLE_MAPS_API_KEY` is set (`src/app/map/GoogleMap.tsx`; pins and popups are shared in `src/app/map/shared.tsx`).

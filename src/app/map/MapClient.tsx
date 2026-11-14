@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 import { ChevronRight, Flame, List, MapPin, SlidersHorizontal, Users, X } from "lucide-react";
 import {
   CATEGORIES,
@@ -38,14 +38,33 @@ export type MapPoint = {
   createdAt: string;
 };
 
-const LeafletMap = dynamic(() => import("./LeafletMap"), {
-  ssr: false,
-  loading: () => (
+function MapLoading() {
+  return (
     <div className="grid h-full place-items-center bg-[#e3e8ee] text-sm text-ink-3" role="status">
       Loading map…
     </div>
-  ),
-});
+  );
+}
+
+// Only the renderer in use is downloaded: Google Maps when a key is configured,
+// OpenStreetMap (Leaflet) otherwise.
+const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false, loading: MapLoading });
+const GoogleMap = dynamic(() => import("./GoogleMap"), { ssr: false, loading: MapLoading });
+
+export type GoogleMapsConfig = { apiKey: string; mapId: string } | null;
+
+// Which Google Maps key was rejected in this tab. Stored per key, so fixing the
+// key in .env makes the next load try Google again.
+const REJECTED_KEY = "fx-gmaps-rejected-key";
+const noSubscribe = () => () => {};
+function keyWasRejected(apiKey: string | undefined): boolean {
+  if (!apiKey) return false;
+  try {
+    return sessionStorage.getItem(REJECTED_KEY) === apiKey;
+  } catch {
+    return false;
+  }
+}
 
 const OPEN_DEFAULT: Status[] = ["SUBMITTED", "TRIAGED", "ASSIGNED", "IN_PROGRESS", "REOPENED"];
 
@@ -56,7 +75,7 @@ function toggle<T>(set: T[], v: T): T[] {
 const chip =
   "flex cursor-pointer items-center gap-2 rounded-full bg-surface px-2.5 py-1 text-[0.8125rem] font-bold text-ink-2 ring-1 ring-inset ring-line-2 has-[:checked]:bg-navy has-[:checked]:text-white has-[:checked]:ring-navy has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-buzz";
 
-export function MapClient({ points, now, isStudent }: { points: MapPoint[]; now: string; isStudent: boolean }) {
+export function MapClient({ points, now, isStudent, googleMaps }: { points: MapPoint[]; now: string; isStudent: boolean; googleMaps: GoogleMapsConfig }) {
   const [statuses, setStatuses] = useState<Status[]>(OPEN_DEFAULT);
   const [severities, setSeverities] = useState<Severity[]>([...SEVERITIES]);
   const [category, setCategory] = useState<Category | "ALL">("ALL");
@@ -65,6 +84,31 @@ export function MapClient({ points, now, isStudent }: { points: MapPoint[]; now:
   const [view, setView] = useState<"map" | "list">("map");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const catId = useId();
+
+  // Google calls window.gm_authFailure when it rejects the key (invalid,
+  // restricted to other sites, or billing off), then blanks the map with an
+  // error box. Unmounting that half-torn-down map from React crashes the page
+  // (measured: 4 of 4 fresh loads with an invalid key), so instead remember the
+  // rejection for this tab and reload; the reload renders OpenStreetMap from
+  // the start and never loads Google's script. If sessionStorage is
+  // unavailable, don't reload (that would loop): Google's error box stays.
+  const googleFailed = useSyncExternalStore(noSubscribe, () => keyWasRejected(googleMaps?.apiKey), () => false);
+  useEffect(() => {
+    if (!googleMaps || googleFailed) return;
+    const w = window as Window & { gm_authFailure?: () => void };
+    w.gm_authFailure = () => {
+      try {
+        sessionStorage.setItem(REJECTED_KEY, googleMaps.apiKey);
+        window.location.reload();
+      } catch {
+        // No storage: leave Google's own error message in place.
+      }
+    };
+    return () => {
+      delete w.gm_authFailure;
+    };
+  }, [googleMaps, googleFailed]);
+  const useGoogle = googleMaps !== null && !googleFailed;
 
   const filtered = useMemo(
     () => points.filter((p) => statuses.includes(p.status as Status) && severities.includes(p.severity as Severity) && (category === "ALL" || p.category === category)),
@@ -80,7 +124,11 @@ export function MapClient({ points, now, isStudent }: { points: MapPoint[]; now:
       <section className="absolute inset-0" aria-label={view === "map" ? "Map of issues" : "List of issues"}>
         {view === "map" ? (
           <div className="relative isolate h-full">
-            <LeafletMap points={filtered} showPins={showPins} showHeat={showHeat} now={now} isStudent={isStudent} />
+            {useGoogle ? (
+              <GoogleMap apiKey={googleMaps.apiKey} mapId={googleMaps.mapId} points={filtered} showPins={showPins} showHeat={showHeat} now={now} isStudent={isStudent} />
+            ) : (
+              <LeafletMap points={filtered} showPins={showPins} showHeat={showHeat} now={now} isStudent={isStudent} />
+            )}
             <p className="sr-only">The map is also available as a list. Use the List button to browse the same issues.</p>
           </div>
         ) : (
@@ -128,6 +176,11 @@ export function MapClient({ points, now, isStudent }: { points: MapPoint[]; now:
               <p className="text-sm text-ink-3" aria-live="polite">
                 Showing <strong className="num text-ink">{filtered.length}</strong> of {points.length} issues{isStudent ? " you can see" : ""}.
               </p>
+              {googleFailed && (
+                <p role="status" className="mt-1 text-xs text-ink-3">
+                  Google Maps didn’t accept its API key, so this is the OpenStreetMap view.
+                </p>
+              )}
             </div>
             <div className="md:hidden">
               <button type="button" className="btn btn-secondary btn-sm" aria-expanded={filtersOpen} aria-controls="map-filters" onClick={() => setFiltersOpen(!filtersOpen)}>

@@ -45,5 +45,13 @@ export default async function MapPage() {
     createdAt: t.createdAt.toISOString(),
   }));
 
-  return <MapClient points={points} now={now.toISOString()} isStudent={viewer.role === "STUDENT"} />;
+  // Read at request time on the server, so changing the key needs a restart,
+  // not a rebuild. It still reaches the browser: a Maps JavaScript key is
+  // public by design and is protected by HTTP-referrer restrictions in Google
+  // Cloud, not by secrecy. Without a key the map uses OpenStreetMap.
+  const googleMaps = process.env.GOOGLE_MAPS_API_KEY
+    ? { apiKey: process.env.GOOGLE_MAPS_API_KEY, mapId: process.env.GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID" }
+    : null;
+
+  return <MapClient points={points} now={now.toISOString()} isStudent={viewer.role === "STUDENT"} googleMaps={googleMaps} />;
 }

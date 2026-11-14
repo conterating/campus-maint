@@ -6,7 +6,7 @@ import { Camera, ImagePlus, Loader2, X } from "lucide-react";
 const MAX_EDGE = 1600;
 
 /** Shrink a phone photo in the browser before upload. Falls back to the original. */
-async function downscale(file: File): Promise<File> {
+export async function downscale(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
   try {
     const bitmap = await createImageBitmap(file);

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/session";
 import { getTicketDetail, shortName } from "@/lib/tickets";
 import { isStaff } from "@/lib/visibility";
-import { CATEGORY_LABEL, DEPARTMENT_LABEL, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, type Category, type Department, type Severity } from "@/lib/domain";
+import { CATEGORY_LABEL, DEPARTMENT_LABEL, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, parseEventPhotos, type Category, type Department, type Severity } from "@/lib/domain";
 import { APP_CONFIG } from "@/config/app";
 import { formatDateTime } from "@/lib/format";
 import { CategoryChip, SeverityBadge, StatusPill, StatusStamp } from "@/components/badges";
@@ -17,6 +17,7 @@ import { Avatar } from "@/components/Avatar";
 import { hueFor } from "@/components/AppHeader";
 import { StudentActions } from "./StudentActions";
 import { StaffPanel } from "./StaffPanel";
+import { CommentForm } from "./CommentForm";
 
 type Params = Promise<{ id: string }>;
 type Search = Promise<{ created?: string; metoo?: string }>;
@@ -65,7 +66,9 @@ export default async function TicketPage({ params, searchParams }: { params: Par
     message: e.message,
     internal: e.internal,
     createdAt: e.createdAt,
-    actorLabel: actorLabel(e.actor),
+    // Other students stay anonymous, but a comment still needs an author line.
+    actorLabel: actorLabel(e.actor) ?? (e.type === "COMMENT" ? "A student" : null),
+    photos: parseEventPhotos(e.photos),
   }));
 
   const scopeNote =
@@ -74,6 +77,17 @@ export default async function TicketPage({ params, searchParams }: { params: Par
       : t.scope === "DORM"
         ? { Icon: Building2, text: `Visible to ${t.building.name} residents and staff.` }
         : { Icon: Eye, text: "Public: anyone on campus can see and follow this." };
+
+  const commentAudience = [
+    t.scope === "ROOM"
+      ? "Only this room's residents and staff will see it."
+      : t.scope === "DORM"
+        ? `${t.building.name} residents and staff will see it.`
+        : "Anyone on campus who opens this ticket will see it.",
+    staff ? "For a note students can't see, use Staff controls." : t.viewerFollows || isOwner ? "" : "You'll follow the ticket so you see replies.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const staffList = staff
     ? await prisma.user.findMany({ where: { role: "STAFF", department: t.department }, select: { id: true, name: true, isSupervisor: true }, orderBy: { name: "asc" } })
@@ -261,6 +275,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
             <div className="mt-4">
               <Timeline events={events} now={now} />
             </div>
+            <CommentForm ticketId={t.id} audience={commentAudience} />
           </section>
         </div>
       </div>

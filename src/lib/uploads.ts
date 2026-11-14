@@ -9,7 +9,7 @@ import { AppError } from "./errors";
 
 export const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
-export const PHOTO_URL_PATTERN = /^\/uploads\/[a-f0-9-]{36}\.(jpg|png|webp|gif)$/;
+export { PHOTO_URL_PATTERN } from "./domain";
 
 type Kind = { ext: "jpg" | "png" | "webp" | "gif"; mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif" };
 

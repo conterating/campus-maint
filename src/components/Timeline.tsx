@@ -1,4 +1,4 @@
-import { AlertOctagon, ArrowRightLeft, Check, CircleDot, Lock, MessageSquare, PencilLine, RotateCcw, TrendingUp, Users } from "lucide-react";
+import { AlertOctagon, ArrowRightLeft, Check, CircleDot, Lock, MessageCircle, MessageSquare, PencilLine, RotateCcw, TrendingUp, Users } from "lucide-react";
 import { STATUS_LABEL, TIMELINE_STEPS, type Status } from "@/lib/domain";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { STATUS_COLOR } from "./badges";
@@ -34,7 +34,29 @@ type Event = {
   internal: boolean;
   createdAt: Date;
   actorLabel: string | null;
+  /** COMMENT only. */
+  photos?: string[];
 };
+
+function CommentPhotos({ photos }: { photos: string[] }) {
+  return (
+    <ul className={`mt-2 grid gap-2 ${photos.length === 1 ? "grid-cols-1 sm:max-w-xs" : "grid-cols-3"}`}>
+      {photos.map((src, i) => (
+        <li key={src}>
+          <a href={src} target="_blank" rel="noopener" className="block overflow-hidden rounded-[8px] ring-1 ring-line hover:ring-navy">
+            {/* eslint-disable-next-line @next/next/no-img-element -- user upload served by our route */}
+            <img
+              src={src}
+              alt={photos.length === 1 ? "Photo attached to this comment (opens full size)" : `Photo ${i + 1} of ${photos.length} attached to this comment (opens full size)`}
+              loading="lazy"
+              className={`w-full bg-bg object-cover ${photos.length === 1 ? "max-h-56" : "aspect-square"}`}
+            />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function iconFor(e: Event) {
   if (e.type === "STATUS") {
@@ -45,6 +67,8 @@ function iconFor(e: Event) {
   switch (e.type) {
     case "NOTE":
       return { Icon: e.internal ? Lock : MessageSquare, color: e.internal ? "var(--gold-ink)" : "var(--navy)" };
+    case "COMMENT":
+      return { Icon: MessageCircle, color: "var(--navy)" };
     case "ESCALATED":
       return { Icon: AlertOctagon, color: "var(--sev-emergency)" };
     case "REASSIGN":
@@ -66,7 +90,7 @@ export function Timeline({ events, now }: { events: Event[]; now: Date }) {
       {events.map((e, i) => {
         const { Icon, color } = iconFor(e);
         const last = i === events.length - 1;
-        const note = e.type === "NOTE";
+        const note = e.type === "NOTE" || e.type === "COMMENT";
         return (
           <li key={e.id} className="relative flex gap-3 pb-5 last:pb-0">
             {!last && <span aria-hidden className="absolute bottom-0 left-[13px] top-8 w-px bg-line" />}
@@ -81,7 +105,8 @@ export function Timeline({ events, now }: { events: Event[]; now: Date }) {
               {note ? (
                 <div className={`rounded-[10px] px-3 py-2 ${e.internal ? "border border-dashed border-tech-gold bg-buzz-50" : "border border-line bg-surface-2"}`}>
                   {e.internal && <p className="eyebrow mb-0.5 !text-gold-ink">Internal note</p>}
-                  <p className="leading-snug text-ink">{e.message}</p>
+                  {e.message && <p className="whitespace-pre-line leading-snug text-ink">{e.message}</p>}
+                  {e.photos && e.photos.length > 0 && <CommentPhotos photos={e.photos} />}
                 </div>
               ) : (
                 <p className="leading-snug text-ink-2">

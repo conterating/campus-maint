@@ -159,11 +159,14 @@ model TicketEvent {
   id         String   @id @default(cuid())
   ticketId   String
   ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  // STATUS | NOTE | REASSIGN | OVERRIDE | ESCALATED | METOO | PRIORITY | FOLLOW
+  // STATUS | NOTE | COMMENT | REASSIGN | OVERRIDE | ESCALATED | METOO | PRIORITY | FOLLOW
   type       String
   fromStatus String?
   toStatus   String?
   message    String
+  // COMMENT only: JSON array of /uploads/... photo URLs (SQLite has no list
+  // columns). Read it through parseEventPhotos() in src/lib/domain.ts.
+  photos     String?
   // Internal staff notes are never sent to students.
   internal   Boolean  @default(false)
   actorId    String?

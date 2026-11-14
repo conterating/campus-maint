@@ -2,7 +2,9 @@
 // student close-out, and escalation.
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { as, db, reseed } from "../support/db";
+import { parseEventPhotos } from "@/lib/domain";
 import {
+  addComment,
   addMeToo,
   confirmResolution,
   createTicket,
@@ -294,6 +296,74 @@ describe("staff actions", () => {
     const studentView = await getTicketDetail(db, as("u-maya"), id);
     expect(studentView!.events.map((e) => e.message)).toContain("We'll be there by 3pm");
     expect(studentView!.events.map((e) => e.message)).not.toContain("Parts on order from vendor");
+  });
+});
+
+describe("comments", () => {
+  const photo = (n: number) => `/uploads/00000000-0000-4000-8000-00000000000${n}.jpg`;
+  const sentAt = async (ticketId: string, at: Date) =>
+    (await db.notification.findMany({ where: { ticketId, createdAt: at }, orderBy: { userId: "asc" } })).map((n) => ({ userId: n.userId, message: n.message }));
+
+  it("a student comments with photos on a public issue; watchers and the department hear about it", async () => {
+    const t = await ticketBySummary("Room 249 projector"); // public, IT, reported by Alex, unassigned
+    await setFollow(db, as("u-priya"), t.id, true, now);
+    await addComment(db, as("u-ethan"), t.id, { text: "  Still dead this morning, and the HDMI cable is frayed.  ", photoUrls: [photo(1), photo(2)] }, later(1));
+
+    const [event] = await db.ticketEvent.findMany({ where: { ticketId: t.id, type: "COMMENT" } });
+    expect(event).toMatchObject({ message: "Still dead this morning, and the HDMI cable is frayed.", actorId: "u-ethan", internal: false });
+    expect(parseEventPhotos(event.photos)).toEqual([photo(1), photo(2)]);
+    // The commenter follows the ticket now, so they see replies.
+    expect(await db.follow.count({ where: { ticketId: t.id, userId: "u-ethan" } })).toBe(1);
+
+    const sent = await sentAt(t.id, later(1));
+    expect(sent.map((n) => n.userId)).toEqual(["u-aisha", "u-alex", "u-kevin", "u-priya"]); // IT staff, reporter, follower; never Ethan
+    expect(sent[0].message).toBe(`New comment on RR-${t.number} (with 2 photos): Still dead this morning, and the HDMI cable is frayed.`);
+  });
+
+  it("a comment from the owning department counts as the first response and reaches the student", async () => {
+    const { id } = await createTicket(db, as("u-maya"), leakInMayasRoom, now);
+    await addComment(db, as("u-terrence"), id, { text: "Can you send a photo of under the sink?" }, later(1));
+    expect((await db.ticket.findUniqueOrThrow({ where: { id } })).firstResponseAt).toEqual(later(1));
+    expect((await sentAt(id, later(1))).map((n) => n.userId)).toEqual(["u-maya"]); // not the rest of Housing
+    expect(await db.follow.count({ where: { ticketId: id, userId: "u-terrence" } })).toBe(0); // staff don't auto-follow
+
+    // A photo-only reply from the student, which goes back to the department.
+    await addComment(db, as("u-maya"), id, { text: "", photoUrls: [photo(3)] }, later(2));
+    const reply = await sentAt(id, later(2));
+    expect(reply.map((n) => n.userId)).toEqual(["u-linda", "u-terrence"]);
+    expect(reply[0].message).toBe(`New comment on RR-${(await db.ticket.findUniqueOrThrow({ where: { id } })).number} (with a photo)`);
+  });
+
+  it("a comment from another department doesn't count as a response", async () => {
+    const { id } = await createTicket(db, as("u-maya"), leakInMayasRoom, now);
+    await addComment(db, as("u-kevin"), id, { text: "IT here, the router in this room is fine." }, later(1));
+    expect((await db.ticket.findUniqueOrThrow({ where: { id } })).firstResponseAt).toBeNull();
+  });
+
+  it("only people who can see the ticket can comment on it", async () => {
+    const { id } = await createTicket(db, as("u-maya"), leakInMayasRoom, now);
+    await expect(addComment(db, as("u-ethan"), id, { text: "Hello?" }, now)).rejects.toMatchObject({ code: "NOT_FOUND" }); // same hall, other room
+    await expect(addComment(db, as("u-alex"), id, { text: "Hello?" }, now)).rejects.toMatchObject({ code: "NOT_FOUND" }); // off campus
+    await addComment(db, as("u-jordan"), id, { text: "Roommate here, it's worse tonight." }, now);
+    expect(await db.notification.count({ where: { ticketId: id, user: { id: { in: ["u-ethan", "u-alex"] } } } })).toBe(0);
+  });
+
+  it("rejects empty comments, long ones, too many photos, and photo URLs that aren't uploads", async () => {
+    const t = await ticketBySummary("Room 249 projector");
+    await expect(addComment(db, as("u-ethan"), t.id, { text: "   " }, now)).rejects.toThrow(/Write a comment or add a photo/);
+    await expect(addComment(db, as("u-ethan"), t.id, { text: "x".repeat(1001) }, now)).rejects.toThrow(/under 1,000 characters/);
+    await expect(addComment(db, as("u-ethan"), t.id, { text: "hi", photoUrls: [photo(1), photo(2), photo(3), photo(4)] }, now)).rejects.toThrow(/up to 3 photos/);
+    await expect(addComment(db, as("u-ethan"), t.id, { text: "hi", photoUrls: ["https://evil.example/x.jpg"] }, now)).rejects.toThrow(/didn't upload correctly/);
+    expect(await db.ticketEvent.count({ where: { ticketId: t.id, type: "COMMENT" } })).toBe(0);
+  });
+
+  it("shows comments to everyone who can see the ticket", async () => {
+    const t = await ticketBySummary("Room 249 projector");
+    await addComment(db, as("u-ethan"), t.id, { text: "Also flickering." }, later(1));
+    for (const who of ["u-maya", "u-sam", "u-kevin"]) {
+      const view = await getTicketDetail(db, as(who), t.id);
+      expect(view!.events.find((e) => e.type === "COMMENT")?.message).toBe("Also flickering.");
+    }
   });
 });
 

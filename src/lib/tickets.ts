@@ -9,6 +9,10 @@ import {
   SEVERITY_RANK,
   STAFF_SETTABLE_STATUSES,
   STATUS_LABEL,
+  MAX_COMMENT_LENGTH,
+  MAX_COMMENT_PHOTOS,
+  PHOTO_URL_PATTERN,
+  formatTicketNumber,
   isCategory,
   isDepartment,
   isOpenStatus,
@@ -606,6 +610,60 @@ export async function staffAddNote(db: Db, viewer: Viewer, ticketId: string, tex
       await notifyTicket(tx, { ticket: updated, message: `Update on RR-${updated.number}: ${message.slice(0, 90)}`, actorId: viewer.id, now });
     }
     return updated;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Comments
+// ---------------------------------------------------------------------------
+
+export type CommentInput = { text: string; photoUrls?: string[] };
+
+/**
+ * Anyone who can see a ticket can comment on it, with up to MAX_COMMENT_PHOTOS
+ * photos. Comments are public to everyone who can see the ticket; staff who
+ * need a private note use staffAddNote(..., internal = true) instead.
+ *
+ * - A student who comments starts following the ticket, so they see replies.
+ * - A comment from the owning department (or an administrator) counts as the
+ *   first response, exactly like a public staff note.
+ * - Everyone watching is notified, and so is the department when the comment
+ *   comes from outside it. The commenter is never notified.
+ */
+export async function addComment(db: Db, viewer: Viewer, ticketId: string, input: CommentInput, now: Date): Promise<{ id: string }> {
+  const ticket = await getVisibleTicketOrThrow(db, viewer, ticketId);
+  const text = input.text.trim();
+  const photos = input.photoUrls ?? [];
+  if (!text && photos.length === 0) throw new AppError("Write a comment or add a photo first.");
+  if (text.length > MAX_COMMENT_LENGTH) throw new AppError(`Keep comments under ${MAX_COMMENT_LENGTH.toLocaleString("en-US")} characters.`);
+  if (photos.length > MAX_COMMENT_PHOTOS) throw new AppError(`Add up to ${MAX_COMMENT_PHOTOS} photos per comment.`);
+  if (!photos.every((u) => PHOTO_URL_PATTERN.test(u))) throw new AppError("One of those photos didn't upload correctly. Try adding it again.");
+
+  const fromDepartment = isStaff(viewer) && (viewer.role === "ADMIN" || viewer.department === ticket.department);
+
+  return db.$transaction(async (tx) => {
+    const event = await tx.ticketEvent.create({
+      data: { ticketId, type: "COMMENT", message: text, photos: photos.length ? JSON.stringify(photos) : null, actorId: viewer.id, createdAt: now },
+    });
+    const updated =
+      fromDepartment && !ticket.firstResponseAt ? await tx.ticket.update({ where: { id: ticketId }, data: { firstResponseAt: now } }) : ticket;
+    if (!isStaff(viewer)) {
+      await tx.follow.upsert({
+        where: { ticketId_userId: { ticketId, userId: viewer.id } },
+        create: { ticketId, userId: viewer.id, createdAt: now },
+        update: {},
+      });
+    }
+    const photoNote = photos.length === 1 ? " (with a photo)" : photos.length > 1 ? ` (with ${photos.length} photos)` : "";
+    const preview = text ? `: ${text.slice(0, 80)}${text.length > 80 ? "…" : ""}` : "";
+    await notifyTicket(tx, {
+      ticket: updated,
+      message: `New comment on ${formatTicketNumber(updated.number)}${photoNote}${preview}`,
+      actorId: viewer.id,
+      now,
+      includeDepartment: !fromDepartment,
+    });
+    return { id: event.id };
   });
 }
 

@@ -188,3 +188,23 @@ export function ticketScopeFor(buildingKind: string, spaceScope?: string | null)
 export function formatTicketNumber(n: number): string {
   return `RR-${n}`;
 }
+
+/** The URL savePhoto() returns. Lives here (not in uploads.ts) so pure code can validate it. */
+export const PHOTO_URL_PATTERN = /^\/uploads\/[a-f0-9-]{36}\.(jpg|png|webp|gif)$/;
+
+// Comments: anyone who can see a ticket can add one, with optional photos.
+export const MAX_COMMENT_LENGTH = 1000;
+// Three downscaled photos fit comfortably under the 6 MB server-action limit
+// in next.config.ts.
+export const MAX_COMMENT_PHOTOS = 3;
+
+/** Read a TicketEvent's `photos` column (a JSON array of upload URLs). Bad data reads as no photos. */
+export function parseEventPhotos(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? value.filter((u): u is string => typeof u === "string" && u.startsWith("/uploads/")) : [];
+  } catch {
+    return [];
+  }
+}

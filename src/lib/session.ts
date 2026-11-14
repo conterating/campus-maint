@@ -9,7 +9,7 @@ import type { Viewer } from "./visibility";
 // No real login: the demo "view as" switcher stores the chosen seeded user's id
 // in a cookie. Every server query derives permissions from this viewer.
 
-export const VIEWER_COOKIE = "fixit_viewer";
+export const VIEWER_COOKIE = "rr_viewer";
 export const DEFAULT_VIEWER_ID = "u-maya";
 
 export async function getViewer(): Promise<Viewer> {

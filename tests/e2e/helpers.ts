@@ -2,7 +2,7 @@ import { expect, type BrowserContext, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 export async function viewAs(context: BrowserContext, userId: string) {
-  await context.addCookies([{ name: "fixit_viewer", value: userId, url: "http://localhost:3200" }]);
+  await context.addCookies([{ name: "rr_viewer", value: userId, url: "http://localhost:3200" }]);
 }
 
 /** Restore the sample data (and the real-time clock) through the demo page's own control. */

@@ -87,7 +87,7 @@ function Pin({ p, open, onOpen, onClose, now, isStudent }: { p: MapPoint; open: 
   return (
     <>
       {/* A clickable AdvancedMarker is a focusable button; Enter opens the popup. */}
-      <AdvancedMarker ref={ref} position={{ lat: p.lat, lng: p.lng }} title={pinTitle(p)} zIndex={pinZIndex(p)} onClick={onOpen} className="hm-pin">
+      <AdvancedMarker ref={ref} position={{ lat: p.lat, lng: p.lng }} title={pinTitle(p)} zIndex={pinZIndex(p)} onClick={onOpen} className="rr-pin">
         <span dangerouslySetInnerHTML={{ __html: html }} />
       </AdvancedMarker>
       {open && marker && (

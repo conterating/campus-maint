@@ -1,4 +1,4 @@
-// Operational settings for Hivemind. Edit these values, not the code that uses them.
+// Operational settings for Ramblin’ Repairs. Edit these values, not the code that uses them.
 import type { Severity } from "@/lib/domain";
 
 export const APP_CONFIG = {

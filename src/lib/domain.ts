@@ -1,4 +1,4 @@
-// Shared vocabulary for Hivemind. Pure module: safe to import from client and server.
+// Shared vocabulary for Ramblin’ Repairs. Pure module: safe to import from client and server.
 
 export const SEVERITIES = ["EMERGENCY", "URGENT", "STANDARD", "LOW"] as const;
 export type Severity = (typeof SEVERITIES)[number];
@@ -186,5 +186,5 @@ export function ticketScopeFor(buildingKind: string, spaceScope?: string | null)
 }
 
 export function formatTicketNumber(n: number): string {
-  return `HM-${n}`;
+  return `RR-${n}`;
 }

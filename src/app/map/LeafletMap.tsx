@@ -12,7 +12,7 @@ import type { MapPoint } from "./MapClient";
 
 function pinIcon(p: MapPoint): L.DivIcon {
   const { html, width, height } = pinMarkup(p);
-  return L.divIcon({ html, className: "hm-pin", iconSize: [width, height], iconAnchor: [width / 2, height], popupAnchor: [0, -height * 0.9] });
+  return L.divIcon({ html, className: "rr-pin", iconSize: [width, height], iconAnchor: [width / 2, height], popupAnchor: [0, -height * 0.9] });
 }
 
 function Heat({ points }: { points: MapPoint[] }) {

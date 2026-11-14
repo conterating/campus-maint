@@ -1,8 +1,8 @@
-# Hivemind
+# Ramblin’ Repairs
 
 One place for Georgia Tech students to report, track, and see campus maintenance issues.
 
-Today a student has to know whether a broken thing belongs to Housing, Facilities, or IT, gets little visibility into what happens next, and waits days for someone to classify and route the request. Hivemind classifies and routes each report in seconds (Claude, with a keyword fallback), shows live status with response-time countdowns, and puts open issues on a campus map so people add a "me too" instead of filing duplicates.
+Today a student has to know whether a broken thing belongs to Housing, Facilities, or IT, gets little visibility into what happens next, and waits days for someone to classify and route the request. Ramblin’ Repairs classifies and routes each report in seconds (Claude, with a keyword fallback), shows live status with response-time countdowns, and puts open issues on a campus map so people add a "me too" instead of filing duplicates.
 
 This is a campus solution challenge demo with realistic sample data. It does not connect to Georgia Tech's real systems.
 
@@ -30,7 +30,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-opus-5-5   # any Claude model id
 ```
 
-Without a key, Hivemind classifies reports with its keyword rules (`src/lib/triage/keywords.ts`), so everything works end to end. If the API call fails or times out (25 s), the app falls back to the keyword rules and says so on the review screen. With a key, the report text and photo go to Claude using structured output at low effort, with the API's server-side refusal fallback enabled (`fallbacks: "default"`).
+Without a key, Ramblin’ Repairs classifies reports with its keyword rules (`src/lib/triage/keywords.ts`), so everything works end to end. If the API call fails or times out (25 s), the app falls back to the keyword rules and says so on the review screen. With a key, the report text and photo go to Claude using structured output at low effort, with the API's server-side refusal fallback enabled (`fallbacks: "default"`).
 
 ### Google Maps (optional)
 
@@ -63,17 +63,17 @@ Before you start: run `npm run db:reset` (or **Demo → Reset demo data**) so ti
 **0:20 · Instant classification and routing**
 4. The review card shows **Goes to Housing Maintenance**, category **Plumbing & leaks**, severity **Urgent**, and first response within **4 hours**, plus why it was classified that way.
 5. Optional: change the category to Wi-Fi and back. The department re-routes live (the rules are in `src/config/routing.ts`).
-6. Click **Submit report**. Ticket **HM-1048** opens, owned by Maya and marked private to her room, showing the timeline (Submitted → Triaged) and a live countdown.
+6. Click **Submit report**. Ticket **RR-1048** opens, owned by Maya and marked private to her room, showing the timeline (Submitted → Triaged) and a live countdown.
 
 **0:45 · Staff update it (40 s)**
-7. Header chip → **Terrence Wallace** (Housing technician). His queue opens, sorted by severity and time remaining, with HM-1048 near the top.
+7. Header chip → **Terrence Wallace** (Housing technician). His queue opens, sorted by severity and time remaining, with RR-1048 near the top.
 8. Open it. In **Staff controls**, set **Assigned** and add the message `On my way with a new trap.`, then **Save status**. The timeline updates and the countdown becomes "Responded within target". Set **In progress** next.
 9. Switch back to **Maya**. The bell shows new alerts, one per change.
 
 **1:25 · A second student hits the duplicate check on a public issue (45 s)**
 10. Switch to **Ethan Brooks** (Glenn, Room 309). Optional: paste Maya's ticket URL and you get "not found", because room issues are private to that room's residents.
 11. **Report an issue** → Building **Price Gilbert Memorial Library** → **2nd floor quiet study** → `wifi keeps disconnecting on the 2nd floor quiet study` → **Check and route it**.
-12. **Already reported?** shows HM-1029 (Wi-Fi dropping, 5 me too). Click **Me too**. The ticket now shows 7 people affected, and Ethan is following it.
+12. **Already reported?** shows RR-1029 (Wi-Fi dropping, 5 me too). Click **Me too**. The ticket now shows 7 people affected, and Ethan is following it.
 13. Open **Map**: status-colored pins, me-too badges, and the heat layer. Tap a pin for **Me too / Follow**. Switch the view to **List** for the same issues without the map.
 
 **2:10 · An overdue ticket escalates (50 s)**

@@ -10,15 +10,69 @@ export type BuildingSeed = {
   lng: number;
   floors: number;
   address?: string;
+  /** Housing area, for residence halls: EAST | WEST | NORTH_AVE | GRAD */
+  area?: string;
 };
 
+type HallStyle = "traditional" | "suite" | "apartment";
+type HallSeed = Omit<BuildingSeed, "kind"> & { style: HallStyle };
+
+/**
+ * Every Georgia Tech residence hall. Coordinates and street addresses come from
+ * OpenStreetMap. Floors are approximate. The first five keep hand-written rooms
+ * and shared areas below (the demo script and tests use them); the rest get
+ * generated shared areas and laundry machines.
+ */
+export const RESIDENCE_HALLS: HallSeed[] = [
+  // East Campus
+  { id: "b-glenn", code: "GLN", name: "Glenn Residence Hall", lat: 33.7734348, lng: -84.3915531, floors: 4, address: "118 Bobby Dodd Way NW", area: "EAST", style: "traditional" },
+  { id: "b-towers", code: "TWR", name: "Towers Residence Hall", lat: 33.7734301, lng: -84.3910575, floors: 4, address: "112 Bobby Dodd Way NW", area: "EAST", style: "traditional" },
+  { id: "b-brown", code: "BRN", name: "Brown Residence Hall", lat: 33.771688, lng: -84.3918212, floors: 4, address: "625 Techwood Dr NW", area: "EAST", style: "traditional" },
+  { id: "b-cloudman", code: "CLD", name: "Cloudman Residence Hall", lat: 33.7728409, lng: -84.3917156, floors: 4, address: "661 Techwood Dr NW", area: "EAST", style: "traditional" },
+  { id: "b-field", code: "FLD", name: "Field Residence Hall", lat: 33.7742084, lng: -84.3916488, floors: 4, address: "711 Techwood Dr NW", area: "EAST", style: "traditional" },
+  { id: "b-hanson", code: "HAN", name: "Hanson Residence Hall", lat: 33.7741204, lng: -84.3909336, floors: 4, address: "711 Techwood Dr NW", area: "EAST", style: "traditional" },
+  { id: "b-harris", code: "HRS", name: "Harris Residence Hall", lat: 33.7720835, lng: -84.391811, floors: 4, address: "633 Techwood Dr NW", area: "EAST", style: "traditional" },
+  { id: "b-harrison", code: "HRN", name: "Harrison Residence Hall", lat: 33.7727701, lng: -84.391017, floors: 4, address: "660 Williams St NW", area: "EAST", style: "traditional" },
+  { id: "b-hopkins", code: "HOP", name: "Hopkins Residence Hall", lat: 33.7740711, lng: -84.3912883, floors: 4, address: "115 Bobby Dodd Way NW", area: "EAST", style: "traditional" },
+  { id: "b-howell", code: "HWL", name: "Howell Residence Hall", lat: 33.7721272, lng: -84.3909948, floors: 4, address: "640 Williams St NW", area: "EAST", style: "traditional" },
+  { id: "b-matheson", code: "MAT", name: "Matheson Residence Hall", lat: 33.7745201, lng: -84.3915525, floors: 4, address: "711 Techwood Dr NW", area: "EAST", style: "traditional" },
+  { id: "b-perry", code: "PRY", name: "Perry Residence Hall", lat: 33.7745281, lng: -84.3910516, floors: 4, address: "711 Techwood Dr NW", area: "EAST", style: "traditional" },
+  { id: "b-smith", code: "SMH", name: "Smith Residence Hall", lat: 33.7716905, lng: -84.3913503, floors: 4, address: "630 Williams St NW", area: "EAST", style: "traditional" },
+  { id: "b-stein-goldin", code: "SGH", name: "Stein and Goldin Houses", lat: 33.7752879, lng: -84.3915898, floors: 3, address: "733 Techwood Dr NW", area: "EAST", style: "suite" },
+  // North Avenue
+  { id: "b-nae", code: "NAE", name: "North Avenue East Apartments", lat: 33.7694995, lng: -84.3909458, floors: 6, address: "120 North Ave NW", area: "NORTH_AVE", style: "apartment" },
+  { id: "b-nan", code: "NAN", name: "North Avenue North Apartments", lat: 33.7706136, lng: -84.3909654, floors: 6, address: "120 North Ave NW", area: "NORTH_AVE", style: "apartment" },
+  { id: "b-nas", code: "NAS", name: "North Avenue South Apartments", lat: 33.7694037, lng: -84.3918207, floors: 6, address: "120 North Ave NW", area: "NORTH_AVE", style: "apartment" },
+  { id: "b-naw", code: "NAW", name: "North Avenue West Apartments", lat: 33.7705683, lng: -84.3918318, floors: 6, address: "120 North Ave NW", area: "NORTH_AVE", style: "apartment" },
+  // West Campus
+  { id: "b-armstrong", code: "ARM", name: "Armstrong Residence Hall", lat: 33.7791094, lng: -84.4035944, floors: 4, address: "498 8th St NW", area: "WEST", style: "suite" },
+  { id: "b-caldwell", code: "CAL", name: "Caldwell Residence Hall", lat: 33.7788621, lng: -84.4044221, floors: 5, address: "894 8th St NW", area: "WEST", style: "suite" },
+  { id: "b-fitten", code: "FIT", name: "Fitten Residence Hall", lat: 33.7782258, lng: -84.4037192, floors: 4, address: "855 McMillan St NW", area: "WEST", style: "traditional" },
+  { id: "b-folk", code: "FLK", name: "Folk Residence Hall", lat: 33.7788675, lng: -84.4048496, floors: 5, address: "531 Turner Pl NW", area: "WEST", style: "suite" },
+  { id: "b-freeman", code: "FRE", name: "Freeman Residence Hall", lat: 33.7775182, lng: -84.4039253, floors: 4, address: "835 6th St NW", area: "WEST", style: "traditional" },
+  { id: "b-fulmer", code: "FUL", name: "Fulmer Residence Hall", lat: 33.7786269, lng: -84.4038834, floors: 5, address: "871 McMillan St NW", area: "WEST", style: "suite" },
+  { id: "b-hefner", code: "HEF", name: "Hefner Residence Hall", lat: 33.7791118, lng: -84.4039459, floors: 4, address: "510 McMillan St NW", area: "WEST", style: "suite" },
+  { id: "b-montag", code: "MON", name: "Montag Residence Hall", lat: 33.7778596, lng: -84.4039127, floors: 4, address: "845 McMillan St NW", area: "WEST", style: "traditional" },
+  { id: "b-woodruff-north", code: "WDN", name: "Woodruff North Residence Hall", lat: 33.7793736, lng: -84.406342, floors: 5, address: "870 Curran St NW", area: "WEST", style: "suite" },
+  { id: "b-woodruff", code: "WDS", name: "Woodruff South Residence Hall", lat: 33.7788601, lng: -84.4063566, floors: 5, address: "890 Curran St NW", area: "WEST", style: "suite" },
+  { id: "b-zbar", code: "ZBR", name: "Zbar Residence Hall", lat: 33.7774768, lng: -84.4050845, floors: 4, address: "501 6th St NW", area: "WEST", style: "suite" },
+  { id: "b-maulding", code: "MLD", name: "Maulding Residence Hall", lat: 33.7769757, lng: -84.4057449, floors: 5, address: "501 6th St NW", area: "WEST", style: "apartment" },
+  { id: "b-nelson-shell", code: "NSH", name: "Nelson-Shell Residence Hall", lat: 33.7781465, lng: -84.4058627, floors: 4, address: "580 Turner Pl NW", area: "WEST", style: "suite" },
+  { id: "b-crecine", code: "CRE", name: "Crecine Apartments", lat: 33.7800955, lng: -84.4032587, floors: 4, address: "Hemphill Ave NW", area: "WEST", style: "apartment" },
+  { id: "b-center-street", code: "CSA", name: "Center Street Apartments", lat: 33.7798069, lng: -84.4017298, floors: 4, address: "Hemphill Ave NW", area: "WEST", style: "apartment" },
+  { id: "b-8th-east", code: "ESE", name: "Eighth Street East Apartments", lat: 33.7801525, lng: -84.404802, floors: 4, address: "9th St NW", area: "WEST", style: "apartment" },
+  { id: "b-8th-south", code: "ESS", name: "Eighth Street South Apartments", lat: 33.7799292, lng: -84.4048034, floors: 4, address: "535 8th St NW", area: "WEST", style: "apartment" },
+  { id: "b-8th-west", code: "ESW", name: "Eighth Street West Apartments", lat: 33.7801603, lng: -84.4058879, floors: 4, address: "9th St NW", area: "WEST", style: "apartment" },
+  // Graduate and family housing
+  { id: "b-glc", code: "GLC", name: "Graduate Living Center", lat: 33.7820268, lng: -84.3963617, floors: 7, address: "307 10th St NW", area: "GRAD", style: "apartment" },
+  { id: "b-tenth-home", code: "TAH", name: "Tenth and Home", lat: 33.7826147, lng: -84.3958817, floors: 4, address: "Holly St NW", area: "GRAD", style: "apartment" },
+];
+
+/** Halls whose rooms and shared areas are written out by hand below. */
+const HAND_WRITTEN_HALLS = new Set(["b-glenn", "b-towers", "b-nae", "b-woodruff", "b-fitten"]);
+
 export const BUILDINGS: BuildingSeed[] = [
-  // Residence halls
-  { id: "b-glenn", code: "GLN", name: "Glenn Residence Hall", kind: "RESIDENCE", lat: 33.7734348, lng: -84.3915531, floors: 4, address: "118 Bobby Dodd Way NW" },
-  { id: "b-towers", code: "TWR", name: "Towers Residence Hall", kind: "RESIDENCE", lat: 33.7734301, lng: -84.3910575, floors: 4, address: "112 Bobby Dodd Way NW" },
-  { id: "b-nae", code: "NAE", name: "North Avenue East Apartments", kind: "RESIDENCE", lat: 33.7694995, lng: -84.3909458, floors: 6, address: "120 North Ave NW" },
-  { id: "b-woodruff", code: "WDS", name: "Woodruff South Residence Hall", kind: "RESIDENCE", lat: 33.7788601, lng: -84.4063566, floors: 5, address: "890 Curran St NW" },
-  { id: "b-fitten", code: "FIT", name: "Fitten Hall", kind: "RESIDENCE", lat: 33.7782258, lng: -84.4037192, floors: 4, address: "855 McMillan St NW" },
+  ...RESIDENCE_HALLS.map(({ id, code, name, lat, lng, floors, address, area }) => ({ id, code, name, kind: "RESIDENCE", lat, lng, floors, address, area })),
   // Library and student center
   { id: "b-library", code: "LIB", name: "Price Gilbert Memorial Library", kind: "LIBRARY", lat: 33.7743977, lng: -84.3957785, floors: 5, address: "704 Cherry St NW" },
   { id: "b-jlsc", code: "JLSC", name: "John Lewis Student Center", kind: "STUDENT_CENTER", lat: 33.7741957, lng: -84.3988236, floors: 4, address: "350 Ferst Dr NW" },
@@ -41,7 +95,7 @@ const room = (id: string, b: string, floor: number, label: string): SpaceSeed =>
 const shared = (id: string, b: string, floor: number | null, label: string, kind: string): SpaceSeed => ({ id, buildingId: b, floor, label, scope: "DORM_SHARED", kind });
 const pub = (id: string, b: string, floor: number | null, label: string, kind: string): SpaceSeed => ({ id, buildingId: b, floor, label, scope: "PUBLIC", kind });
 
-export const SPACES: SpaceSeed[] = [
+const HAND_SPACES: SpaceSeed[] = [
   room("s-gln-214", "b-glenn", 2, "Room 214"),
   room("s-gln-216", "b-glenn", 2, "Room 216"),
   room("s-gln-309", "b-glenn", 3, "Room 309"),
@@ -111,9 +165,42 @@ export const SPACES: SpaceSeed[] = [
   pub("s-skiles-rest", "b-skiles", 1, "1st floor restrooms", "restroom"),
 ];
 
+const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
+const slug = (code: string) => code.toLowerCase();
+
+/** Shared areas for every hall that isn't written out by hand. */
+function generatedSpaces(): SpaceSeed[] {
+  const out: SpaceSeed[] = [];
+  for (const h of RESIDENCE_HALLS) {
+    if (HAND_WRITTEN_HALLS.has(h.id)) continue;
+    const c = slug(h.code);
+    out.push(shared(`s-${c}-lobby`, h.id, 1, "Lobby", "lounge"));
+    out.push(shared(`s-${c}-laundry`, h.id, 1, "Laundry room", "laundry"));
+    out.push(shared(`s-${c}-lounge`, h.id, 2, "Study lounge", "lounge"));
+    for (let f = 1; f <= h.floors; f++) {
+      out.push(shared(`s-${c}-${f}hall`, h.id, f, `${ordinal(f)} floor hallway`, "hallway"));
+      if (h.style === "traditional") out.push(shared(`s-${c}-${f}bath`, h.id, f, `${ordinal(f)} floor bathroom`, "bathroom"));
+    }
+    if (h.style === "apartment") out.push(shared(`s-${c}-trash`, h.id, 1, "Trash and recycling room", "utility"));
+  }
+  return out;
+}
+
+/** Rooms where the newer sample students live. */
+const RESIDENT_ROOMS: SpaceSeed[] = [
+  room("s-smh-108", "b-smith", 1, "Room 108"),
+  room("s-arm-312", "b-armstrong", 3, "Room 312"),
+  room("s-ful-204", "b-fulmer", 2, "Suite 204"),
+  room("s-naw-512", "b-naw", 5, "Apartment 512"),
+  room("s-ess-207", "b-8th-south", 2, "Apartment 207"),
+  room("s-glc-618", "b-glc", 6, "Apartment 618"),
+];
+
+export const SPACES: SpaceSeed[] = [...HAND_SPACES, ...generatedSpaces(), ...RESIDENT_ROOMS];
+
 export type AssetSeed = { id: string; buildingId: string; spaceId: string | null; name: string; type: string; tag: string };
 
-export const ASSETS: AssetSeed[] = [
+const HAND_ASSETS: AssetSeed[] = [
   { id: "a-gln-elev", buildingId: "b-glenn", spaceId: null, name: "Glenn elevator", type: "ELEVATOR", tag: "GLN-ELV-1" },
   { id: "a-gln-w3", buildingId: "b-glenn", spaceId: "s-gln-laundry", name: "Washer 3", type: "WASHER", tag: "GLN-WSH-03" },
   { id: "a-gln-d2", buildingId: "b-glenn", spaceId: "s-gln-laundry", name: "Dryer 2", type: "DRYER", tag: "GLN-DRY-02" },
@@ -132,6 +219,25 @@ export const ASSETS: AssetSeed[] = [
   { id: "a-howey-l1", buildingId: "b-howey", spaceId: "s-howey-l1", name: "L1 projector", type: "PROJECTOR", tag: "HOW-PRJ-L1" },
   { id: "a-skiles-249", buildingId: "b-skiles", spaceId: "s-skiles-249", name: "Room 249 projector", type: "PROJECTOR", tag: "SKL-PRJ-249" },
 ];
+
+/** Laundry machines in every generated hall, and an elevator in the taller ones. */
+function generatedAssets(): AssetSeed[] {
+  const out: AssetSeed[] = [];
+  for (const h of RESIDENCE_HALLS) {
+    if (HAND_WRITTEN_HALLS.has(h.id)) continue;
+    const c = slug(h.code);
+    const laundry = `s-${c}-laundry`;
+    out.push({ id: `a-${c}-w1`, buildingId: h.id, spaceId: laundry, name: "Washer 1", type: "WASHER", tag: `${h.code}-WSH-01` });
+    out.push({ id: `a-${c}-w2`, buildingId: h.id, spaceId: laundry, name: "Washer 2", type: "WASHER", tag: `${h.code}-WSH-02` });
+    out.push({ id: `a-${c}-d1`, buildingId: h.id, spaceId: laundry, name: "Dryer 1", type: "DRYER", tag: `${h.code}-DRY-01` });
+    if (h.floors >= 5 || h.style === "apartment") {
+      out.push({ id: `a-${c}-elev`, buildingId: h.id, spaceId: null, name: `${h.name.replace(/ (Residence Hall|Apartments|Houses)$/, "")} elevator`, type: "ELEVATOR", tag: `${h.code}-ELV-1` });
+    }
+  }
+  return out;
+}
+
+export const ASSETS: AssetSeed[] = [...HAND_ASSETS, ...generatedAssets()];
 
 export type UserSeed = {
   id: string;
@@ -155,6 +261,12 @@ export const USERS: UserSeed[] = [
   { id: "u-priya", name: "Priya Raman", email: "priya.raman@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-nae", roomId: "s-nae-504", avatarHue: 280 },
   { id: "u-chloe", name: "Chloe Nguyen", email: "chloe.nguyen@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-woodruff", roomId: "s-wds-221", avatarHue: 10 },
   { id: "u-diego", name: "Diego Alvarez", email: "diego.alvarez@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-fitten", roomId: "s-fit-118", avatarHue: 170 },
+  { id: "u-nia", name: "Nia Thompson", email: "nia.thompson@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-smith", roomId: "s-smh-108", avatarHue: 300 },
+  { id: "u-ben", name: "Ben Carter", email: "ben.carter@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-armstrong", roomId: "s-arm-312", avatarHue: 95 },
+  { id: "u-zoe", name: "Zoe Martin", email: "zoe.martin@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-fulmer", roomId: "s-ful-204", avatarHue: 15 },
+  { id: "u-kai", name: "Kai Yamamoto", email: "kai.yamamoto@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-naw", roomId: "s-naw-512", avatarHue: 185 },
+  { id: "u-lena", name: "Lena Ortiz", email: "lena.ortiz@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-8th-south", roomId: "s-ess-207", avatarHue: 50 },
+  { id: "u-hana", name: "Hana Ali", email: "hana.ali@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-glc", roomId: "s-glc-618", avatarHue: 265 },
   { id: "u-alex", name: "Alex Kim", email: "alex.kim@ramblinrepairs.test", role: "STUDENT", avatarHue: 240 },
   // Staff: a technician and a supervisor for each department
   { id: "u-terrence", name: "Terrence Wallace", email: "t.wallace@ramblinrepairs.test", role: "STAFF", department: "HOUSING", avatarHue: 25, title: "Maintenance technician" },
@@ -300,6 +412,61 @@ export const TICKETS: TicketSeed[] = [
     steps: [{ t: 12, do: "assign" }, { t: 20, do: "start" }, { t: 30, do: "resolve" }, { t: 40, do: "confirm" }],
   },
 
+  // ---- Other halls ----
+  {
+    b: "b-smith", s: "s-smh-1bath", by: "u-nia", age: 14, cat: "PLUMBING", sev: "STANDARD",
+    desc: "Hot water runs out after about five minutes in the 1st floor showers, every morning.", sum: "Hot water runs out fast, Smith 1st floor showers",
+    steps: [{ t: 3, do: "assign" }],
+  },
+  {
+    b: "b-smith", s: "s-smh-108", by: "u-nia", age: 75, cat: "HVAC", sev: "LOW",
+    desc: "The radiator in my room clanks loudly all night when the heat cycles on.", sum: "Radiator clanking all night, Smith 108",
+    steps: [{ t: 6, do: "assign" }, { t: 30, do: "start" }, { t: 44, do: "resolve", note: "Bled the radiator and tightened the valve." }],
+  },
+  {
+    b: "b-armstrong", s: "s-arm-laundry", a: "a-arm-d1", by: "u-ben", age: 33, cat: "APPLIANCE", sev: "STANDARD",
+    desc: "Dryer 1 takes three full cycles to dry a normal load.", sum: "Dryer 1 barely heats, Armstrong laundry",
+    steps: [{ t: 5, do: "assign" }, { t: 20, do: "start", note: "Lint duct is clogged; cleaning it out this week." }],
+  },
+  {
+    b: "b-armstrong", s: "s-arm-312", by: "u-ben", age: 5, cat: "FURNITURE", sev: "LOW",
+    desc: "My closet door came off its top hinge and is leaning against the wall.", sum: "Closet door off its hinge, Armstrong 312",
+  },
+  {
+    b: "b-fulmer", s: "s-ful-3hall", by: "u-zoe", age: 6, cat: "ELECTRICAL", sev: "URGENT",
+    desc: "The exit sign by the 3rd floor stairwell is completely dark.", sum: "Exit sign dark by the 3rd floor stairwell, Fulmer",
+    steps: [{ t: 1, do: "assign" }, { t: 2, do: "start" }],
+  },
+  {
+    b: "b-fulmer", a: "a-ful-elev", by: "u-zoe", age: 1.5, cat: "ELEVATOR", sev: "URGENT",
+    desc: "The elevator doors won't close on the 1st floor, so it just sits there.", sum: "Fulmer elevator doors won't close on the 1st floor",
+  },
+  {
+    b: "b-naw", s: "s-naw-512", by: "u-kai", age: 26, cat: "APPLIANCE", sev: "STANDARD",
+    desc: "The garbage disposal in our kitchen hums but doesn't spin.", sum: "Jammed garbage disposal, NAW 512",
+    steps: [{ t: 4, do: "assign" }],
+  },
+  {
+    b: "b-naw", a: "a-naw-elev", by: "u-kai", age: 80, cat: "ELEVATOR", sev: "STANDARD",
+    desc: "The 4th floor button in the elevator doesn't light up or work.", sum: "4th floor elevator button dead, North Avenue West",
+    steps: [{ t: 10, do: "assign" }, { t: 30, do: "resolve", note: "Replaced the button contact." }, { t: 40, do: "confirm" }],
+  },
+  {
+    b: "b-8th-south", s: "s-ess-lounge", by: "u-lena", age: 20, cat: "NETWORK", sev: "STANDARD",
+    desc: "Nothing in the study lounge can connect to eduroam. Phones and laptops both fail.", sum: "Eduroam won't connect in the study lounge, Eighth Street South",
+    steps: [{ t: 2, do: "assign" }],
+  },
+  {
+    b: "b-8th-south", s: "s-ess-207", by: "u-lena", age: 3, cat: "ELECTRICAL", sev: "STANDARD",
+    desc: "The detector on my ceiling chirps every thirty seconds. Probably a low battery.", sum: "Ceiling detector chirping, Eighth Street South 207",
+    steps: [{ t: 0.5, do: "assign", note: "Swapping the battery this afternoon." }],
+  },
+  {
+    b: "b-glc", s: "s-glc-laundry", a: "a-glc-w2", by: "u-hana", age: 9, cat: "APPLIANCE", sev: "URGENT",
+    desc: "Washer 2 floods the laundry room floor every time it drains.", sum: "Washer 2 flooding the floor, Graduate Living Center",
+    steps: [{ t: 1, do: "assign" }, { t: 2, do: "note", text: "Machine tagged out of order until the drain hose is replaced." }],
+  },
+
   // ---- Library (public) ----
   {
     b: "b-library", s: "s-lib-2study", by: "u-alex", age: 28, cat: "NETWORK", sev: "STANDARD",
@@ -406,6 +573,16 @@ export const TICKETS: TicketSeed[] = [
     b: "b-crc", s: "s-crc-pool", by: "u-chloe", age: 12, cat: "ELECTRICAL", sev: "STANDARD",
     desc: "Lights over the pool deck are flickering on and off.", sum: "Pool deck lights flickering",
     steps: [{ t: 2, do: "override", sev: "LOW", reason: "Only two fixtures affected; pool remains open." }],
+  },
+
+  {
+    b: "b-crc", s: "s-crc-weights", by: "u-ben", age: 11, cat: "FITNESS", sev: "URGENT",
+    desc: "The cable on the lat pulldown machine is fraying near the pulley.", sum: "Frayed cable on the lat pulldown, weight room",
+    steps: [{ t: 0.5, do: "metoo", who: "u-zoe" }, { t: 2, do: "assign", note: "Machine roped off until the cable is replaced." }],
+  },
+  {
+    b: "b-wv", s: "s-wv-line", by: "u-zoe", age: 4, cat: "FOOD_SERVICE", sev: "STANDARD",
+    desc: "The heat lamps over the hot food line are out, so the food is cold.", sum: "Heat lamps out over the hot food line, West Village",
   },
 
   // ---- Klaus ----

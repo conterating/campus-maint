@@ -7,13 +7,19 @@ import { claudeConfigured } from "@/lib/triage/claude";
 import { APP_CONFIG } from "@/config/app";
 import { ReportForm } from "./ReportForm";
 
-export const metadata: Metadata = { title: "Report an issue" };
+export const metadata: Metadata = { title: "Report a problem" };
 
-type Search = Promise<{ building?: string; space?: string; asset?: string; qr?: string }>;
+type Search = Promise<{ building?: string; space?: string; asset?: string; qr?: string; desc?: string; where?: string }>;
 
 export default async function ReportPage({ searchParams }: { searchParams: Search }) {
   const { viewer } = await getContext();
-  const params = await searchParams;
+  const params = { ...(await searchParams) };
+  // The home page's quick form sends `where` (room | hall | campus) instead of ids.
+  if (!params.building && viewer.residenceBuildingId && (params.where === "room" || params.where === "hall")) {
+    params.building = viewer.residenceBuildingId;
+    if (params.where === "room" && viewer.roomId) params.space = viewer.roomId;
+  }
+  const initialDescription = (params.desc ?? "").slice(0, 2000);
   const locations = await reportableLocations(viewer);
   const scanned = await describeLocation(params);
 
@@ -40,8 +46,8 @@ export default async function ReportPage({ searchParams }: { searchParams: Searc
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-6 md:pt-10">
-      <h1 className="h-page">Report an issue</h1>
-      <p className="mt-1.5 text-ink-2">Say where it is and what&apos;s wrong. We&apos;ll route it to the right team and check whether someone already reported it.</p>
+      <h1 className="h-page">Report a problem</h1>
+      <p className="mt-1.5 text-ink-2">Tell us where and what. We&apos;ll send it to the right team and check if someone beat you to it.</p>
 
       {scannedLabel && fromQr && !blocked && (
         <p className="mt-5 flex items-center gap-3 rounded-[12px] bg-surface px-4 py-3 text-sm shadow-[var(--shadow-xs)] ring-1 ring-inset ring-line">
@@ -65,8 +71,9 @@ export default async function ReportPage({ searchParams }: { searchParams: Searc
       <ReportForm
         locations={locations}
         prefill={prefill}
+        initialDescription={initialDescription}
         myRoom={home && myRoom ? { buildingId: home.id, spaceId: myRoom.id, label: `${home.name} · ${myRoom.label}` } : null}
-        myHall={home ? { buildingId: home.id, label: home.name } : null}
+        myHall={home ? { buildingId: home.id, label: home.name.replace(/ (Residence Hall|Apartments|Houses)$/, "") } : null}
         aiEnabled={claudeConfigured()}
         police={APP_CONFIG.campusPolice}
         targets={APP_CONFIG.responseTargetHours}

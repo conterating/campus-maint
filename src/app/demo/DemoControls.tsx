@@ -23,7 +23,7 @@ export function DemoControls({ offsetMs, nowLabel }: { offsetMs: number; nowLabe
 
   return (
     <section aria-labelledby="clock-title" className="card mt-6 overflow-hidden">
-      <div className="grid gap-6 p-5 md:grid-cols-[1fr_auto] md:items-start md:p-6">
+      <div className="grid grid-cols-1 gap-6 p-5 md:grid-cols-[1fr_auto] md:items-start md:p-6">
         <div>
           <h2 id="clock-title" className="flex items-center gap-2 h-section text-lg">
             <Clock aria-hidden className="size-5 text-ink-3" /> Demo clock

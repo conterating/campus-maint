@@ -2,22 +2,12 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
-import { ChevronRight, Flame, List, MapPin, SlidersHorizontal, Users, X } from "lucide-react";
-import {
-  CATEGORIES,
-  CATEGORY_LABEL,
-  SEVERITIES,
-  SEVERITY_LABEL,
-  STATUSES,
-  STATUS_LABEL,
-  formatTicketNumber,
-  type Category,
-  type Severity,
-  type Status,
-} from "@/lib/domain";
-import { CategoryIcon, SeverityText, STATUS_HEX, StatusPill } from "@/components/badges";
+import { useCallback, useId, useMemo, useState } from "react";
+import { ChevronRight, Flame, List, MapPin, SlidersHorizontal, X } from "lucide-react";
+import { CATEGORIES, CATEGORY_LABEL, SEVERITIES, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, type Category, type Severity } from "@/lib/domain";
+import { StatusText } from "@/components/TicketTag";
 import { relativeTime } from "@/lib/format";
+import { PIN_COLOR } from "./mapShared";
 
 export type MapPoint = {
   id: string;
@@ -38,101 +28,57 @@ export type MapPoint = {
   createdAt: string;
 };
 
-function MapLoading() {
-  return (
-    <div className="grid h-full place-items-center bg-[#e3e8ee] text-sm text-ink-3" role="status">
-      Loading map…
-    </div>
-  );
-}
+const loading = () => (
+  <div className="grid h-full place-items-center bg-[#eef0f3] text-sm text-ink-3" role="status">
+    Loading map…
+  </div>
+);
+const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false, loading });
+const GoogleMap = dynamic(() => import("./GoogleMap"), { ssr: false, loading });
 
-// Only the renderer in use is downloaded: Google Maps when a key is configured,
-// OpenStreetMap (Leaflet) otherwise.
-const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false, loading: MapLoading });
-const GoogleMap = dynamic(() => import("./GoogleMap"), { ssr: false, loading: MapLoading });
-
-export type GoogleMapsConfig = { apiKey: string; mapId: string } | null;
-
-// Which Google Maps key was rejected in this tab. Stored per key, so fixing the
-// key in .env makes the next load try Google again.
-const REJECTED_KEY = "rr-gmaps-rejected-key";
-const noSubscribe = () => () => {};
-function keyWasRejected(apiKey: string | undefined): boolean {
-  if (!apiKey) return false;
-  try {
-    return sessionStorage.getItem(REJECTED_KEY) === apiKey;
-  } catch {
-    return false;
-  }
-}
-
-const OPEN_DEFAULT: Status[] = ["SUBMITTED", "TRIAGED", "ASSIGNED", "IN_PROGRESS", "REOPENED"];
+type Show = "open" | "fixed";
 
 function toggle<T>(set: T[], v: T): T[] {
   return set.includes(v) ? set.filter((x) => x !== v) : [...set, v];
 }
 
 const chip =
-  "flex cursor-pointer items-center gap-2 rounded-full bg-surface px-2.5 py-1 text-[0.8125rem] font-bold text-ink-2 ring-1 ring-inset ring-line-2 has-[:checked]:bg-navy has-[:checked]:text-white has-[:checked]:ring-navy has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-buzz";
+  "flex cursor-pointer items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-[0.8125rem] font-bold text-ink-2 ring-1 ring-inset ring-line-2 transition-colors hover:bg-surface-2 has-[:checked]:bg-navy has-[:checked]:text-white has-[:checked]:ring-navy has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy";
 
-export function MapClient({ points, now, isStudent, googleMaps }: { points: MapPoint[]; now: string; isStudent: boolean; googleMaps: GoogleMapsConfig }) {
-  const [statuses, setStatuses] = useState<Status[]>(OPEN_DEFAULT);
+export function MapClient({ points, now, isStudent, googleKey }: { points: MapPoint[]; now: string; isStudent: boolean; googleKey: string | null }) {
+  const [show, setShow] = useState<Show[]>(["open"]);
   const [severities, setSeverities] = useState<Severity[]>([...SEVERITIES]);
   const [category, setCategory] = useState<Category | "ALL">("ALL");
   const [showHeat, setShowHeat] = useState(true);
   const [showPins, setShowPins] = useState(true);
   const [view, setView] = useState<"map" | "list">("map");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [googleFailed, setGoogleFailed] = useState(false);
+  const onAuthFailure = useCallback(() => setGoogleFailed(true), []);
   const catId = useId();
 
-  // Google calls window.gm_authFailure when it rejects the key (invalid,
-  // restricted to other sites, or billing off), then blanks the map with an
-  // error box. Unmounting that half-torn-down map from React crashes the page
-  // (measured: 4 of 4 fresh loads with an invalid key), so instead remember the
-  // rejection for this tab and reload; the reload renders OpenStreetMap from
-  // the start and never loads Google's script. If sessionStorage is
-  // unavailable, don't reload (that would loop): Google's error box stays.
-  const googleFailed = useSyncExternalStore(noSubscribe, () => keyWasRejected(googleMaps?.apiKey), () => false);
-  useEffect(() => {
-    if (!googleMaps || googleFailed) return;
-    const w = window as Window & { gm_authFailure?: () => void };
-    w.gm_authFailure = () => {
-      try {
-        sessionStorage.setItem(REJECTED_KEY, googleMaps.apiKey);
-        window.location.reload();
-      } catch {
-        // No storage: leave Google's own error message in place.
-      }
-    };
-    return () => {
-      delete w.gm_authFailure;
-    };
-  }, [googleMaps, googleFailed]);
-  const useGoogle = googleMaps !== null && !googleFailed;
-
   const filtered = useMemo(
-    () => points.filter((p) => statuses.includes(p.status as Status) && severities.includes(p.severity as Severity) && (category === "ALL" || p.category === category)),
-    [points, statuses, severities, category],
+    () =>
+      points.filter(
+        (p) => show.includes(isOpenStatus(p.status) ? "open" : "fixed") && severities.includes(p.severity as Severity) && (category === "ALL" || p.category === category),
+      ),
+    [points, show, severities, category],
   );
   const present = useMemo(() => new Set(points.map((p) => p.category)), [points]);
-  const statusChanged = statuses.length !== OPEN_DEFAULT.length || statuses.some((s) => !OPEN_DEFAULT.includes(s));
-  const activeFilters = (statusChanged ? 1 : 0) + (severities.length !== SEVERITIES.length ? 1 : 0) + (category !== "ALL" ? 1 : 0);
+  const activeFilters = (show.length !== 1 || show[0] !== "open" ? 1 : 0) + (severities.length !== SEVERITIES.length ? 1 : 0) + (category !== "ALL" ? 1 : 0);
+  const useGoogle = !!googleKey && !googleFailed;
+  const mapProps = { points: filtered, showPins, showHeat, now, isStudent };
 
   return (
     <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-16 md:bottom-0">
-      {/* Map or list fills the space */}
       <section className="absolute inset-0" aria-label={view === "map" ? "Map of issues" : "List of issues"}>
         {view === "map" ? (
           <div className="relative isolate h-full">
-            {useGoogle ? (
-              <GoogleMap apiKey={googleMaps.apiKey} mapId={googleMaps.mapId} points={filtered} showPins={showPins} showHeat={showHeat} now={now} isStudent={isStudent} />
-            ) : (
-              <LeafletMap points={filtered} showPins={showPins} showHeat={showHeat} now={now} isStudent={isStudent} />
-            )}
+            {useGoogle ? <GoogleMap apiKey={googleKey!} onAuthFailure={onAuthFailure} {...mapProps} /> : <LeafletMap {...mapProps} />}
             <p className="sr-only">The map is also available as a list. Use the List button to browse the same issues.</p>
           </div>
         ) : (
-          <div className="h-full overflow-y-auto bg-bg pb-6 pt-40 md:pl-[23.5rem] md:pr-6 md:pt-4">
+          <div className="h-full overflow-y-auto bg-bg pb-6 pt-44 md:pl-[24rem] md:pr-6 md:pt-4">
             <ul className="list-group mx-3 md:mx-0 md:max-w-3xl">
               {filtered.length === 0 && <li className="px-6 py-10 text-center text-ink-3">No issues match these filters.</li>}
               {filtered
@@ -141,23 +87,26 @@ export function MapClient({ points, now, isStudent, googleMaps }: { points: MapP
                 .map((p) => (
                   <li key={p.id}>
                     <Link href={`/tickets/${p.id}`} className="group flex items-center gap-3.5 px-4 py-3.5 hover:bg-surface-2">
-                      <CategoryIcon category={p.category} />
+                      <span aria-hidden className="mt-1 size-2.5 shrink-0 self-start rounded-full" style={{ background: isOpenStatus(p.status) ? PIN_COLOR[p.severity as Severity] : PIN_COLOR.FIXED }} />
                       <span className="min-w-0 flex-1">
                         <span className="block font-bold leading-snug text-ink group-hover:text-navy">{p.summary}</span>
                         <span className="mt-0.5 block truncate text-sm text-ink-3">{p.where}</span>
-                        <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem] text-ink-3">
-                          <SeverityText severity={p.severity} />
-                          <span className="num">{formatTicketNumber(p.number)}</span>
+                        <span className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[0.8125rem] text-ink-3">
+                          <StatusText status={p.status} />
+                          <span aria-hidden>·</span>
+                          <span>{SEVERITY_LABEL[p.severity as Severity]}</span>
+                          <span aria-hidden>·</span>
                           <span>{relativeTime(p.createdAt, now)}</span>
                           {p.meTooCount > 0 && (
-                            <span className="inline-flex items-center gap-1 font-bold text-ink-2">
-                              <Users aria-hidden className="size-3.5" />
-                              {p.meTooCount} me too
-                            </span>
+                            <>
+                              <span aria-hidden>·</span>
+                              <span className="font-bold text-ink-2">{p.meTooCount + 1} affected</span>
+                            </>
                           )}
+                          <span aria-hidden>·</span>
+                          <span className="num">{formatTicketNumber(p.number)}</span>
                         </span>
                       </span>
-                      <StatusPill status={p.status} size="sm" />
                       <ChevronRight aria-hidden className="size-4 shrink-0 text-line-2" />
                     </Link>
                   </li>
@@ -167,26 +116,20 @@ export function MapClient({ points, now, isStudent, googleMaps }: { points: MapP
         )}
       </section>
 
-      {/* Floating control panel */}
-      <aside aria-label="Map filters" className="pointer-events-none absolute inset-x-3 top-3 z-[500] flex md:bottom-4 md:left-4 md:right-auto md:top-4 md:w-[21.5rem]">
-        <div className="pointer-events-auto w-full self-start rounded-[16px] bg-surface/95 p-4 shadow-[var(--shadow-lg)] ring-1 ring-line backdrop-blur-md md:max-h-full md:overflow-y-auto">
+      <aside aria-label="Map filters" className="pointer-events-none absolute inset-x-3 top-3 z-[500] flex md:bottom-4 md:left-4 md:right-auto md:top-4 md:w-[22rem]">
+        <div className="pointer-events-auto w-full self-start rounded-[18px] bg-surface/95 p-4 shadow-[var(--shadow-lg)] ring-1 ring-line backdrop-blur-md md:max-h-full md:overflow-y-auto md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="font-display text-[1.25rem] font-bold tracking-[-0.02em] text-ink">Campus map</h1>
+              <h1 className="text-[1.375rem] font-extrabold tracking-[-0.025em] text-ink">Campus map</h1>
               <p className="text-sm text-ink-3" aria-live="polite">
-                Showing <strong className="num text-ink">{filtered.length}</strong> of {points.length} issues{isStudent ? " you can see" : ""}.
+                Showing <strong className="text-ink">{filtered.length}</strong> of {points.length} issues{isStudent ? " you can see" : ""}.
               </p>
-              {googleFailed && (
-                <p role="status" className="mt-1 text-xs text-ink-3">
-                  Google Maps didn’t accept its API key, so this is the OpenStreetMap view.
-                </p>
-              )}
             </div>
             <div className="md:hidden">
               <button type="button" className="btn btn-secondary btn-sm" aria-expanded={filtersOpen} aria-controls="map-filters" onClick={() => setFiltersOpen(!filtersOpen)}>
                 {filtersOpen ? <X aria-hidden className="size-4" /> : <SlidersHorizontal aria-hidden className="size-4" />}
                 Filters
-                {activeFilters > 0 && <span className="num grid size-5 place-items-center rounded-full bg-navy text-[0.6875rem] text-white">{activeFilters}</span>}
+                {activeFilters > 0 && <span className="grid size-5 place-items-center rounded-full bg-navy text-[0.6875rem] text-white">{activeFilters}</span>}
               </button>
             </div>
           </div>
@@ -201,6 +144,31 @@ export function MapClient({ points, now, isStudent, googleMaps }: { points: MapP
           </div>
 
           <div id="map-filters" className={`${filtersOpen ? "block" : "hidden"} mt-4 max-h-[50dvh] space-y-5 overflow-y-auto border-t border-line pt-4 md:block md:max-h-none md:overflow-visible`}>
+            <fieldset>
+              <legend className="label">Show</legend>
+              <div className="flex flex-wrap gap-1.5">
+                <label className={chip}>
+                  <input type="checkbox" className="sr-only" checked={show.includes("open")} onChange={() => setShow(toggle(show, "open"))} />
+                  Open issues
+                </label>
+                <label className={chip}>
+                  <input type="checkbox" className="sr-only" checked={show.includes("fixed")} onChange={() => setShow(toggle(show, "fixed"))} />
+                  Fixed in the last 2 weeks
+                </label>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="label">How serious</legend>
+              <div className="flex flex-wrap gap-1.5">
+                {SEVERITIES.map((s) => (
+                  <label key={s} className={chip}>
+                    <input type="checkbox" className="sr-only" checked={severities.includes(s)} onChange={() => setSeverities(toggle(severities, s))} />
+                    <span aria-hidden className="size-2.5 rounded-full ring-[1.5px] ring-white" style={{ background: PIN_COLOR[s] }} />
+                    {SEVERITY_LABEL[s]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <div>
               <label htmlFor={catId} className="label">
                 Category
@@ -214,29 +182,6 @@ export function MapClient({ points, now, isStudent, googleMaps }: { points: MapP
                 ))}
               </select>
             </div>
-            <fieldset>
-              <legend className="label">Status</legend>
-              <div className="flex flex-wrap gap-1.5">
-                {STATUSES.map((s) => (
-                  <label key={s} className={chip}>
-                    <input type="checkbox" className="sr-only" checked={statuses.includes(s)} onChange={() => setStatuses(toggle(statuses, s))} />
-                    <span aria-hidden className="size-2 rounded-full ring-[1.5px] ring-white" style={{ background: STATUS_HEX[s] }} />
-                    {STATUS_LABEL[s]}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <fieldset>
-              <legend className="label">Severity</legend>
-              <div className="flex flex-wrap gap-1.5">
-                {SEVERITIES.map((s) => (
-                  <label key={s} className={chip}>
-                    <input type="checkbox" className="sr-only" checked={severities.includes(s)} onChange={() => setSeverities(toggle(severities, s))} />
-                    {SEVERITY_LABEL[s]}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
             <fieldset>
               <legend className="label">Layers</legend>
               <div className="flex flex-wrap gap-1.5">
@@ -255,7 +200,7 @@ export function MapClient({ points, now, isStudent, googleMaps }: { points: MapP
                 type="button"
                 className="text-sm font-bold text-navy hover:underline"
                 onClick={() => {
-                  setStatuses(OPEN_DEFAULT);
+                  setShow(["open"]);
                   setSeverities([...SEVERITIES]);
                   setCategory("ALL");
                 }}
@@ -263,18 +208,9 @@ export function MapClient({ points, now, isStudent, googleMaps }: { points: MapP
                 Reset filters
               </button>
             )}
-            <div className="hidden border-t border-line pt-4 md:block">
-              <p className="eyebrow mb-2">Pin color = status</p>
-              <ul className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-2">
-                {STATUSES.map((s) => (
-                  <li key={s} className="flex items-center gap-1.5">
-                    <span aria-hidden className="size-2.5 rounded-full" style={{ background: STATUS_HEX[s] }} />
-                    {STATUS_LABEL[s]}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-ink-3">Dashed red ring: emergency. Number: “me too” reports.</p>
-            </div>
+            <p className="hidden border-t border-line pt-4 text-[0.8125rem] leading-relaxed text-ink-3 md:block">
+              Pin color shows how serious an issue is; green means fixed. The number on a pin is how many people reported it. Heat shows where problems cluster.
+            </p>
           </div>
         </div>
       </aside>

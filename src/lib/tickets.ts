@@ -198,6 +198,7 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
         ownerUserId: studentOwned ? viewer.id : null,
         reporterId: viewer.id,
         createdAt: now,
+        updatedAt: now,
         responseDueAt: responseDueAt(now, severity),
       },
     });
@@ -346,7 +347,7 @@ export async function addMeToo(db: Db, viewer: Viewer, ticketId: string, now: Da
       create: { ticketId, userId: viewer.id, createdAt: now },
       update: {},
     });
-    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { meTooCount: { increment: 1 } } });
+    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { meTooCount: { increment: 1 }, updatedAt: now } });
     const count = updated.meTooCount;
 
     await tx.ticketEvent.create({
@@ -358,7 +359,7 @@ export async function addMeToo(db: Db, viewer: Viewer, ticketId: string, now: Da
     if (count === APP_CONFIG.meTooPriorityThreshold && raisedSeverity(current) !== current) {
       raisedTo = raisedSeverity(current);
       const dueAt = awaitingFirstResponse(updated) ? responseDueAt(updated.createdAt, raisedTo) : updated.responseDueAt;
-      await tx.ticket.update({ where: { id: ticketId }, data: { severity: raisedTo, responseDueAt: dueAt } });
+      await tx.ticket.update({ where: { id: ticketId }, data: { severity: raisedTo, responseDueAt: dueAt, updatedAt: now } });
       await tx.ticketEvent.create({
         data: {
           ticketId,
@@ -412,7 +413,7 @@ export async function confirmResolution(db: Db, viewer: Viewer, ticketId: string
   if (!canCloseOut(viewer, ticket)) throw new AppError("Only the student who reported this can confirm the fix.", "FORBIDDEN");
   if (ticket.status !== "RESOLVED") throw new AppError("You can confirm once staff mark this resolved.", "CONFLICT");
   return db.$transaction(async (tx) => {
-    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { status: "CONFIRMED", closedAt: now } });
+    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { status: "CONFIRMED", closedAt: now, updatedAt: now } });
     await tx.ticketEvent.create({
       data: { ticketId, type: "STATUS", fromStatus: "RESOLVED", toStatus: "CONFIRMED", message: "The reporter confirmed the fix", actorId: viewer.id, createdAt: now },
     });
@@ -439,6 +440,7 @@ export async function reopenTicket(db: Db, viewer: Viewer, ticketId: string, rea
         firstResponseAt: null,
         escalatedAt: null,
         responseDueAt: responseDueAt(now, ticket.severity as Severity),
+        updatedAt: now,
       },
     });
     await tx.ticketEvent.create({
@@ -502,6 +504,7 @@ export async function staffSetStatus(
         assigneeId,
         firstResponseAt: ticket.firstResponseAt ?? (isResponse ? now : null),
         resolvedAt: status === "RESOLVED" ? now : null,
+        updatedAt: now,
       },
     });
     const note = input.note?.trim();
@@ -535,7 +538,7 @@ export async function staffReassign(db: Db, viewer: Viewer, ticketId: string, de
   return db.$transaction(async (tx) => {
     const updated = await tx.ticket.update({
       where: { id: ticketId },
-      data: { department, assigneeId: null, status: isOpenStatus(ticket.status) ? "TRIAGED" : ticket.status },
+      data: { department, assigneeId: null, status: isOpenStatus(ticket.status) ? "TRIAGED" : ticket.status, updatedAt: now },
     });
     await tx.ticketEvent.create({
       data: {
@@ -579,7 +582,7 @@ export async function staffOverride(
   return db.$transaction(async (tx) => {
     const updated = await tx.ticket.update({
       where: { id: ticketId },
-      data: { category, severity, summary: summary.slice(0, 120), responseDueAt: dueAt, safetyFlag: severity === "EMERGENCY" ? ticket.safetyFlag : false },
+      data: { category, severity, summary: summary.slice(0, 120), responseDueAt: dueAt, safetyFlag: severity === "EMERGENCY" ? ticket.safetyFlag : false, updatedAt: now },
     });
     await tx.ticketEvent.create({
       data: {
@@ -603,7 +606,7 @@ export async function staffAddNote(db: Db, viewer: Viewer, ticketId: string, tex
     const updated = await tx.ticket.update({
       where: { id: ticketId },
       // A note the student can read counts as a first response.
-      data: { firstResponseAt: ticket.firstResponseAt ?? (internal ? null : now) },
+      data: { firstResponseAt: ticket.firstResponseAt ?? (internal ? null : now), updatedAt: now },
     });
     await tx.ticketEvent.create({ data: { ticketId, type: "NOTE", message: message.slice(0, 1000), internal, actorId: viewer.id, createdAt: now } });
     if (!internal) {
@@ -687,7 +690,7 @@ export async function runEscalationSweep(db: Db, now: Date): Promise<number> {
   for (const t of overdue) {
     await db.$transaction(async (tx) => {
       // Re-check inside the transaction so concurrent sweeps don't double-escalate.
-      const claimed = await tx.ticket.updateMany({ where: { id: t.id, escalatedAt: null }, data: { escalatedAt: now } });
+      const claimed = await tx.ticket.updateMany({ where: { id: t.id, escalatedAt: null }, data: { escalatedAt: now, updatedAt: now } });
       if (claimed.count === 0) return;
       const sups = await tx.user.findMany({ where: { role: "STAFF", department: t.department, isSupervisor: true }, select: { id: true, name: true } });
       const dept = DEPARTMENT_LABEL[t.department as Department];

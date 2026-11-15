@@ -24,7 +24,7 @@ export default async function QrPage({ searchParams }: { searchParams: Search })
           Staff print these and post them on rooms and equipment. Spotted one? Scan it with your camera and the report form opens with the location filled in.
         </p>
         <Link href="/report" className="btn btn-primary mt-6">
-          Report an issue
+          Report a problem
         </Link>
       </div>
     );
@@ -89,11 +89,8 @@ export default async function QrPage({ searchParams }: { searchParams: Search })
       <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-3">
         {labels.map((l) => (
           <li key={l.key} className="card break-inside-avoid overflow-hidden print:shadow-none">
-            <div className="flex items-center justify-between border-b border-line px-3 py-2">
-              <span className="flex items-center gap-1.5 font-display text-sm font-extrabold tracking-[-0.02em] text-ink">
-                <LogoMark className="size-5" /> Ramblin’ Repairs
-              </span>
-              <span className="text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-ink-3">Scan to report</span>
+            <div className="flex items-center gap-1.5 border-b border-line px-3 py-2 text-sm font-extrabold tracking-[-0.02em] text-navy">
+              <LogoMark className="size-5" /> Ramblin’ Repairs
             </div>
             <div className="p-3.5">
               <div
@@ -102,7 +99,8 @@ export default async function QrPage({ searchParams }: { searchParams: Search })
                 className="mx-auto aspect-square w-full max-w-40 [&_svg]:h-full [&_svg]:w-full"
                 dangerouslySetInnerHTML={{ __html: l.svg }}
               />
-              <p className="mt-3 font-bold leading-tight text-ink">{l.title}</p>
+              <p className="mt-2 text-center text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-ink-3">Scan to report a problem</p>
+              <p className="mt-2 font-bold leading-tight text-ink">{l.title}</p>
               <p className="mt-0.5 text-xs text-ink-3">{l.subtitle}</p>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className="num text-[0.6875rem] text-ink-3">{l.code}</span>

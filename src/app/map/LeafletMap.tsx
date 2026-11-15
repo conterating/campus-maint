@@ -1,18 +1,18 @@
 "use client";
 
-// OpenStreetMap renderer, used when no Google Maps key is configured.
-
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { HeatLayer } from "leaflet.heat";
 import { useEffect, useMemo, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { MapContainer, Marker, Popup, TileLayer, ZoomControl, useMap } from "react-leaflet";
-import { HEAT_STOPS, PinPopup, heatWeight, initialView, pinMarkup, pinTitle, pinZIndex } from "./shared";
 import type { MapPoint } from "./MapClient";
+import { HEAT_GRADIENT, Pin, PinPopup, heatWeight, initialView, pinLabel } from "./mapShared";
 
 function pinIcon(p: MapPoint): L.DivIcon {
-  const { html, width, height } = pinMarkup(p);
-  return L.divIcon({ html, className: "rr-pin", iconSize: [width, height], iconAnchor: [width / 2, height], popupAnchor: [0, -height * 0.9] });
+  const size = Math.min(40, 32 + p.meTooCount);
+  const h = size * 1.22;
+  return L.divIcon({ html: renderToStaticMarkup(<Pin p={p} />), className: "fx-pin", iconSize: [size, h], iconAnchor: [size / 2, h], popupAnchor: [0, -h * 0.9] });
 }
 
 function Heat({ points }: { points: MapPoint[] }) {
@@ -24,7 +24,7 @@ function Heat({ points }: { points: MapPoint[] }) {
       blur: 32,
       maxZoom: 17,
       minOpacity: 0.2,
-      gradient: Object.fromEntries(HEAT_STOPS.map((s) => [s.at, s.hex])),
+      gradient: HEAT_GRADIENT,
     });
     (layer as unknown as L.Layer).addTo(map);
     return () => {
@@ -43,12 +43,20 @@ export default function LeafletMap({ points, showPins, showHeat, now, isStudent 
 
   return (
     <MapContainer center={[view.center.lat, view.center.lng]} zoom={view.zoom} minZoom={14} maxZoom={19} scrollWheelZoom zoomControl={false} className="h-full w-full" keyboard>
-      <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
+      <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
       <ZoomControl position="bottomright" />
       {showHeat && points.length > 0 && <Heat points={points} />}
       {showPins &&
         ordered.map((p) => (
-          <Marker key={p.id} position={[p.lat, p.lng]} icon={icons.get(p.id)!} title={pinTitle(p)} alt={p.summary} keyboard zIndexOffset={pinZIndex(p)}>
+          <Marker
+            key={p.id}
+            position={[p.lat, p.lng]}
+            icon={icons.get(p.id)!}
+            title={pinLabel(p)}
+            alt={p.summary}
+            keyboard
+            zIndexOffset={p.severity === "EMERGENCY" ? 1000 : p.meTooCount * 10}
+          >
             <Popup>
               <PinPopup p={p} now={now} isStudent={isStudent} />
             </Popup>

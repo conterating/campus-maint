@@ -21,6 +21,8 @@ model Building {
   lng     Float
   floors  Int
   address String?
+  // Housing area for residence halls: EAST | WEST | NORTH_AVE | GRAD
+  area    String?
 
   spaces    Space[]
   assets    Asset[]

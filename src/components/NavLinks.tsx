@@ -34,7 +34,7 @@ export function TopNav({ role }: { role: Role }) {
       </ul>
       <Link href={report.href} aria-current={isActive(pathname, report.href) ? "page" : undefined} className="btn btn-accent btn-sm">
         <Plus aria-hidden className="size-4" strokeWidth={2.75} />
-        Report an issue
+        Report a problem
       </Link>
     </nav>
   );

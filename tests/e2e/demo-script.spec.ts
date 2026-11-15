@@ -72,7 +72,8 @@ test("3. staff update the student's ticket and the student is notified", async (
   await page.goto(ticketUrl);
   await page.getByRole("button", { name: "Yes, it's fixed" }).click();
   await expect(page.getByText("Thanks! Marked as confirmed.")).toBeVisible();
-  await expect(page.locator("li[aria-current=step]")).toHaveText("Confirmed (current)");
+  await expect(page.locator("li[aria-current=step]")).toContainText("Fixed (current)");
+  await expect(page.getByRole("heading", { name: "Fixed and confirmed" })).toBeVisible();
 });
 
 test("4. a second student hits the duplicate check on a public issue and says me too", async ({ page, context }) => {
@@ -121,4 +122,30 @@ test("5. an overdue ticket escalates to the supervisor when the clock moves forw
   await page.getByRole("link", { name: /Room 249 projector won't turn on/ }).first().click();
   await expect(page.getByText("Escalated", { exact: true })).toBeVisible();
   await expect(page.getByText(/No response within the 4-hour target\. Escalated to the IT supervisor \(Aisha R\.\)/)).toBeVisible();
+});
+
+test("the home page form carries the description and location into the report", async ({ page, context }) => {
+  await viewAs(context, "u-nia"); // Smith Residence Hall, Room 108
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: "What needs fixing?" })).toBeVisible();
+  await page.getByLabel("Describe the problem").fill("The ceiling light in my room flickers constantly.");
+  await expect(page.getByRole("radio", { name: /My room/ })).toBeChecked();
+  await page.getByRole("button", { name: /Continue/ }).click();
+
+  await expect(page).toHaveURL(/\/report\?/);
+  await expect(page.getByLabel("Building")).toHaveValue("b-smith");
+  await expect(page.getByLabel("Room or area (optional)")).toHaveValue("s-smh-108");
+  await expect(page.getByLabel("Describe the problem")).toHaveValue("The ceiling light in my room flickers constantly.");
+  await page.getByRole("button", { name: /Check and route it/ }).click();
+  await expect(page.getByRole("region", { name: "Here's how we'll route it" }).getByText("Housing Maintenance")).toBeVisible();
+});
+
+test("residents of any hall can report in their own hall, and only there", async ({ page, context }) => {
+  await viewAs(context, "u-kai"); // North Avenue West Apartments
+  await page.goto("/report");
+  const building = page.getByLabel("Building");
+  await expect(building.locator("optgroup[label='Where you live'] option")).toHaveText(["North Avenue West Apartments"]);
+  await expect(building.locator("option", { hasText: "Glenn Residence Hall" })).toHaveCount(0);
+  await building.selectOption("b-naw");
+  await expect(page.getByLabel("Room or area (optional)").locator("option", { hasText: "Laundry room" })).toHaveCount(1);
 });

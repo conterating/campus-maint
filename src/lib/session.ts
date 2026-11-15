@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { impersonationTarget } from "./impersonation";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ContractorProfile, StaffProfile, User } from "@prisma/client";
@@ -59,26 +59,7 @@ export function viewerFor(user: LoadedUser, impersonator: Viewer["impersonator"]
   };
 }
 
-function sign(value: string): string {
-  const secret = process.env.BETTER_AUTH_SECRET;
-  if (!secret) throw new Error("BETTER_AUTH_SECRET is not set");
-  return createHmac("sha256", secret).update(`rr-impersonate:${value}`).digest("base64url");
-}
-
-/** Cookie value binding the admin to the user they're viewing as. */
-export function impersonationValue(adminId: string, targetId: string): string {
-  return `${targetId}.${sign(`${adminId}:${targetId}`)}`;
-}
-
-function impersonationTarget(adminId: string, raw: string | undefined): string | null {
-  if (!raw) return null;
-  const dot = raw.lastIndexOf(".");
-  if (dot < 1) return null;
-  const targetId = raw.slice(0, dot);
-  const given = Buffer.from(raw.slice(dot + 1));
-  const expected = Buffer.from(sign(`${adminId}:${targetId}`));
-  return given.length === expected.length && timingSafeEqual(given, expected) ? targetId : null;
-}
+export { impersonationValue } from "./impersonation";
 
 const loadUser = (id: string) =>
   prisma.user.findUnique({ where: { id }, include: { staffProfile: true, contractorProfile: true } });
@@ -115,9 +96,14 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
   }
 
   let viewer = viewerFor(user);
-  if (user.role === "ADMIN" && demoModeEnabled()) {
-    const targetId = impersonationTarget(user.id, (await cookies()).get(IMPERSONATE_COOKIE)?.value);
-    const target = targetId && targetId !== user.id ? await loadUser(targetId) : null;
+  const targetId = impersonationTarget({
+    actorId: user.id,
+    actorRole: user.role,
+    demoMode: demoModeEnabled(),
+    cookie: (await cookies()).get(IMPERSONATE_COOKIE)?.value,
+  });
+  if (targetId) {
+    const target = await loadUser(targetId);
     if (target && target.role !== "ADMIN" && !target.disabledAt) viewer = viewerFor(target, { id: user.id, name: user.name });
   }
 
@@ -173,19 +159,8 @@ export async function getContext(): Promise<{ viewer: Viewer; now: Date }> {
   return { viewer, now: current };
 }
 
-/** Where each role lands after signing in. */
-export function homeFor(role: Role): string {
-  switch (role) {
-    case "CONTRACTOR":
-      return "/jobs";
-    case "STAFF":
-      return "/staff";
-    case "ADMIN":
-      return "/admin";
-    default:
-      return "/";
-  }
-}
+export { homeFor } from "./access";
+import { homeFor } from "./access";
 
 /** For server actions: throw FORBIDDEN unless the viewer has one of these roles. */
 export function requireRole(viewer: Viewer, ...roles: Role[]): Viewer {

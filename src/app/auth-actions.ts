@@ -7,24 +7,19 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { appUrl } from "@/lib/email";
 import { getActor, getViewer, homeFor } from "@/lib/session";
-import { signInBlockReason } from "@/lib/eligibility";
-import { canAccessPath } from "@/lib/access";
-import { recordLoginAttempt, lockedUntil } from "@/lib/lockout";
+import { afterSignIn, attemptLogin, errorCode, type FormResult, type LoginOutcome } from "@/lib/sign-in";
+import { registerStudent } from "@/lib/registration";
 import { acceptInvite, inviteTokenUser } from "@/lib/accounts";
 import { isRole } from "@/lib/domain";
 import {
-  LOGIN_ERROR,
   changePasswordSchema,
-  emailForUsername,
   enableTwoFactorSchema,
   fieldErrors,
   forgotPasswordSchema,
-  loginSchema,
   passwordProblem,
   profileSchema,
   residenceChangeSchema,
   resetPasswordSchema,
-  signupSchema,
   totpSchema,
   backupCodeSchema,
   type FieldErrors,
@@ -32,9 +27,7 @@ import {
   type SignupInput,
 } from "@/lib/auth-schemas";
 
-export type FormResult<T = undefined> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; fieldErrors?: FieldErrors; code?: string };
+export type { FormResult } from "@/lib/sign-in";
 
 const fail = (error: string, extra: { fieldErrors?: FieldErrors; code?: string } = {}): { ok: false; error: string; fieldErrors?: FieldErrors; code?: string } => ({
   ok: false,
@@ -42,82 +35,18 @@ const fail = (error: string, extra: { fieldErrors?: FieldErrors; code?: string }
   ...extra,
 });
 
-/** Better Auth APIError → its machine code, without exposing details to the user. */
-function errorCode(err: unknown): string | undefined {
-  const e = err as { body?: { code?: string }; status?: string | number };
-  return e?.body?.code;
-}
-
-function errorMessage(err: unknown): string | undefined {
-  return (err as { body?: { message?: string } })?.body?.message;
-}
-
-async function afterSignIn(userId: string, next: string | undefined): Promise<string> {
-  const user = await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
-  const role = isRole(user.role) ? user.role : "STUDENT";
-  if (role === "ADMIN" && !user.twoFactorEnabled) return "/account/security?enroll=1";
-  if (next && canAccessPath(role, next)) return next;
-  return homeFor(role);
-}
-
 // ---------------------------------------------------------------------------
 // Sign in
 // ---------------------------------------------------------------------------
 
-export type LoginOutcome = { redirectTo: string } | { twoFactor: true };
+export type { LoginOutcome } from "@/lib/sign-in";
 
 /**
  * Sign in with a username and password. The login tab only changes labels:
  * the redirect always comes from the role stored on the account.
  */
 export async function loginAction(input: LoginInput): Promise<FormResult<LoginOutcome>> {
-  const parsed = loginSchema.safeParse(input);
-  if (!parsed.success) {
-    const errs = fieldErrors(parsed.error);
-    // Missing fields get their own messages; anything else is the generic error.
-    if (errs.username === "Enter your username." || errs.password === "Enter your password.") return fail("Fix the errors below.", { fieldErrors: errs });
-    return fail(LOGIN_ERROR);
-  }
-  const { username, password, rememberMe, next } = parsed.data;
-
-  const until = await lockedUntil(prisma, username, new Date());
-  if (until) {
-    const mins = Math.max(1, Math.ceil((until.getTime() - Date.now()) / 60_000));
-    return fail(`Too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}, or reset your password.`, { code: "LOCKED" });
-  }
-
-  const user = await prisma.user.findUnique({ where: { username }, include: { contractorProfile: true } });
-  const blocked = user ? signInBlockReason(user, new Date()) : null;
-  if (blocked) {
-    // Same message as a wrong password; the reason stays in the server log.
-    console.warn(`[auth] sign-in refused for user ${user!.id}: ${blocked}`);
-    await recordLoginAttempt(prisma, username, false, blocked);
-    return fail(LOGIN_ERROR);
-  }
-
-  try {
-    const res = (await auth.api.signInUsername({ body: { username, password, rememberMe }, headers: await headers() })) as
-      | { twoFactorRedirect?: boolean; user?: { id: string } }
-      | null;
-    if (res && "twoFactorRedirect" in res && res.twoFactorRedirect) {
-      // Password was right; the session is created after the code step.
-      return { ok: true, data: { twoFactor: true } };
-    }
-    if (!res?.user) throw new Error("No user in sign-in response");
-    await recordLoginAttempt(prisma, username, true);
-    return { ok: true, data: { redirectTo: await afterSignIn(res.user.id, next) } };
-  } catch (err) {
-    const code = errorCode(err);
-    if (code === "EMAIL_NOT_VERIFIED") {
-      // Only reachable with the right password, so it doesn't reveal anything new.
-      return fail("Check your email to finish setting up your account.", { code: "EMAIL_NOT_VERIFIED" });
-    }
-    if (code !== "INVALID_USERNAME_OR_PASSWORD" && code !== "INVALID_USERNAME" && code !== "USERNAME_TOO_SHORT" && code !== "USERNAME_TOO_LONG") {
-      console.warn(`[auth] sign-in failed: ${code ?? (err instanceof Error ? err.name : "unknown")}`);
-    }
-    await recordLoginAttempt(prisma, username, false);
-    return fail(LOGIN_ERROR);
-  }
+  return attemptLogin(input, await headers());
 }
 
 /** Second step for accounts with two-factor sign-in. */
@@ -188,80 +117,7 @@ export async function signOutEverywhereAction(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function signupAction(input: SignupInput): Promise<FormResult<{ email: string }>> {
-  const parsed = signupSchema.safeParse(input);
-  if (!parsed.success) return fail("Fix the errors below.", { fieldErrors: fieldErrors(parsed.error) });
-  const v = parsed.data;
-
-  // Duplicates: same message shape either way, with links to sign in or reset.
-  const [byUsername, byGtId] = await Promise.all([
-    prisma.user.findUnique({ where: { username: v.username }, select: { id: true } }),
-    prisma.user.findUnique({ where: { gtId: v.gtId }, select: { id: true } }),
-  ]);
-  if (byUsername || byGtId) {
-    const which = byUsername ? "username" : "GT ID";
-    return fail(`An account already exists for this ${which}.`, {
-      code: "DUPLICATE",
-      fieldErrors: byUsername ? { username: "An account already exists for this username." } : { gtId: "An account already exists for this GT ID." },
-    });
-  }
-
-  // The room must be a real DORM_ROOM in the chosen residence hall.
-  if (v.residenceBuildingId) {
-    const hall = await prisma.building.findUnique({ where: { id: v.residenceBuildingId } });
-    if (!hall || hall.kind !== "RESIDENCE") return fail("Fix the errors below.", { fieldErrors: { residenceBuildingId: "Choose a residence hall from the list." } });
-    const room = v.roomId ? await prisma.space.findUnique({ where: { id: v.roomId } }) : null;
-    if (!room || room.buildingId !== hall.id || room.scope !== "DORM_ROOM") {
-      return fail("Fix the errors below.", { fieldErrors: { roomId: `Choose a room in ${hall.name}.` } });
-    }
-  }
-
-  const email = emailForUsername(v.username);
-  const name = `${v.preferredName || v.firstName} ${v.lastName}`;
-  try {
-    const res = await auth.api.signUpEmail({
-      body: {
-        name,
-        email,
-        password: v.password,
-        username: v.username,
-        displayUsername: v.username,
-        firstName: v.firstName,
-        lastName: v.lastName,
-        preferredName: v.preferredName,
-        gender: v.gender,
-        genderSelfDescribe: v.genderSelfDescribe,
-        studentYear: v.studentYear,
-        phone: v.phone,
-        callbackURL: "/login?verified=1",
-      },
-      headers: await headers(),
-    });
-    // Fields that can't come from client input are written by the server.
-    await prisma.user.update({
-      where: { id: res.user.id },
-      data: {
-        role: "STUDENT",
-        gtId: v.gtId,
-        residenceBuildingId: v.residenceBuildingId,
-        roomId: v.roomId,
-        residenceVerified: false,
-        termsAcceptedAt: new Date(),
-        avatarHue: Math.floor(Math.random() * 360),
-      },
-    });
-    return { ok: true, data: { email } };
-  } catch (err) {
-    const code = errorCode(err);
-    if (code === "PASSWORD_COMPROMISED") {
-      return fail("Fix the errors below.", { fieldErrors: { password: "That password has appeared in a data breach. Choose a different one." } });
-    }
-    if (code === "USERNAME_IS_ALREADY_TAKEN" || code === "USER_ALREADY_EXISTS" || code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
-      return fail("An account already exists for this username.", { code: "DUPLICATE", fieldErrors: { username: "An account already exists for this username." } });
-    }
-    if (code === "PASSWORD_TOO_SHORT" || code === "PASSWORD_TOO_LONG") return fail("Fix the errors below.", { fieldErrors: { password: errorMessage(err) ?? "Choose a different password." } });
-    console.error(`[auth] sign-up failed: ${code ?? (err instanceof Error ? err.message : "unknown")}`);
-    return fail("We couldn't create your account. Try again in a moment.");
-  }
+  return registerStudent(input, await headers());
 }
 
 // ---------------------------------------------------------------------------

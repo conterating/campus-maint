@@ -58,7 +58,7 @@ describe("dorm room issues", () => {
 
   it("are visible to all staff and the administrator", async () => {
     const roomTickets = await db.ticket.count({ where: { scope: "ROOM" } });
-    for (const id of ["u-terrence", "u-kevin", "u-grace", "u-elena"]) {
+    for (const id of ["u-linda", "u-aisha", "u-henry", "u-elena"]) {
       const v = await listVisibleTickets(db, as(id), { scope: "ROOM" });
       expect(v.length).toBe(roomTickets);
     }
@@ -122,9 +122,9 @@ describe("students who don't live in a dorm", () => {
 });
 
 describe("public building issues", () => {
-  it("are visible to every user", async () => {
+  it("are visible to every student and staff member", async () => {
     const publicCount = await db.ticket.count({ where: { scope: "PUBLIC" } });
-    for (const u of USERS) {
+    for (const u of USERS.filter((x) => x.role !== "CONTRACTOR")) {
       expect(await db.ticket.count({ where: visibleTickets(as(u.id), { scope: "PUBLIC" }) })).toBe(publicCount);
     }
   });
@@ -132,7 +132,8 @@ describe("public building issues", () => {
 
 describe("cross-cutting invariants", () => {
   it("the database filter and the in-memory check agree for every user and ticket", async () => {
-    const all = await db.ticket.findMany({ select: { id: true, scope: true, buildingId: true, spaceId: true } });
+    const all = await db.ticket.findMany({ select: { id: true, scope: true, buildingId: true, spaceId: true, reporterId: true, assigneeId: true } });
+    expect(new Set(USERS.map((u) => u.role))).toEqual(new Set(["STUDENT", "CONTRACTOR", "STAFF", "ADMIN"]));
     for (const u of USERS) {
       const viewer = as(u.id);
       const visible = new Set((await db.ticket.findMany({ where: visibleTickets(viewer), select: { id: true } })).map((t) => t.id));
@@ -164,10 +165,38 @@ describe("cross-cutting invariants", () => {
 
   it("students never see internal staff notes on a ticket", async () => {
     const t = await db.ticket.findFirstOrThrow({ where: { scope: "PUBLIC", status: "IN_PROGRESS" } });
-    await db.ticketEvent.create({ data: { ticketId: t.id, type: "NOTE", message: "INTERNAL: vendor quote $2,400", internal: true, actorId: "u-marcus", createdAt: now } });
+    await db.ticketEvent.create({ data: { ticketId: t.id, type: "NOTE", message: "INTERNAL: vendor quote $2,400", internal: true, actorId: "u-rosa", createdAt: now } });
     const studentView = await getTicketDetail(db, as("u-alex"), t.id);
-    const staffView = await getTicketDetail(db, as("u-marcus"), t.id);
+    const staffView = await getTicketDetail(db, as("u-rosa"), t.id);
     expect(studentView!.events.some((e) => e.message.includes("INTERNAL"))).toBe(false);
     expect(staffView!.events.some((e) => e.message.includes("INTERNAL"))).toBe(true);
+  });
+
+  it("contractors see only the tickets assigned to them, with the room details", async () => {
+    for (const u of USERS.filter((x) => x.role === "CONTRACTOR")) {
+      const visible = await listVisibleTickets(db, as(u.id));
+      const assigned = await db.ticket.count({ where: { assigneeId: u.id } });
+      expect(visible.length, u.id).toBe(assigned);
+      expect(visible.every((t) => t.assigneeId === u.id)).toBe(true);
+    }
+    const roomJob = await db.ticket.findFirstOrThrow({ where: { scope: "ROOM", assigneeId: "u-terrence" } });
+    const detail = await getTicketDetail(db, as("u-terrence"), roomJob.id);
+    expect(detail?.space?.label).toBeTruthy();
+    const notMine = await db.ticket.findFirstOrThrow({ where: { assigneeId: { not: "u-terrence" } } });
+    expect(await getTicketDetail(db, as("u-terrence"), notMine.id)).toBeNull();
+  });
+});
+
+describe("unverified residences", () => {
+  it("see only public tickets plus their own reports", async () => {
+    // Maya's room isn't confirmed: getViewer() drops her hall and room.
+    const unverified = { ...as("u-maya"), residenceVerified: false, residenceBuildingId: null, roomId: null };
+    const visible = await listVisibleTickets(db, unverified);
+    expect(visible.length).toBeGreaterThan(0);
+    for (const t of visible) expect(t.scope === "PUBLIC" || t.reporterId === "u-maya", t.id).toBe(true);
+    const own = await db.ticket.count({ where: { reporterId: "u-maya" } });
+    expect(visible.filter((t) => t.reporterId === "u-maya").length).toBe(own);
+    const roommateReport = await db.ticket.findFirstOrThrow({ where: { scope: "ROOM", spaceId: "s-gln-214", reporterId: { not: "u-maya" } } }).catch(() => null);
+    if (roommateReport) expect(await getTicketDetail(db, unverified, roommateReport.id)).toBeNull();
   });
 });

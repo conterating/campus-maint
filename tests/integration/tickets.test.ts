@@ -5,6 +5,8 @@ import { as, db, reseed } from "../support/db";
 import {
   addMeToo,
   confirmResolution,
+  contractorFinishWork,
+  contractorStartWork,
   createTicket,
   findDuplicates,
   getTicketDetail,
@@ -59,9 +61,9 @@ describe("createTicket", () => {
     expect(t.events.map((e) => e.toStatus)).toEqual(["SUBMITTED", "TRIAGED"]);
     expect(t.events[1].message).toMatch(/Plumbing & leaks · Urgent · routed to Housing Maintenance/);
 
-    // Housing staff hear about it; nobody outside the room does.
+    // Housing staff hear about it (contractors only once it's assigned to them); nobody outside the room does.
     const notified = (await db.notification.findMany({ where: { ticketId: id } })).map((n) => n.userId).sort();
-    expect(notified).toEqual(["u-linda", "u-terrence"]);
+    expect(notified).toEqual(["u-linda"]);
     expect(await getTicketDetail(db, as("u-jordan"), id)).not.toBeNull();
     expect(await getTicketDetail(db, as("u-ethan"), id)).toBeNull();
   });
@@ -219,41 +221,46 @@ describe("follow", () => {
 });
 
 describe("staff actions", () => {
-  it("assigning records the first response and stops the countdown", async () => {
+  it("assigning to a contractor records the first response and tells the student and the contractor", async () => {
     const { id } = await createTicket(db, as("u-maya"), leakInMayasRoom, now);
-    await staffSetStatus(db, as("u-terrence"), id, { status: "ASSIGNED" }, later(1));
+    await staffSetStatus(db, as("u-linda"), id, { status: "ASSIGNED", assigneeId: "u-terrence" }, later(1));
     const t = await db.ticket.findUniqueOrThrow({ where: { id } });
     expect(t).toMatchObject({ status: "ASSIGNED", assigneeId: "u-terrence" });
     expect(t.firstResponseAt).toEqual(later(1));
     const note = await db.notification.findFirstOrThrow({ where: { ticketId: id, userId: "u-maya" } });
-    expect(note.message).toMatch(/now assigned \(Terrence W\.\)/);
+    expect(note.message).toMatch(/A contractor \(Terrence W\.\) is assigned/);
+    expect(await db.notification.count({ where: { ticketId: id, userId: "u-terrence", message: { startsWith: "New job" } } })).toBe(1);
   });
 
-  it("moves through in progress and resolved, notifying owner and followers", async () => {
+  it("the contractor's work log moves it through in progress and resolved, notifying owner and followers", async () => {
     const { id } = await createTicket(db, as("u-maya"), leakInMayasRoom, now);
     await setFollow(db, as("u-jordan"), id, true, now);
-    await staffSetStatus(db, as("u-terrence"), id, { status: "ASSIGNED" }, later(1));
-    await staffSetStatus(db, as("u-terrence"), id, { status: "IN_PROGRESS", note: "Replacing the trap" }, later(2));
-    await staffSetStatus(db, as("u-terrence"), id, { status: "RESOLVED" }, later(3));
-    const t = await db.ticket.findUniqueOrThrow({ where: { id }, include: { events: { orderBy: { createdAt: "asc" } } } });
+    await staffSetStatus(db, as("u-linda"), id, { status: "ASSIGNED", assigneeId: "u-terrence" }, later(1));
+    await contractorStartWork(db, as("u-terrence"), id, "Replacing the trap", later(2));
+    await contractorFinishWork(db, as("u-terrence"), id, { materials: "P-trap", materialsCost: 18.5, notes: "Replaced the trap" }, later(3));
+    const t = await db.ticket.findUniqueOrThrow({ where: { id }, include: { events: { orderBy: { createdAt: "asc" } }, workLogs: true } });
     expect(t.events.map((e) => e.toStatus)).toEqual(["SUBMITTED", "TRIAGED", "ASSIGNED", "IN_PROGRESS", "RESOLVED"]);
-    expect(t.events[3].message).toBe("In progress — Replacing the trap");
+    expect(t.events[3].message).toBe("Work started — Replacing the trap");
     expect(t.resolvedAt).toEqual(later(3));
+    expect(t.workLogs).toHaveLength(1);
+    expect(t.workLogs[0]).toMatchObject({ startedAt: later(2), endedAt: later(3), minutes: 60, roomEnteredAt: later(2), roomExitedAt: later(3), materials: "P-trap", materialsCost: 18.5, laborCost: 52 });
     for (const who of ["u-maya", "u-jordan"]) {
       const msgs = (await db.notification.findMany({ where: { ticketId: id, userId: who } })).map((n) => n.message);
       expect(msgs).toHaveLength(3);
+      expect(msgs.some((m) => /Work has started/.test(m))).toBe(true);
       expect(msgs.some((m) => /resolved\. Check it and confirm/.test(m))).toBe(true);
     }
-    // The staff member who acted isn't notified about their own change.
-    expect(await db.notification.count({ where: { ticketId: id, userId: "u-terrence", createdAt: { gt: now } } })).toBe(0);
+    // The contractor isn't notified about their own changes.
+    expect(await db.notification.count({ where: { ticketId: id, userId: "u-terrence", createdAt: { gt: later(1) } } })).toBe(0);
   });
 
-  it("blocks staff from other departments and students", async () => {
+  it("blocks staff from other departments, contractors, and students", async () => {
     const { id } = await createTicket(db, as("u-maya"), leakInMayasRoom, now);
-    await expect(staffSetStatus(db, as("u-kevin"), id, { status: "ASSIGNED" }, now)).rejects.toThrow(/belongs to Housing Maintenance/);
+    await expect(staffSetStatus(db, as("u-aisha"), id, { status: "ASSIGNED" }, now)).rejects.toThrow(/belongs to Housing Maintenance/);
     await expect(staffSetStatus(db, as("u-maya"), id, { status: "RESOLVED" }, now)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(staffSetStatus(db, as("u-terrence"), id, { status: "ASSIGNED", assigneeId: "u-kevin" }, now)).rejects.toThrow(/department/);
-    await expect(staffSetStatus(db, as("u-terrence"), id, { status: "CONFIRMED" }, now)).rejects.toThrow(/valid status/);
+    await expect(staffSetStatus(db, as("u-terrence"), id, { status: "RESOLVED" }, now)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(staffSetStatus(db, as("u-linda"), id, { status: "ASSIGNED", assigneeId: "u-kevin" }, now)).rejects.toThrow(/department/);
+    await expect(staffSetStatus(db, as("u-linda"), id, { status: "CONFIRMED" }, now)).rejects.toThrow(/valid status/);
   });
 
   it("lets the administrator act on any department's tickets", async () => {
@@ -264,32 +271,32 @@ describe("staff actions", () => {
 
   it("reassigns to another department, which takes over the queue", async () => {
     const { id } = await createTicket(db, as("u-maya"), { ...leakInMayasRoom, description: "Ethernet port in the wall is dead", category: "ELECTRICAL", severity: "STANDARD" }, now);
-    await staffReassign(db, as("u-terrence"), id, "IT", "Network port, not electrical", later(1));
+    await staffReassign(db, as("u-linda"), id, "IT", "Network port, not electrical", later(1));
     const t = await db.ticket.findUniqueOrThrow({ where: { id } });
     expect(t).toMatchObject({ department: "IT", status: "TRIAGED", assigneeId: null });
     const itNotified = await db.notification.findMany({ where: { ticketId: id, userId: { in: ["u-kevin", "u-aisha"] } } });
-    expect(itNotified.length).toBe(2);
-    await expect(staffSetStatus(db, as("u-terrence"), id, { status: "ASSIGNED" }, later(2))).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await staffSetStatus(db, as("u-kevin"), id, { status: "ASSIGNED" }, later(2));
+    expect(itNotified.map((n) => n.userId)).toEqual(["u-aisha"]);
+    await expect(staffSetStatus(db, as("u-linda"), id, { status: "ASSIGNED" }, later(2))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await staffSetStatus(db, as("u-aisha"), id, { status: "ASSIGNED" }, later(2));
   });
 
   it("overrides the classification and recomputes the response target", async () => {
     const t = await ticketBySummary("Loud projector fan"); // LOW, awaiting response
-    await staffOverride(db, as("u-kevin"), t.id, { severity: "URGENT", category: "AV_TECH", reason: "Exam in this room tomorrow" }, now);
+    await staffOverride(db, as("u-aisha"), t.id, { severity: "URGENT", category: "AV_TECH", reason: "Exam in this room tomorrow" }, now);
     const u = await db.ticket.findUniqueOrThrow({ where: { id: t.id }, include: { events: { where: { type: "OVERRIDE" } } } });
     expect(u.severity).toBe("URGENT");
     expect(u.aiSeverity).toBe("LOW"); // the AI's verdict is preserved
     expect(u.responseDueAt.getTime()).toBe(u.createdAt.getTime() + 4 * H);
     expect(u.events[0].message).toMatch(/severity Low → Urgent — Exam in this room tomorrow/);
-    await expect(staffOverride(db, as("u-kevin"), t.id, { severity: "URGENT" }, now)).rejects.toThrow(/Nothing changed/);
+    await expect(staffOverride(db, as("u-aisha"), t.id, { severity: "URGENT" }, now)).rejects.toThrow(/Nothing changed/);
   });
 
   it("public notes count as a response; internal notes don't and stay hidden", async () => {
     const { id } = await createTicket(db, as("u-maya"), leakInMayasRoom, now);
-    await staffAddNote(db, as("u-terrence"), id, "Parts on order from vendor", true, later(1));
+    await staffAddNote(db, as("u-linda"), id, "Parts on order from vendor", true, later(1));
     expect((await db.ticket.findUniqueOrThrow({ where: { id } })).firstResponseAt).toBeNull();
     expect(await db.notification.count({ where: { ticketId: id, userId: "u-maya" } })).toBe(0);
-    await staffAddNote(db, as("u-terrence"), id, "We'll be there by 3pm", false, later(2));
+    await staffAddNote(db, as("u-linda"), id, "We'll be there by 3pm", false, later(2));
     expect((await db.ticket.findUniqueOrThrow({ where: { id } })).firstResponseAt).toEqual(later(2));
     const studentView = await getTicketDetail(db, as("u-maya"), id);
     expect(studentView!.events.map((e) => e.message)).toContain("We'll be there by 3pm");
@@ -300,8 +307,9 @@ describe("staff actions", () => {
 describe("student close-out", () => {
   async function resolvedLeak() {
     const { id } = await createTicket(db, as("u-maya"), leakInMayasRoom, now);
-    await staffSetStatus(db, as("u-terrence"), id, { status: "ASSIGNED" }, later(1));
-    await staffSetStatus(db, as("u-terrence"), id, { status: "RESOLVED" }, later(2));
+    await staffSetStatus(db, as("u-linda"), id, { status: "ASSIGNED", assigneeId: "u-terrence" }, later(1));
+    await contractorStartWork(db, as("u-terrence"), id, null, later(1.5));
+    await contractorFinishWork(db, as("u-terrence"), id, {}, later(2));
     return id;
   }
 
@@ -354,7 +362,7 @@ describe("escalation", () => {
 
   it("doesn't escalate tickets that got a response in time", async () => {
     const t = await ticketBySummary("Room 249 projector");
-    await staffSetStatus(db, as("u-kevin"), t.id, { status: "ASSIGNED" }, later(0.5));
+    await staffSetStatus(db, as("u-aisha"), t.id, { status: "ASSIGNED", assigneeId: "u-kevin" }, later(0.5));
     await runEscalationSweep(db, later(10));
     const u = await db.ticket.findUniqueOrThrow({ where: { id: t.id } });
     expect(u.escalatedAt).toBeNull();

@@ -16,3 +16,17 @@ export function canAccessPath(role: Role, path: string): boolean {
   if (/^\/(login|signup|forgot-password|reset-password|invite|api)(\/|$)/.test(pathname)) return false;
   return ROLE_PREFIXES[role].some((p) => (p === "/" ? pathname === "/" : pathname === p || pathname.startsWith(`${p}/`)));
 }
+
+/** Where each role lands after signing in. */
+export function homeFor(role: Role): string {
+  switch (role) {
+    case "CONTRACTOR":
+      return "/jobs";
+    case "STAFF":
+      return "/staff";
+    case "ADMIN":
+      return "/admin";
+    default:
+      return "/";
+  }
+}

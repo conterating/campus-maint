@@ -53,21 +53,26 @@ describe("ticketVisibilityWhere", () => {
 
   it("limits a resident to public, their hall, and their room", () => {
     expect(ticketVisibilityWhere(student())).toEqual({
-      OR: [{ scope: "PUBLIC" }, { scope: "DORM", buildingId: "b-glenn" }, { scope: "ROOM", spaceId: "s-gln-214" }],
+      OR: [{ scope: "PUBLIC" }, { reporterId: "s1" }, { scope: "DORM", buildingId: "b-glenn" }, { scope: "ROOM", spaceId: "s-gln-214" }],
     });
   });
 
+  it("limits a contractor to tickets assigned to them", () => {
+    expect(ticketVisibilityWhere(student({ id: "c1", role: "CONTRACTOR", residenceBuildingId: null, roomId: null }))).toEqual({ assigneeId: "c1" });
+  });
+
   it("limits an off-campus student to public tickets only", () => {
-    expect(ticketVisibilityWhere(student({ residenceBuildingId: null, roomId: null }))).toEqual({ OR: [{ scope: "PUBLIC" }] });
+    expect(ticketVisibilityWhere(student({ residenceBuildingId: null, roomId: null }))).toEqual({ OR: [{ scope: "PUBLIC" }, { reporterId: "s1" }] });
   });
 });
 
 describe("canView", () => {
-  const roomTicket = { scope: "ROOM", buildingId: "b-glenn", spaceId: "s-gln-214" };
-  const otherRoom = { scope: "ROOM", buildingId: "b-glenn", spaceId: "s-gln-309" };
-  const glennShared = { scope: "DORM", buildingId: "b-glenn", spaceId: "s-gln-2bath" };
-  const towersShared = { scope: "DORM", buildingId: "b-towers", spaceId: "s-twr-3hall" };
-  const library = { scope: "PUBLIC", buildingId: "b-library", spaceId: null };
+  const who = { reporterId: "someone-else", assigneeId: null as string | null };
+  const roomTicket = { scope: "ROOM", buildingId: "b-glenn", spaceId: "s-gln-214", ...who };
+  const otherRoom = { scope: "ROOM", buildingId: "b-glenn", spaceId: "s-gln-309", ...who };
+  const glennShared = { scope: "DORM", buildingId: "b-glenn", spaceId: "s-gln-2bath", ...who };
+  const towersShared = { scope: "DORM", buildingId: "b-towers", spaceId: "s-twr-3hall", ...who };
+  const library = { scope: "PUBLIC", buildingId: "b-library", spaceId: null, ...who };
 
   it("matches the server filter for residents, outsiders, and staff", () => {
     const resident = student();
@@ -85,8 +90,20 @@ describe("canView", () => {
     expect([roomTicket, otherRoom, glennShared, towersShared, library].every((t) => canView(staff, t))).toBe(true);
   });
 
+  it("always shows students their own reports, even in a room they no longer have", () => {
+    const moved = student({ residenceBuildingId: null, roomId: null });
+    expect(canView(moved, { ...otherRoom, reporterId: "s1" })).toBe(true);
+  });
+
+  it("shows contractors only their assigned tickets", () => {
+    const c = student({ id: "c1", role: "CONTRACTOR", residenceBuildingId: null, roomId: null });
+    expect(canView(c, library)).toBe(false);
+    expect(canView(c, { ...roomTicket, assigneeId: "c1" })).toBe(true);
+    expect(canView(c, { ...roomTicket, assigneeId: "c2" })).toBe(false);
+  });
+
   it("denies unknown scopes", () => {
-    expect(canView(student(), { scope: "SECRET", buildingId: "b-glenn", spaceId: null })).toBe(false);
+    expect(canView(student(), { scope: "SECRET", buildingId: "b-glenn", spaceId: null, ...who })).toBe(false);
   });
 });
 
@@ -108,6 +125,14 @@ describe("canReportAt", () => {
     const otherRoom = canReportAt(s, loc("RESIDENCE", "b-glenn", "DORM_ROOM", "s-gln-309"));
     expect(otherRoom).toEqual({ ok: false, reason: expect.stringMatching(/your own room/) });
     expect(canReportAt(student({ residenceBuildingId: null, roomId: null }), loc("RESIDENCE", "b-glenn", "DORM_SHARED", "s-gln-2bath")).ok).toBe(false);
+  });
+
+  it("doesn't let contractors file reports, or unverified students report in a hall", () => {
+    const c = student({ role: "CONTRACTOR", residenceBuildingId: null, roomId: null });
+    expect(canReportAt(c, loc("LIBRARY", "b-library", "PUBLIC", "s-lib-2study")).ok).toBe(false);
+    const unverified = student({ residenceVerified: false, residenceBuildingId: null, roomId: null });
+    expect(canReportAt(unverified, loc("RESIDENCE", "b-glenn", "DORM_SHARED", "s-gln-2bath"))).toEqual({ ok: false, reason: expect.stringMatching(/Housing is confirming/) });
+    expect(canReportAt(unverified, loc("LIBRARY", "b-library", "PUBLIC", "s-lib-2study")).ok).toBe(true);
   });
 
   it("lets staff report anywhere", () => {

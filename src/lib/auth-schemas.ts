@@ -163,7 +163,13 @@ export const signupSchema = z
       ctx.addIssue({ code: "custom", path: ["genderSelfDescribe"], message: "Describe your gender, or choose another option." });
     }
   })
-  .transform(({ confirmPassword: _c, acceptTerms: _t, ...v }) => ({
+  .transform((all) => {
+    const v = { ...all } as Partial<typeof all>;
+    delete v.confirmPassword;
+    delete v.acceptTerms;
+    return v as Omit<typeof all, "confirmPassword" | "acceptTerms">;
+  })
+  .transform((v) => ({
     ...v,
     genderSelfDescribe: v.gender === "SELF_DESCRIBE" ? v.genderSelfDescribe : undefined,
     residenceBuildingId: v.residenceBuildingId === OFF_CAMPUS ? null : v.residenceBuildingId,

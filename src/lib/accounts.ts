@@ -346,7 +346,8 @@ export async function createContractor(db: Db, actor: Viewer, input: unknown) {
       contractorProfile: { create: { contractorId: v.contractorId, availability: "OFF_DUTY", ...data } },
     },
   });
-  const { hourlyRate: _rate, ...visible } = data;
+  // Pay rates stay out of the audit trail; only admins see them.
+  const visible = { ...data, hourlyRate: undefined };
   await writeAudit(db, { actorId: actor.id, action: "CONTRACTOR_CREATED", targetType: "User", targetId: user.id, after: { contractorId: v.contractorId, ...visible } });
   await sendInvite(db, actor.id, user.id);
   return user;

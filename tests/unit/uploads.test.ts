@@ -1,4 +1,4 @@
-// Photo storage: the local folder by default, Vercel Blob when a Blob token is set.
+// Photo storage: the local folder by default, Vercel Blob when a Blob store is connected.
 // Blob is replaced by an in-memory fake, so this runs offline.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -48,6 +48,14 @@ describe("photo storage on Vercel Blob", () => {
     vi.stubEnv("BLOB_ACCESS", "public");
     const saved = await savePhoto(file(PNG));
     expect(store.get(`uploads/${saved.url.split("/").pop()}`)?.access).toBe("public");
+  });
+
+  it("turns Blob on for newer stores, which set BLOB_STORE_ID instead of a read-write token", async () => {
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    vi.stubEnv("BLOB_STORE_ID", "store_fake");
+    const saved = await savePhoto(file(PNG));
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(store.get(`uploads/${saved.url.split("/").pop()}`)?.access).toBe("private");
   });
 
   it("returns nothing for missing photos and names that aren't ours", async () => {

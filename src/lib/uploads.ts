@@ -9,9 +9,11 @@ import { get, put } from "@vercel/blob";
 // Where photos are kept:
 //   Locally: the uploads/ folder. They live outside /public because
 //     `next start` only serves files that existed at build time.
-//   On Vercel: Vercel Blob, when BLOB_READ_WRITE_TOKEN is set (connecting a
-//     Blob store to the project sets it). Vercel's filesystem is read-only and
-//     not shared between requests, so the folder can't work there.
+//   On Vercel: Vercel Blob, when a Blob store is connected to the project.
+//     Newer stores set BLOB_STORE_ID, and @vercel/blob logs in with the OIDC
+//     token Vercel provides at runtime; older ones set BLOB_READ_WRITE_TOKEN.
+//     Either one turns Blob on. Vercel's filesystem is read-only and not
+//     shared between requests, so the folder can't work there.
 //
 // Either way the app links to /uploads/<uuid>.<ext> and
 // src/app/uploads/[file]/route.ts serves the bytes, so stored URLs, the URL
@@ -24,7 +26,7 @@ import { get, put } from "@vercel/blob";
 export const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 function blobAccess(): "private" | "public" | null {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) return null;
   return process.env.BLOB_ACCESS === "public" ? "public" : "private";
 }
 

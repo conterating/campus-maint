@@ -12,6 +12,7 @@ const env = {
   TURSO_DATABASE_URL: "",
   TURSO_AUTH_TOKEN: "",
   BLOB_READ_WRITE_TOKEN: "",
+  BLOB_STORE_ID: "",
   PORT: String(PORT),
 };
 

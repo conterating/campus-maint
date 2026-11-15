@@ -48,7 +48,7 @@ Locally the app keeps its data in a SQLite file and photos in `uploads/`. Vercel
 
 1. **Import the repo** in Vercel (Add New → Project). Framework preset **Next.js**; leave the root directory, build command (`npm run build` already runs `prisma generate`), output and install settings at their defaults.
 2. **Add a database:** in the project, Storage → Marketplace → **Turso Cloud** → create a database and connect it to the project. Pick a region close to your Vercel functions' region (Settings → Functions); every query is a round trip. This sets `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
-3. **Add photo storage:** Storage → **Blob** → create a store, choose **Private** access, and connect it to the project. This sets `BLOB_READ_WRITE_TOKEN`. (If you chose Public, also add `BLOB_ACCESS=public`.)
+3. **Add photo storage:** Storage → **Blob** → create a store, choose **Private** access, and connect it to the project. This sets `BLOB_STORE_ID` (or `BLOB_READ_WRITE_TOKEN` on older stores); either one works. (If you chose Public, also add `BLOB_ACCESS=public`.)
 4. **Add environment variables** (Settings → Environment Variables):
    - `TRIAGE_SIGNING_SECRET`: **required.** A long random string (`openssl rand -hex 32`). Without it, Vercel's separate function instances can't verify each other's signatures, and reports quietly record the keyword classification instead of Claude's.
    - `ANTHROPIC_API_KEY` (optional): turns on Claude triage.
@@ -138,7 +138,7 @@ Students can also only *file* reports in public buildings, their own hall's shar
 ## Testing
 
 ```bash
-npm test             # unit + integration (Vitest): 184 tests, ~25 s
+npm test             # unit + integration (Vitest): 185 tests, ~25 s
 npm run test:e2e     # browser tests (Playwright): 34 scenarios × phone and desktop
 npm run test:all     # typecheck, lint, Vitest, Playwright
 ```

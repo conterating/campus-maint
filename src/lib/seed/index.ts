@@ -226,11 +226,31 @@ function contractorFor(department: string): Viewer {
 
 type Op = { at: number; order: number; run: () => Promise<void> };
 
-export async function seedDatabase(db: PrismaClient, opts: { now?: Date; quiet?: boolean } = {}) {
+export async function seedDatabase(db: PrismaClient, opts: { now?: Date; quiet?: boolean; preserveUserId?: string } = {}) {
   const now = opts.now ?? new Date();
   const nowMs = now.getTime();
+  // "Reset demo data" keeps the signed-in admin's session, password and
+  // authenticator, so they stay signed in and can sign in again afterwards.
+  const keep = opts.preserveUserId
+    ? await Promise.all([
+        db.session.findMany({ where: { userId: opts.preserveUserId } }),
+        db.account.findMany({ where: { userId: opts.preserveUserId } }),
+        db.twoFactor.findMany({ where: { userId: opts.preserveUserId } }),
+        db.user.findUnique({ where: { id: opts.preserveUserId }, select: { twoFactorEnabled: true } }),
+      ])
+    : null;
   await wipeDatabase(db);
   await seedReferenceData(db, now);
+  if (keep && USERS.some((u) => u.id === opts.preserveUserId)) {
+    const [sessions, accounts, factors, flags] = keep;
+    const id = opts.preserveUserId!;
+    await db.account.deleteMany({ where: { userId: id } });
+    await db.twoFactor.deleteMany({ where: { userId: id } });
+    if (accounts.length) await db.account.createMany({ data: accounts });
+    if (factors.length) await db.twoFactor.createMany({ data: factors });
+    if (sessions.length) await db.session.createMany({ data: sessions });
+    await db.user.update({ where: { id }, data: { twoFactorEnabled: flags?.twoFactorEnabled ?? false } });
+  }
 
   const ops: Op[] = [];
   TICKETS.forEach((spec, i) => planTicket(db, spec, i, nowMs, ops));

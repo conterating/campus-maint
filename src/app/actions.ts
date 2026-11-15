@@ -4,9 +4,11 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { advanceClock, now, resetClock } from "@/lib/clock";
-import { DEFAULT_VIEWER_ID, getViewer, VIEWER_COOKIE } from "@/lib/session";
+import { demoModeEnabled, getActor, getViewer, homeFor, IMPERSONATE_COOKIE, impersonationValue, requireRole } from "@/lib/session";
 import { AppError, toActionError, type ActionResult } from "@/lib/errors";
-import { canReportAt, isStaff } from "@/lib/visibility";
+import { canReportAt } from "@/lib/visibility";
+import { writeAudit } from "@/lib/audit";
+import { finishWorkSchema } from "@/lib/auth-schemas";
 import { triage, type TriageResult } from "@/lib/triage";
 import { classifyByKeywords } from "@/lib/triage/keywords";
 import { hashDescription, signVerdict, verifyVerdict } from "@/lib/triage/token";
@@ -16,6 +18,10 @@ import { locationTypeFor } from "@/lib/domain";
 import {
   addMeToo,
   confirmResolution,
+  contractorAddNote,
+  contractorFinishWork,
+  contractorSetAvailability,
+  contractorStartWork,
   createTicket,
   findDuplicates,
   locationLabel,
@@ -33,37 +39,98 @@ import { seedDatabase } from "@/lib/seed";
 const refreshAll = () => revalidatePath("/", "layout");
 
 // ---------------------------------------------------------------------------
-// Demo controls
+// Demo controls: only for a signed-in ADMIN, and only when DEMO_MODE=true
 // ---------------------------------------------------------------------------
 
+async function demoAdmin() {
+  if (!demoModeEnabled()) throw new AppError("Demo controls are turned off.", "FORBIDDEN");
+  const actor = await getActor();
+  if (actor.role !== "ADMIN") throw new AppError("Only an administrator can use demo controls.", "FORBIDDEN");
+  return actor;
+}
+
+/** "View as": impersonate a student, contractor or staff member through a signed cookie. */
 export async function switchViewer(userId: string): Promise<ActionResult<{ home: string }>> {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return { ok: false, error: "That demo user doesn't exist. Reset the demo data." };
-  (await cookies()).set(VIEWER_COOKIE, user.id, { path: "/", sameSite: "lax", httpOnly: true, maxAge: 60 * 60 * 24 * 30 });
-  refreshAll();
-  return { ok: true, data: { home: user.role === "ADMIN" ? "/admin" : user.role === "STAFF" ? "/staff" : "/" } };
+  try {
+    const admin = await demoAdmin();
+    const jar = await cookies();
+    if (userId === admin.id) {
+      if (jar.get(IMPERSONATE_COOKIE)) {
+        jar.delete(IMPERSONATE_COOKIE);
+        await writeAudit(prisma, { actorId: admin.id, action: "IMPERSONATION_STOPPED", targetType: "User", targetId: admin.id });
+      }
+      refreshAll();
+      return { ok: true, data: { home: "/admin" } };
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return { ok: false, error: "That demo user doesn't exist. Reset the demo data." };
+    if (user.role === "ADMIN") return { ok: false, error: "You can't view as another administrator." };
+    jar.set(IMPERSONATE_COOKIE, impersonationValue(admin.id, user.id), {
+      path: "/",
+      sameSite: "lax",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 8,
+    });
+    await writeAudit(prisma, { actorId: admin.id, action: "IMPERSONATION_STARTED", targetType: "User", targetId: user.id, after: { role: user.role } });
+    refreshAll();
+    return { ok: true, data: { home: homeFor(user.role as never) } };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+export async function stopImpersonating(): Promise<ActionResult<{ home: string }>> {
+  try {
+    const admin = await getActor();
+    const jar = await cookies();
+    if (jar.get(IMPERSONATE_COOKIE)) {
+      jar.delete(IMPERSONATE_COOKIE);
+      if (admin.role === "ADMIN") await writeAudit(prisma, { actorId: admin.id, action: "IMPERSONATION_STOPPED", targetType: "User", targetId: admin.id });
+    }
+    refreshAll();
+    return { ok: true, data: { home: "/demo" } };
+  } catch (err) {
+    return toActionError(err);
+  }
 }
 
 export async function fastForward(hours: number): Promise<ActionResult<{ escalated: number }>> {
-  if (![0.5, 1, 4, 24, 48].includes(hours)) return { ok: false, error: "Pick one of the fast-forward options." };
-  await advanceClock(hours * 3_600_000);
-  const escalated = await runEscalationSweep(prisma, await now());
-  refreshAll();
-  return { ok: true, data: { escalated } };
+  try {
+    await demoAdmin();
+    if (![0.5, 1, 4, 24, 48].includes(hours)) return { ok: false, error: "Pick one of the fast-forward options." };
+    await advanceClock(hours * 3_600_000);
+    const escalated = await runEscalationSweep(prisma, await now());
+    refreshAll();
+    return { ok: true, data: { escalated } };
+  } catch (err) {
+    return toActionError(err);
+  }
 }
 
 export async function resetDemoClock(): Promise<ActionResult> {
-  await resetClock();
-  refreshAll();
-  return { ok: true, data: undefined };
+  try {
+    await demoAdmin();
+    await resetClock();
+    refreshAll();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return toActionError(err);
+  }
 }
 
 export async function resetDemoData(): Promise<ActionResult> {
-  await seedDatabase(prisma, { quiet: true });
-  const jar = await cookies();
-  if (!jar.get(VIEWER_COOKIE)) jar.set(VIEWER_COOKIE, DEFAULT_VIEWER_ID, { path: "/", sameSite: "lax", httpOnly: true });
-  refreshAll();
-  return { ok: true, data: undefined };
+  try {
+    const admin = await demoAdmin();
+    // Keep the admin's own session, password and authenticator so they stay signed in.
+    await seedDatabase(prisma, { quiet: true, preserveUserId: admin.id });
+    (await cookies()).delete(IMPERSONATE_COOKIE);
+    await writeAudit(prisma, { actorId: admin.id, action: "DEMO_RESET", targetType: "System", targetId: "demo" });
+    refreshAll();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return toActionError(err);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -99,7 +166,7 @@ const str = (fd: FormData, k: string) => {
 /** Step 1 of reporting: classify the report and look for duplicates. Nothing is saved except the photo. */
 export async function analyzeReport(formData: FormData): Promise<ActionResult<AnalyzeResult>> {
   try {
-    const viewer = await getViewer();
+    const viewer = requireRole(await getViewer(), "STUDENT", "STAFF", "ADMIN");
     const description = str(formData, "description") ?? "";
     if (description.length < 8) throw new AppError("Describe the problem in a few more words so we can route it.");
     if (description.length > 2000) throw new AppError("Keep the description under 2,000 characters.");
@@ -179,7 +246,7 @@ export type SubmitReportInput = {
 /** Step 2 of reporting: save the ticket with the student's (possibly corrected) classification. */
 export async function submitReport(input: SubmitReportInput): Promise<ActionResult<{ id: string; number: number }>> {
   try {
-    const viewer = await getViewer();
+    const viewer = requireRole(await getViewer(), "STUDENT", "STAFF", "ADMIN");
     const photoUrl = input.photoUrl && PHOTO_URL_PATTERN.test(input.photoUrl) ? input.photoUrl : null;
     let verdict = verifyVerdict(input.token);
     if (!verdict || verdict.descriptionHash !== hashDescription(input.description)) {
@@ -236,7 +303,7 @@ export async function meTooAction(ticketId: string): Promise<ActionResult<{ meTo
 
 export async function followAction(ticketId: string, follow: boolean): Promise<ActionResult<{ following: boolean }>> {
   try {
-    const res = await setFollow(prisma, await getViewer(), ticketId, follow, await now());
+    const res = await setFollow(prisma, requireRole(await getViewer(), "STUDENT", "STAFF", "ADMIN"), ticketId, follow, await now());
     refreshAll();
     return { ok: true, data: res };
   } catch (err) {
@@ -278,10 +345,10 @@ export async function markNotificationsRead(ids?: string[]): Promise<ActionResul
 // Staff actions
 // ---------------------------------------------------------------------------
 
+// Department checks (STAFF only in their own department; ADMIN everywhere)
+// happen inside the staff* services, which load the ticket themselves.
 async function staffViewer() {
-  const viewer = await getViewer();
-  if (!isStaff(viewer)) throw new AppError("Only staff can do that.", "FORBIDDEN");
-  return viewer;
+  return requireRole(await getViewer(), "STAFF", "ADMIN");
 }
 
 export async function staffStatusAction(ticketId: string, status: string, note?: string, assigneeId?: string | null): Promise<ActionResult> {
@@ -320,6 +387,76 @@ export async function staffOverrideAction(
 export async function staffNoteAction(ticketId: string, text: string, internal: boolean): Promise<ActionResult> {
   try {
     await staffAddNote(prisma, await staffViewer(), ticketId, text, internal, await now());
+    refreshAll();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+/** Dispatch a ticket to a contractor (or department staff). Eligibility is checked in the service. */
+export async function assignAction(ticketId: string, assigneeId: string, note?: string): Promise<ActionResult> {
+  try {
+    if (!assigneeId) throw new AppError("Choose someone to assign.");
+    await staffSetStatus(prisma, await staffViewer(), ticketId, { status: "ASSIGNED", assigneeId, note }, await now());
+    refreshAll();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Contractor actions (only on tickets assigned to the signed-in contractor)
+// ---------------------------------------------------------------------------
+
+async function contractorViewer() {
+  return requireRole(await getViewer(), "CONTRACTOR");
+}
+
+export async function startWorkAction(ticketId: string, note?: string): Promise<ActionResult> {
+  try {
+    await contractorStartWork(prisma, await contractorViewer(), ticketId, note ?? null, await now());
+    refreshAll();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+export async function finishWorkAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const viewer = await contractorViewer();
+    const photo = formData.get("photo");
+    const saved = photo instanceof File && photo.size > 0 ? await savePhoto(photo) : null;
+    const parsed = finishWorkSchema.safeParse({
+      ticketId: formData.get("ticketId"),
+      materials: str(formData, "materials") ?? undefined,
+      materialsCost: str(formData, "materialsCost") ?? undefined,
+      notes: str(formData, "notes") ?? undefined,
+    });
+    if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message ?? "Check the form and try again.");
+    await contractorFinishWork(prisma, viewer, parsed.data.ticketId, { ...parsed.data, completionPhotoUrl: saved?.url ?? null }, await now());
+    refreshAll();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+export async function contractorNoteAction(ticketId: string, text: string): Promise<ActionResult> {
+  try {
+    await contractorAddNote(prisma, await contractorViewer(), ticketId, text, await now());
+    refreshAll();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+export async function setAvailabilityAction(availability: string): Promise<ActionResult> {
+  try {
+    await contractorSetAvailability(prisma, await contractorViewer(), availability);
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {

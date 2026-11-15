@@ -7,7 +7,9 @@ import { getContext } from "@/lib/session";
 import { listDepartmentQueue, shortName } from "@/lib/tickets";
 import { compareQueue, isOverdue } from "@/lib/sla";
 import { DEPARTMENTS, DEPARTMENT_LABEL, formatTicketNumber, isDepartment, isOpenStatus, type Department } from "@/lib/domain";
-import { CategoryIcon, SeverityText, StatusPill } from "@/components/badges";
+import { SeverityText, StatusPill } from "@/components/badges";
+import { EmptyState } from "@/components/EmptyState";
+import { placeText } from "@/components/WorkOrder";
 import { Countdown } from "@/components/Countdown";
 import { TicketList } from "@/components/TicketTag";
 import { Avatar } from "@/components/Avatar";
@@ -46,11 +48,11 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
   const rows = view === "open" ? queue : closed;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-6 md:pt-10">
+    <div className="mx-auto max-w-6xl px-4 pb-12 pt-8 md:px-6 md:pt-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm text-ink-3">{viewer.role === "ADMIN" ? "All departments" : `${viewer.name}${viewer.isSupervisor ? " · Supervisor" : ""}`}</p>
-          <h1 className="h-page mt-0.5">{DEPARTMENT_LABEL[dept]} queue</h1>
+          <p className="wo-label">{viewer.role === "ADMIN" ? "All departments" : `${viewer.name}${viewer.isSupervisor ? ", supervisor" : ""}`}</p>
+          <h1 className="h-page mt-2">{DEPARTMENT_LABEL[dept]} queue</h1>
         </div>
         <div className="flex gap-2">
           <Link href="/map" className="btn btn-secondary btn-sm">
@@ -63,43 +65,37 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
       </div>
 
       {viewer.role === "ADMIN" && (
-        <nav aria-label="Department" className="-mx-4 mt-5 overflow-x-auto px-4">
-          <ul className="flex gap-1.5">
+        <nav aria-label="Department" className="-mx-4 mt-6 overflow-x-auto px-4">
+          <div className="seg flex min-w-max">
             {DEPARTMENTS.map((d) => (
-              <li key={d}>
-                <Link
-                  href={deptLink(d)}
-                  aria-current={d === dept ? "page" : undefined}
-                  className={`block whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold ring-1 ring-inset ${d === dept ? "bg-navy text-white ring-navy" : "bg-surface text-ink-2 ring-line-2 hover:text-ink"}`}
-                >
-                  {DEPARTMENT_LABEL[d]}
-                </Link>
-              </li>
+              <Link key={d} href={deptLink(d)} aria-current={d === dept ? "page" : undefined}>
+                {DEPARTMENT_LABEL[d]}
+              </Link>
             ))}
-          </ul>
+          </div>
         </nav>
       )}
 
-      <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[10px] border border-line bg-line shadow-[var(--shadow-xs)] sm:grid-cols-4">
-        {stats.map((s) => (
-          <div key={s.label} className="bg-surface px-4 py-3.5">
-            <dt className="text-[0.8125rem] text-ink-3">{s.label}</dt>
-            <dd className={`mt-1 font-display text-[1.75rem] font-bold leading-none tracking-[-0.02em] ${s.alert ? "text-emergency" : "text-ink"}`}>{s.value}</dd>
+      <dl className="mt-8 grid grid-cols-2 border-y-2 border-navy sm:grid-cols-4">
+        {stats.map((s, i) => (
+          <div key={s.label} className={`px-1 py-4 sm:px-5 ${i % 2 ? "border-l border-line pl-4" : ""} ${i >= 2 ? "border-t border-line sm:border-t-0" : ""} ${i === 2 ? "sm:border-l" : ""}`}>
+            <dt className="wo-label">{s.label}</dt>
+            <dd className={`mt-1 font-display text-[3.25rem] font-extrabold leading-[0.85] ${s.alert ? "text-emergency" : "text-navy"}`}>{s.value}</dd>
           </div>
         ))}
       </dl>
 
       {escalatedToMe.length > 0 && (
-        <section aria-labelledby="esc-title" className="mt-5 rounded-[10px] border border-emergency/30 bg-emergency-bg p-4">
-          <h2 id="esc-title" className="flex items-center gap-2 font-bold text-emergency">
+        <section aria-labelledby="esc-title" className="mt-8 rounded-[6px] border-2 border-emergency p-4">
+          <h2 id="esc-title" className="flex items-center gap-2 font-display text-[1.375rem] font-extrabold uppercase leading-none text-emergency">
             <ShieldAlert aria-hidden className="size-5" /> Escalated to you
           </h2>
-          <p className="mt-0.5 text-sm text-ink-2">These missed their response target. Assign someone or post an update to stop the clock.</p>
+          <p className="mt-1.5 text-[0.9375rem] text-ink-2">These missed their response target. Assign someone or post an update to stop the clock.</p>
           <ul className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
             {escalatedToMe.map((t) => (
               <li key={t.id}>
-                <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 rounded-[8px] bg-surface px-3 py-2.5 text-sm shadow-[var(--shadow-xs)] ring-1 ring-emergency/20 hover:ring-emergency/50">
-                  <span className="num text-xs text-ink-3">{formatTicketNumber(t.number)}</span>
+                <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 border-l-[3px] border-emergency py-2 pl-3 pr-2 hover:bg-emergency-bg">
+                  <span className="num text-[1.0625rem] text-navy">{formatTicketNumber(t.number)}</span>
                   <span className="min-w-0 flex-1 truncate font-bold text-ink">{t.summary}</span>
                   <ArrowRight aria-hidden className="size-4 text-ink-3" />
                 </Link>
@@ -110,45 +106,56 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
       )}
 
       {emergencies.length > 0 && view === "open" && (
-        <section aria-labelledby="emerg-title" className="mt-5 overflow-hidden rounded-[10px] border border-emergency/40 bg-surface shadow-[var(--shadow-sm)]">
-          <div aria-hidden className="hazard h-1.5" />
-          <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+        <section aria-labelledby="emerg-title" className="mt-8 overflow-hidden rounded-[6px] border-2 border-emergency">
+          <div aria-hidden className="hazard h-2" />
+          <div className="flex items-center gap-2 px-4 pt-3">
             <Siren aria-hidden className="size-5 text-emergency" />
-            <h2 id="emerg-title" className="font-bold text-emergency">
+            <h2 id="emerg-title" className="font-display text-[1.375rem] font-extrabold uppercase leading-none text-emergency">
               Emergencies skip the queue
             </h2>
           </div>
-          <TicketList tickets={emergencies} now={now} bare showDue />
+          <div className="px-2">
+            <TicketList tickets={emergencies} now={now} bare showDue />
+          </div>
         </section>
       )}
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-12 flex flex-wrap items-end justify-between gap-3">
         <nav aria-label="Queue view">
           <div className="seg">
             {(["open", "closed"] as const).map((v) => (
               <Link key={v} href={deptLink(dept, v)} aria-current={view === v ? "page" : undefined}>
-                {v === "open" ? `Open (${queue.length})` : `Resolved (${closed.length})`}
+                {v === "open" ? "Open" : "Resolved"} <span className="num text-[1.0625rem]">{v === "open" ? queue.length : closed.length}</span>
               </Link>
             ))}
           </div>
         </nav>
-        <p className="text-sm text-ink-3">{view === "open" ? "Sorted by severity, then time left to respond" : "Most recently resolved first"}</p>
+        <p className="pb-2 text-[0.9375rem] text-ink-3">{view === "open" ? "Sorted by severity, then time left to respond" : "Most recently resolved first"}</p>
       </div>
 
       {!rows.length ? (
-        <p className="card mt-3 px-6 py-12 text-center text-ink-3">{view === "open" ? "Queue's clear." : "Nothing resolved yet."}</p>
+        view === "open" ? (
+          <EmptyState art="clipboard" title="Queue's clear">
+            Nothing waiting. Go grab a coffee before someone finds a leak.
+          </EmptyState>
+        ) : (
+          <EmptyState art="toolbox" title="Nothing resolved yet">
+            Closed tickets show up here once a fix is marked done.
+          </EmptyState>
+        )
       ) : (
         <>
           {/* Desktop table */}
-          <div className="card mt-3 hidden overflow-hidden md:block">
-            <table className="w-full text-left text-sm">
+          <div className="mt-4 hidden md:block">
+            <table className="w-full text-left text-[0.9375rem]">
               <caption className="sr-only">
                 {DEPARTMENT_LABEL[dept]} {view === "open" ? "open tickets, sorted by severity then time remaining" : "resolved tickets"}
               </caption>
-              <thead className="border-b border-line bg-surface-2 text-xs font-bold text-ink-3">
+              <thead className="wo-label border-b-2 border-navy">
                 <tr>
-                  <th scope="col" className="py-2.5 pl-4 pr-2 font-bold">Issue</th>
-                  <th scope="col" className="px-3 py-2.5 font-bold">Severity</th>
+                  <th scope="col" className="py-2.5 pl-3 pr-2 font-bold">No.</th>
+                  <th scope="col" className="py-2.5 pl-2 pr-2 font-bold">Issue</th>
+                  <th scope="col" className="px-3 py-2.5 font-bold">Priority</th>
                   <th scope="col" className="px-3 py-2.5 font-bold">Status</th>
                   <th scope="col" className="px-3 py-2.5 font-bold">{view === "open" ? "Response" : "Resolved"}</th>
                   <th scope="col" className="px-3 py-2.5 text-right font-bold">
@@ -162,42 +169,36 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
                 {rows.map((t) => {
                   const late = isOverdue(t, now);
                   return (
-                    <tr key={t.id} className={`transition-colors ${late ? "bg-emergency-bg/60" : "hover:bg-surface-2"}`}>
-                      <td className="py-3 pl-4 pr-2">
-                        <div className="flex items-center gap-3">
-                          <CategoryIcon category={t.category} size="sm" />
-                          <div className="min-w-0">
-                            <Link href={`/tickets/${t.id}`} className="font-bold text-ink hover:text-navy hover:underline">
-                              {t.summary}
-                            </Link>
-                            <p className="mt-0.5 truncate text-[0.8125rem] text-ink-3">
-                              <span className="num">{formatTicketNumber(t.number)}</span> · {[t.building.name, t.space?.label].filter(Boolean).join(" · ")}
-                            </p>
-                          </div>
-                        </div>
+                    <tr key={t.id} className={`transition-colors ${late ? "bg-emergency-bg/50 shadow-[inset_3px_0_0_var(--sev-emergency)]" : "hover:bg-surface-2"}`}>
+                      <td className="num whitespace-nowrap py-3.5 pl-3 pr-2 align-top text-[1.125rem] text-navy">{formatTicketNumber(t.number)}</td>
+                      <td className="py-3.5 pl-2 pr-2 align-top">
+                        <Link href={`/tickets/${t.id}`} className="font-bold leading-snug text-ink hover:underline hover:decoration-2 hover:underline-offset-4">
+                          {t.summary}
+                        </Link>
+                        <p className="mt-0.5 text-[0.875rem] text-ink-3">{placeText(t.building.name, t.space?.label, null)}</p>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-3 text-[0.8125rem]">
+                      <td className="whitespace-nowrap px-3 py-3.5 align-top">
                         <SeverityText severity={t.severity} />
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3.5 align-top">
                         <StatusPill status={t.status} size="sm" />
                         {t.escalatedAt && late && <p className="mt-1 text-xs font-bold text-emergency">Escalated</p>}
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3.5 align-top">
                         {view === "open" ? (
                           t.firstResponseAt ? (
-                            <span className="text-[0.8125rem] text-ink-3">Responded</span>
+                            <span className="text-[0.875rem] text-ink-3">Responded</span>
                           ) : (
                             <Countdown compact dueAt={t.responseDueAt.toISOString()} serverNow={now.toISOString()} respondedAt={null} closed={false} escalated={!!t.escalatedAt} />
                           )
                         ) : (
-                          <span className="text-[0.8125rem] text-ink-3">{t.resolvedAt ? t.resolvedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" }) : "—"}</span>
+                          <span className="num text-[0.9375rem] text-ink-3">{t.resolvedAt ? t.resolvedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" }) : "—"}</span>
                         )}
                       </td>
-                      <td className="num px-3 py-3 text-right font-bold text-ink-2">{t.meTooCount || ""}</td>
-                      <td className="py-3 pl-3 pr-4">
+                      <td className="num px-3 py-3.5 text-right align-top text-[1.125rem] text-ink-2">{t.meTooCount || ""}</td>
+                      <td className="py-3.5 pl-3 pr-3 align-top">
                         {t.assignee ? (
-                          <span className="flex items-center gap-2 whitespace-nowrap text-[0.8125rem] text-ink-2">
+                          <span className="flex items-center gap-2 whitespace-nowrap text-[0.875rem] text-ink-2">
                             <Avatar name={t.assignee.name} hue={hueFor(t.assignee.id)} size="xs" />
                             {shortName(t.assignee.name)}
                           </span>
@@ -215,7 +216,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
           </div>
           {/* Phones */}
           <div className="mt-3 md:hidden">
-            <TicketList tickets={rows} now={now} showDue />
+            <TicketList tickets={rows} now={now} showDue bare />
           </div>
         </>
       )}

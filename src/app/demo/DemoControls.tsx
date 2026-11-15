@@ -22,14 +22,22 @@ export function DemoControls({ offsetMs, nowLabel }: { offsetMs: number; nowLabe
   const [confirmReset, setConfirmReset] = useState(false);
 
   return (
-    <section aria-labelledby="clock-title" className="card mt-6 overflow-hidden">
-      <div className="grid grid-cols-1 gap-6 p-5 md:grid-cols-[1fr_auto] md:items-start md:p-6">
+    <section aria-labelledby="clock-title" className="mt-10">
+      <div className="rule-head">
+        <h2 id="clock-title" className="flex items-center gap-2 h-section">
+          <Clock aria-hidden className="size-5" /> Demo clock
+        </h2>
+        <button type="button" className="btn btn-ghost btn-sm" disabled={pending || offsetMs === 0} onClick={() => run(() => resetDemoClock(), "Clock back to real time.")}>
+          <RotateCcw aria-hidden className="size-4" /> Back to real time
+        </button>
+      </div>
+      <div className="mt-5">
         <div>
-          <h2 id="clock-title" className="flex items-center gap-2 h-section text-lg">
-            <Clock aria-hidden className="size-5 text-ink-3" /> Demo clock
-          </h2>
-          <p className="mt-1 text-ink-2">
-            It&apos;s <span className="font-bold text-ink">{nowLabel}</span> on campus
+          <p aria-hidden className="font-display text-[3rem] font-extrabold uppercase leading-[0.9] text-navy md:text-[4rem]">
+            {nowLabel}
+          </p>
+          <p className="mt-2 text-ink-2">
+            It&apos;s <span className="num text-[1.125rem] text-ink">{nowLabel}</span> on campus
             {offsetMs > 0 ? (
               <>
                 {" "}
@@ -41,11 +49,8 @@ export function DemoControls({ offsetMs, nowLabel }: { offsetMs: number; nowLabe
             . Jump ahead to watch tickets pass their response target and escalate to a supervisor.
           </p>
         </div>
-        <button type="button" className="btn btn-ghost btn-sm justify-self-start" disabled={pending || offsetMs === 0} onClick={() => run(() => resetDemoClock(), "Clock back to real time.")}>
-          <RotateCcw aria-hidden className="size-4" /> Back to real time
-        </button>
       </div>
-      <div className="flex flex-wrap gap-2 px-5 pb-5 md:px-6" role="group" aria-label="Fast-forward the demo clock">
+      <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Fast-forward the demo clock">
         {STEPS.map((s) => (
           <button
             key={s.hours}
@@ -59,11 +64,11 @@ export function DemoControls({ offsetMs, nowLabel }: { offsetMs: number; nowLabe
               )
             }
           >
-            <FastForward aria-hidden className="size-4 text-ink-3" /> {s.label}
+            <FastForward aria-hidden className="size-4" /> <span className="num text-[1.0625rem]">{s.label}</span>
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-3 border-t border-line bg-surface-2 px-5 py-3.5 md:px-6">
+      <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-4">
         {confirmReset ? (
           <>
             <p className="text-sm font-bold text-ink">Replace all tickets with fresh sample data?</p>
@@ -80,7 +85,7 @@ export function DemoControls({ offsetMs, nowLabel }: { offsetMs: number; nowLabe
           </button>
         )}
       </div>
-      <div className="px-5 pb-1 md:px-6 [&_p]:mb-4">
+      <div className="[&_p]:mt-4">
         <ActionMessage message={message} />
       </div>
     </section>
@@ -96,8 +101,8 @@ export function UserButton({ id, name, hue, detail, current }: { id: string; nam
       aria-pressed={current}
       disabled={pending}
       onClick={() => run(() => switchViewer(id), undefined, (d) => router.push(d.home))}
-      className={`flex w-full items-center gap-3 rounded-[8px] bg-surface p-3 text-left shadow-[var(--shadow-xs)] ring-inset transition-colors ${
-        current ? "ring-2 ring-navy" : "ring-1 ring-line hover:bg-surface-2 hover:ring-line-2"
+      className={`relative flex w-full items-center gap-3 border-b border-line py-3 pl-3 pr-2 text-left transition-colors before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full ${
+        current ? "bg-navy-50/60 before:bg-navy" : "hover:bg-surface-2 before:bg-transparent"
       }`}
     >
       <Avatar name={name} hue={hue} />
@@ -106,8 +111,8 @@ export function UserButton({ id, name, hue, detail, current }: { id: string; nam
         <span className="block truncate text-sm text-ink-3">{detail}</span>
       </span>
       {current && (
-        <span className="pill bg-navy text-white !text-xs">
-          <Check aria-hidden className="size-3" /> Viewing
+        <span className="flex items-center gap-1 font-display text-[0.9375rem] font-bold uppercase text-navy">
+          <Check aria-hidden className="size-3.5" /> Viewing
         </span>
       )}
       <span className="sr-only">{current ? "(current)" : `View as ${name}`}</span>

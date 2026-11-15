@@ -6,6 +6,7 @@ import { isStaff } from "@/lib/visibility";
 import { publicBaseUrl, qrSvg, reportPath } from "@/lib/qr";
 import { BUILDING_KIND_LABEL, type BuildingKind } from "@/lib/domain";
 import { LogoMark } from "@/components/AppHeader";
+import { cleanWhere } from "@/components/WorkOrder";
 import { PrintButton } from "./PrintButton";
 
 export const metadata: Metadata = { title: "QR codes" };
@@ -55,10 +56,10 @@ export default async function QrPage({ searchParams }: { searchParams: Search })
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-6 md:pt-10">
+    <div className="mx-auto max-w-6xl px-4 pb-12 pt-8 md:px-6 md:pt-12">
       <div className="no-print">
         <h1 className="h-page">QR codes</h1>
-        <p className="mt-1.5 max-w-prose text-ink-2">
+        <p className="mt-3 max-w-prose text-[1.0625rem] text-ink-2">
           Post these on doors, rooms, and equipment. Scanning one opens the report form with the building, room, and equipment already filled in.
         </p>
         <div className="mt-6 flex flex-wrap items-end gap-3">
@@ -83,14 +84,20 @@ export default async function QrPage({ searchParams }: { searchParams: Search })
         </div>
       </div>
 
-      <h2 className="mt-8 h-section text-lg print:mt-0">
-        {current.name} <span className="font-sans text-base font-normal text-ink-3">· {labels.length} labels</span>
-      </h2>
-      <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-3">
+      <div className="rule-head mt-12 print:mt-0">
+        <h2 className="h-section">{current.name}</h2>
+        <span className="num text-[1.25rem] text-ink-3">
+          {labels.length} <span className="font-sans text-[0.9375rem] font-normal">labels</span>
+        </span>
+      </div>
+      <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-3">
         {labels.map((l) => (
-          <li key={l.key} className="card break-inside-avoid overflow-hidden print:shadow-none">
-            <div className="flex items-center gap-1.5 border-b border-line px-3 py-2 text-sm font-extrabold tracking-[-0.02em] text-navy">
-              <LogoMark className="size-5" /> Ramblin’ Repairs
+          <li key={l.key} className="break-inside-avoid overflow-hidden rounded-[6px] border-2 border-navy bg-surface">
+            <div className="flex items-center gap-2 bg-navy px-3 py-2 text-white">
+              <LogoMark onNavy className="size-5" />
+              <span className="font-display text-[1.0625rem] font-extrabold uppercase leading-none">
+                Ramblin’ <span className="text-buzz">Repairs</span>
+              </span>
             </div>
             <div className="p-3.5">
               <div
@@ -99,12 +106,12 @@ export default async function QrPage({ searchParams }: { searchParams: Search })
                 className="mx-auto aspect-square w-full max-w-40 [&_svg]:h-full [&_svg]:w-full"
                 dangerouslySetInnerHTML={{ __html: l.svg }}
               />
-              <p className="mt-2 text-center text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-ink-3">Scan to report a problem</p>
-              <p className="mt-2 font-bold leading-tight text-ink">{l.title}</p>
-              <p className="mt-0.5 text-xs text-ink-3">{l.subtitle}</p>
+              <p className="mt-2 text-center font-display text-[0.9375rem] font-bold uppercase tracking-[0.08em] text-navy">Scan to report a problem</p>
+              <p className="mt-2 border-t border-line pt-2 font-bold leading-tight text-ink">{l.title}</p>
+              <p className="mt-0.5 text-[0.8125rem] text-ink-3">{cleanWhere(l.subtitle)}</p>
               <div className="mt-2 flex items-center justify-between gap-2">
-                <span className="num text-[0.6875rem] text-ink-3">{l.code}</span>
-                <Link href={l.url.replace(base, "")} className="no-print text-xs font-bold text-navy hover:underline">
+                <span className="num text-[0.9375rem] text-ink-3">{l.code}</span>
+                <Link href={l.url.replace(base, "")} className="no-print text-[0.8125rem] font-bold text-navy underline-offset-4 hover:underline">
                   Test this code<span className="sr-only"> for {l.title}</span>
                 </Link>
               </div>

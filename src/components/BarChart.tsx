@@ -11,28 +11,35 @@ export function BarChart({ title, description, rows, max, unit, limit }: { title
   const shown = limit ? rows.slice(0, limit) : rows;
   const id = title.toLowerCase().replace(/\W+/g, "-");
   return (
-    <figure className="card p-5" aria-labelledby={`${id}-title`}>
+    <figure aria-labelledby={`${id}-title`}>
       <figcaption>
-        <h2 id={`${id}-title`} className="h-section">
-          {title}
-        </h2>
-        <p className="mt-0.5 text-sm text-ink-3">{description}</p>
+        <div className="rule-head">
+          <h2 id={`${id}-title`} className="h-section">
+            {title}
+          </h2>
+        </div>
+        <p className="mt-2 text-[0.9375rem] text-ink-3">{description}</p>
       </figcaption>
-      <ul className="mt-5 space-y-[2px]" aria-hidden>
-        {shown.map((r) => {
+      <ul className="mt-5 space-y-1" aria-hidden>
+        {shown.map((r, i) => {
           const pct = r.value === null ? 0 : Math.max(0.6, (r.value / top) * 100);
           return (
-            <li key={r.key} className="group relative grid grid-cols-[minmax(6.5rem,36%)_1fr_4.75rem] items-center gap-3 rounded-md py-1.5">
-              <span className="truncate text-sm text-ink-2" title={r.label}>
+            <li key={r.key} className="group relative grid grid-cols-[minmax(6.5rem,36%)_1fr_5rem] items-center gap-3 py-1.5">
+              <span className="truncate text-[0.9375rem] text-ink-2" title={r.label}>
                 {r.label}
               </span>
-              <span className="relative h-2.5 rounded-full bg-[#eef1f5]">
-                {r.value !== null && <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: CHART_BAR }} />}
+              <span className="relative h-3 bg-panel">
+                {r.value !== null && (
+                  <span
+                    className="wo-bar absolute inset-y-0 left-0 origin-left group-hover:brightness-125"
+                    style={{ width: `${pct}%`, background: CHART_BAR, animationDelay: `${80 + i * 45}ms` }}
+                  />
+                )}
               </span>
-              <span className="whitespace-nowrap text-right text-sm font-bold tabular-nums text-ink">{r.valueLabel}</span>
+              <span className="num whitespace-nowrap text-right text-[1.125rem] text-ink">{r.valueLabel}</span>
               <span
                 role="tooltip"
-                className="pointer-events-none absolute left-1/3 top-full z-10 mt-0.5 hidden w-max max-w-64 rounded-[8px] bg-ink px-3 py-2 text-xs text-white shadow-[var(--shadow-lg)] group-hover:block"
+                className="pointer-events-none absolute left-1/3 top-full z-10 mt-0.5 hidden w-max max-w-64 rounded-[4px] bg-navy px-3 py-2 text-[0.8125rem] text-white shadow-[var(--shadow-lg)] group-hover:block"
               >
                 <span className="block font-bold">{r.label}</span>
                 {r.detail}
@@ -41,8 +48,8 @@ export function BarChart({ title, description, rows, max, unit, limit }: { title
           );
         })}
       </ul>
-      <details className="mt-4 border-t border-line pt-3 text-sm">
-        <summary className="cursor-pointer font-bold text-ink-2 hover:text-ink">{shown.length < rows.length ? `Show all ${rows.length} as a table` : "Show as a table"}</summary>
+      <details className="mt-4 border-t border-line pt-3 text-[0.9375rem]">
+        <summary className="cursor-pointer font-bold text-navy hover:underline hover:underline-offset-4">{shown.length < rows.length ? `Show all ${rows.length} as a table` : "Show as a table"}</summary>
         <table className="mt-2 w-full text-left">
           <caption className="sr-only">{title}</caption>
           <thead className="text-xs text-ink-3">

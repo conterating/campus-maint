@@ -644,6 +644,10 @@ body {
 .anim-stop {
   animation: stop-pop 260ms var(--ease-out) both;
 }
+/* Chart bars grow from the axis on load. */
+.wo-bar {
+  animation: track-fill 420ms var(--ease-out) both;
+}
 /* Segments grow down on phones (vertical tracker) and right from sm up. */
 .wo-track-fill {
   transform-origin: top;

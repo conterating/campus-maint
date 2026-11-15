@@ -171,7 +171,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
                 </span>
               )}
             </div>
-            <h1 className="mt-3 text-[1.625rem] font-extrabold leading-[1.15] tracking-[-0.025em] text-ink md:text-[2.125rem]">{t.summary}</h1>
+            <h1 className="mt-3 text-[1.625rem] font-bold leading-[1.18] tracking-[-0.01em] text-ink md:text-[2.125rem]">{t.summary}</h1>
             <p className="mt-2 flex items-start gap-1.5 text-ink-2">
               <MapPin aria-hidden className="mt-1 size-4 shrink-0 text-ink-3" />
               {where}

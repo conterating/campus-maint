@@ -28,7 +28,7 @@ export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; u
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 md:gap-4">
         <Link href="/" className="flex items-center gap-2.5 rounded-lg pr-1">
           <LogoMark />
-          <span className="text-[1.125rem] font-extrabold tracking-[-0.03em] text-navy">
+          <span className="font-display text-[1.125rem] font-extrabold tracking-[-0.015em] text-navy">
             Ramblin’<span className="ml-1 text-gold-ink">Repairs</span>
           </span>
           <span className="sr-only"> home</span>

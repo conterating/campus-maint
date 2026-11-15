@@ -63,7 +63,7 @@ export default async function AdminPage() {
           <h2 id="sla-title" className="text-sm font-bold text-ink-2">
             First response on time
           </h2>
-          <p className="mt-2 font-display text-[3.25rem] font-bold leading-none tracking-[-0.03em] text-ink">{pct(sla.overall.share)}</p>
+          <p className="mt-2 font-display text-[3.25rem] font-bold leading-none tracking-[-0.02em] text-ink">{pct(sla.overall.share)}</p>
           {sla.overall.total > 0 && (
             <div aria-hidden className="mt-4 flex h-2 gap-[2px] overflow-hidden rounded-full">
               <span className="rounded-l-full" style={{ width: `${(sla.overall.met / sla.overall.total) * 100}%`, background: CHART_BAR }} />

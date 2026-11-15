@@ -152,7 +152,7 @@ The first Playwright run needs a browser: `npx playwright install chromium`.
 ## Accessibility
 
 - Text and controls meet WCAG AA contrast; status and severity are never color-only (labels, bar glyphs, icons).
-- Typeface: Atkinson Hyperlegible Next, designed for low-vision readers.
+- Typefaces: Parkinsans (round, friendly) for headings, numbers, and the wordmark; Funnel Sans for body text.
 - Visible focus ring on every control, skip link, landmarks, labeled forms, and live regions that announce triage results and action outcomes.
 - After analysis, focus moves to the results. The map has an equivalent **List** view, and pins are keyboard-focusable with descriptive titles.
 - Respects `prefers-reduced-motion`. Charts have a table view.

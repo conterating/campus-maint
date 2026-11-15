@@ -182,6 +182,11 @@ function generatedSpaces(): SpaceSeed[] {
       if (h.style === "traditional") out.push(shared(`s-${c}-${f}bath`, h.id, f, `${ordinal(f)} floor bathroom`, "bathroom"));
     }
     if (h.style === "apartment") out.push(shared(`s-${c}-trash`, h.id, 1, "Trash and recycling room", "utility"));
+    // A few rooms per floor, so students in every hall can sign up with a real room.
+    const prefix = h.style === "apartment" ? "Apartment" : h.style === "suite" ? "Suite" : "Room";
+    for (let f = 1; f <= h.floors; f++) {
+      for (let n = 1; n <= 3; n++) out.push(room(`s-${c}-r${f}0${n}`, h.id, f, `${prefix} ${f}0${n}`));
+    }
   }
   return out;
 }

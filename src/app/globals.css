@@ -294,7 +294,8 @@ body {
     color: var(--ink);
   }
   .seg > [aria-current="page"],
-  .seg > [aria-pressed="true"] {
+  .seg > [aria-pressed="true"],
+  .seg > [aria-selected="true"] {
     background: var(--surface);
     color: var(--ink);
     box-shadow: var(--shadow-sm);

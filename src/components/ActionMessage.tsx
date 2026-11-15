@@ -6,9 +6,7 @@ export function ActionMessage({ message }: { message: { tone: "ok" | "error"; te
     <div aria-live="polite" role="status">
       {message && (
         <p
-          className={`mt-3 flex items-start gap-2 rounded-[8px] px-3 py-2.5 text-sm font-bold ring-1 ring-inset ${
-            message.tone === "ok" ? "bg-[#ecfdf3] text-resolved ring-resolved/20" : "bg-emergency-bg text-emergency ring-emergency/20"
-          }`}
+          className={`rise mt-3 flex items-start gap-2 border-l-4 py-1 pl-3 text-[0.9375rem] font-bold ${message.tone === "ok" ? "border-st-fixed text-st-fixed" : "border-emergency text-emergency"}`}
         >
           {message.tone === "ok" ? <CheckCircle2 aria-hidden className="mt-0.5 size-4 shrink-0" /> : <AlertCircle aria-hidden className="mt-0.5 size-4 shrink-0" />}
           {message.text}

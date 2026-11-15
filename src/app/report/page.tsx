@@ -1,3 +1,4 @@
+import { placeText } from "@/components/WorkOrder";
 import type { Metadata } from "next";
 import { QrCode, TriangleAlert } from "lucide-react";
 import { getContext } from "@/lib/session";
@@ -38,7 +39,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Searc
       blocked = allowed.reason;
     }
   }
-  const scannedLabel = scanned ? [scanned.building.name, scanned.space?.label, scanned.asset?.name].filter(Boolean).join(" · ") : null;
+  const scannedLabel = scanned ? placeText(scanned.building.name, scanned.space?.label, scanned.asset?.name) : null;
   const fromQr = params.qr === "1";
 
   const home = locations.find((b) => b.id === viewer.residenceBuildingId);

@@ -8,7 +8,7 @@ import { Avatar } from "./Avatar";
 
 export function roleLine(v: Viewer): string {
   if (v.role === "ADMIN") return "Administrator";
-  if (v.role === "STAFF") return `${DEPARTMENT_LABEL[v.department as Department] ?? "Staff"}${v.isSupervisor ? " · Supervisor" : ""}`;
+  if (v.role === "STAFF") return `${DEPARTMENT_LABEL[v.department as Department] ?? "Staff"}${v.isSupervisor ? ", supervisor" : ""}`;
   return "Student";
 }
 

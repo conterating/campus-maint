@@ -153,7 +153,9 @@ export default async function TicketPage({ params, searchParams }: { params: Par
               {/* Just filed? The tag above already stamped the number; don't say it twice. */}
               {!flags.created && <Stamp number={number} className="-rotate-2" />}
               <div className="flex flex-wrap items-center gap-2 pb-1 sm:justify-end">
-                <span className="font-display text-[1.25rem] font-bold uppercase leading-none tracking-[0.03em] text-ink-2">{CATEGORY_LABEL[t.category as Category]}</span>
+                {!flags.created && (
+                  <span className="font-display text-[1.25rem] font-bold uppercase leading-none tracking-[0.03em] text-ink-2">{CATEGORY_LABEL[t.category as Category]}</span>
+                )}
                 {t.escalatedAt && open && (
                   <span className="pill bg-emergency text-white">
                     <ShieldAlert aria-hidden className="size-3.5" />

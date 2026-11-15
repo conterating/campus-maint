@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { getContext, requirePageRole } from "@/lib/session";
 import { listVisibleTickets } from "@/lib/tickets";
 import { CLOSED_STATUSES, OPEN_STATUSES } from "@/lib/domain";
 import { MapClient, type MapPoint } from "./MapClient";
@@ -11,6 +11,7 @@ const RECENT_DAYS = 14;
 
 export default async function MapPage() {
   const { viewer, now } = await getContext();
+  requirePageRole(viewer, "STUDENT", "STAFF", "ADMIN");
   const recent = new Date(now.getTime() - RECENT_DAYS * 86_400_000);
 
   // Visibility is enforced by listVisibleTickets: dorm issues never reach

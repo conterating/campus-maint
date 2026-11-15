@@ -1,28 +1,52 @@
 import Link from "next/link";
 import { Bell, Clock } from "lucide-react";
-import { DEPARTMENT_LABEL, type Department } from "@/lib/domain";
-import type { Viewer } from "@/lib/visibility";
+import { DEPARTMENT_LABEL, ROLE_LABEL, type Department } from "@/lib/domain";
+import { can, type Viewer } from "@/lib/visibility";
 import { formatDuration } from "@/lib/sla";
 import { TopNav } from "./NavLinks";
-import { Avatar } from "./Avatar";
+import { AccountMenu, type AccountLink } from "./AccountMenu";
 
 export function roleLine(v: Viewer): string {
   if (v.role === "ADMIN") return "Administrator";
   if (v.role === "STAFF") return `${DEPARTMENT_LABEL[v.department as Department] ?? "Staff"}${v.isSupervisor ? " · Supervisor" : ""}`;
+  if (v.role === "CONTRACTOR") return "Contractor";
   return "Student";
 }
 
-/** The mark: a navy roundel with a gold check, i.e. "reported, and getting fixed". */
-export function LogoMark({ className = "size-8", onNavy = false }: { className?: string; onNavy?: boolean }) {
-  return (
-    <svg aria-hidden viewBox="0 0 32 32" className={`${className} shrink-0`}>
-      <rect width="32" height="32" rx="5" fill={onNavy ? "#eaaa00" : "#003057"} />
-      <path d="M9 16.5l4.6 4.6L23.5 11" fill="none" stroke={onNavy ? "#003057" : "#eaaa00"} strokeWidth="3.6" strokeLinecap="square" strokeLinejoin="miter" />
-    </svg>
-  );
+/** Where "Current tickets" goes for each role. */
+const CURRENT_TICKETS: Record<Viewer["role"], string> = { STUDENT: "/my-tickets", CONTRACTOR: "/jobs", STAFF: "/staff", ADMIN: "/staff" };
+
+function accountLinks(v: Viewer, demoMode: boolean, realRole: string): AccountLink[] {
+  const links: AccountLink[] = [
+    { href: "/account", label: "View profile" },
+    { href: CURRENT_TICKETS[v.role], label: "Current tickets" },
+    { href: "/account/security", label: "Password & security" },
+  ];
+  if (can(v, "canManageUsers") || can(v, "canVerifyResidence")) links.push({ href: "/admin/users", label: "People & residences" });
+  if (can(v, "canManageContractors")) links.push({ href: "/admin/contractors", label: "Contractors" });
+  if (v.role === "ADMIN") links.push({ href: "/admin/audit", label: "Audit log" });
+  if (demoMode && realRole === "ADMIN") links.push({ href: "/demo", label: "Demo controls" });
+  return links;
 }
 
-export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; unread: number; clockOffsetMs: number }) {
+export { LogoMark } from "./LogoMark";
+import { LogoMark } from "./LogoMark";
+
+export function AppHeader({
+  viewer,
+  displayName,
+  unread,
+  clockOffsetMs,
+  demoMode,
+  realRole,
+}: {
+  viewer: Viewer;
+  displayName: string;
+  unread: number;
+  clockOffsetMs: number;
+  demoMode: boolean;
+  realRole: string;
+}) {
   return (
     <header className="no-print sticky top-0 z-40 border-b-[3px] border-tech-gold bg-navy text-white">
       <div className="mx-auto flex h-[61px] max-w-6xl items-center gap-2 px-4 md:gap-4">
@@ -39,7 +63,7 @@ export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; u
         </div>
         <div className="flex-1 md:hidden" />
 
-        {clockOffsetMs > 0 && (
+        {clockOffsetMs > 0 && demoMode && (
           <Link
             href="/demo"
             className="hidden items-center gap-1.5 rounded-[3px] bg-buzz px-2 py-1 text-xs font-bold text-navy sm:flex"
@@ -66,15 +90,14 @@ export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; u
           )}
         </Link>
 
-        <Link href="/demo" className="flex items-center gap-2.5 rounded-[5px] py-1 pl-1 pr-1 hover:bg-white/10 lg:pr-2.5" title="Switch user (demo)">
-          <Avatar name={viewer.name} hue={hueFor(viewer.id)} size="sm" />
-          <span className="sr-only">Switch user. Viewing as </span>
-          <span className="hidden flex-col text-left leading-tight lg:flex">
-            <span className="text-sm font-bold text-white">{viewer.name}</span>
-            <span className="text-xs text-white/70">{roleLine(viewer)}</span>
-          </span>
-          <span className="sr-only lg:hidden">{viewer.name}</span>
-        </Link>
+        <AccountMenu
+          onNavy
+          name={displayName}
+          hue={hueFor(viewer.id)}
+          roleLabel={ROLE_LABEL[viewer.role]}
+          detail={roleLine(viewer)}
+          links={accountLinks(viewer, demoMode, realRole)}
+        />
       </div>
     </header>
   );

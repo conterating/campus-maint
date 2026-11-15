@@ -14,10 +14,20 @@ const env = {
   BLOB_READ_WRITE_TOKEN: "",
   BLOB_STORE_ID: "",
   PORT: String(PORT),
+  BETTER_AUTH_SECRET: "e2e-secret-for-playwright-only-0123456789abcdef",
+  BETTER_AUTH_URL: `http://localhost:${PORT}`,
+  SEED_DEMO_PASSWORD: "buzz-fixes-everything",
+  DEMO_MODE: "true",
+  RESEND_API_KEY: "",
+  // The breached-password check calls an external API; tests run offline.
+  HIBP_DISABLED: "1",
 };
+// The test process reads the same secret to compute the demo admin's TOTP codes.
+Object.assign(process.env, { BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET });
 
 export default defineConfig({
   testDir: "tests/e2e",
+  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: false,
   workers: 1,
   timeout: 45_000,

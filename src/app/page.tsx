@@ -19,6 +19,7 @@ export default async function HomePage() {
   const { viewer, now } = await getContext();
   if (viewer.role === "STAFF") redirect("/staff");
   if (viewer.role === "ADMIN") redirect("/admin");
+  if (viewer.role === "CONTRACTOR") redirect("/jobs");
 
   const [mine, nearby, user] = await Promise.all([
     listMyTickets(prisma, viewer),

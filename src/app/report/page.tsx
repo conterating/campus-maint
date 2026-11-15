@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { QrCode, TriangleAlert } from "lucide-react";
-import { getContext } from "@/lib/session";
+import { getContext, requirePageRole } from "@/lib/session";
 import { describeLocation, reportableLocations } from "@/lib/locations";
 import { canReportAt } from "@/lib/visibility";
 import { claudeConfigured } from "@/lib/triage/claude";
@@ -13,6 +13,7 @@ type Search = Promise<{ building?: string; space?: string; asset?: string; qr?: 
 
 export default async function ReportPage({ searchParams }: { searchParams: Search }) {
   const { viewer } = await getContext();
+  requirePageRole(viewer, "STUDENT", "STAFF", "ADMIN");
   const params = { ...(await searchParams) };
   // The home page's quick form sends `where` (room | hall | campus) instead of ids.
   if (!params.building && viewer.residenceBuildingId && (params.where === "room" || params.where === "hall")) {

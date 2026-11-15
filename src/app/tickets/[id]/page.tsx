@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Building2, CheckCircle2, ChevronLeft, Eye, Lock, MapPin, ShieldAlert, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/session";
-import { getTicketDetail, shortName } from "@/lib/tickets";
+import { assignmentOptions, getTicketDetail, shortName } from "@/lib/tickets";
 import { isStaff } from "@/lib/visibility";
 import { CATEGORY_LABEL, DEPARTMENT_LABEL, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, parseEventPhotos, type Category, type Department, type Severity } from "@/lib/domain";
 import { APP_CONFIG } from "@/config/app";
@@ -19,6 +19,8 @@ import { hueFor } from "@/components/AppHeader";
 import { StudentActions } from "./StudentActions";
 import { StaffPanel } from "./StaffPanel";
 import { CommentForm } from "./CommentForm";
+import { ContractorPanel } from "./ContractorPanel";
+import { WorkLogList } from "./WorkLogList";
 
 type Params = Promise<{ id: string }>;
 type Search = Promise<{ created?: string; metoo?: string }>;
@@ -46,7 +48,10 @@ export default async function TicketPage({ params, searchParams }: { params: Par
   if (!t) notFound();
 
   const staff = isStaff(viewer);
+  const contractor = viewer.role === "CONTRACTOR";
   const open = isOpenStatus(t.status);
+  // Contractors see only the reporter's first name, nothing else about students.
+  const reporterFirst = t.reporter.preferredName || t.reporter.firstName || t.reporter.name.split(" ")[0];
   const isReporter = t.reporterId === viewer.id;
   const isOwner = t.ownerUserId === viewer.id;
   const dept = DEPARTMENT_LABEL[t.department as Department];
@@ -56,8 +61,9 @@ export default async function TicketPage({ params, searchParams }: { params: Par
   const actorLabel = (actor: { id: string; name: string; role: string; department: string | null } | null) => {
     if (!actor) return "Ramblin’ Repairs";
     if (actor.id === viewer.id) return "You";
-    if (actor.role === "STUDENT") return staff ? shortName(actor.name) : null;
+    if (actor.role === "STUDENT") return staff ? shortName(actor.name) : contractor && actor.id === t.reporterId ? reporterFirst : null;
     if (actor.role === "ADMIN") return `${shortName(actor.name)}, Campus Services`;
+    if (actor.role === "CONTRACTOR") return `${shortName(actor.name)}, contractor`;
     return `${shortName(actor.name)}, ${DEPARTMENT_LABEL[actor.department as Department] ?? "Staff"}`;
   };
   const events = t.events.map((e) => ({
@@ -85,22 +91,40 @@ export default async function TicketPage({ params, searchParams }: { params: Par
       : t.scope === "DORM"
         ? `${t.building.name} residents and staff will see it.`
         : "Anyone on campus who opens this ticket will see it.",
-    staff ? "For a note students can't see, use Staff controls." : t.viewerFollows || isOwner ? "" : "You'll follow the ticket so you see replies.",
+    staff ? "For a note students can't see, use Staff controls." : contractor ? "" : t.viewerFollows || isOwner ? "" : "You'll follow the ticket so you see replies.",
   ]
     .filter(Boolean)
     .join(" ");
 
-  const staffList = staff
-    ? await prisma.user.findMany({ where: { role: "STAFF", department: t.department }, select: { id: true, name: true, isSupervisor: true }, orderBy: { name: "asc" } })
-    : [];
   const canAct = staff && (viewer.role === "ADMIN" || viewer.department === t.department);
+  const options = canAct ? await assignmentOptions(prisma, t, now) : null;
+  const openLog = contractor ? t.workLogs.find((w) => w.contractorId === viewer.id && !w.endedAt) : undefined;
+  // Costs: admins see everything; contractors see their own entries; staff see time only.
+  const workLogs = t.workLogs
+    .filter((w) => staff || w.contractorId === viewer.id)
+    .map((w) => ({
+      id: w.id,
+      who: shortName(w.contractor.name),
+      startedAt: w.startedAt,
+      endedAt: w.endedAt,
+      minutes: w.minutes,
+      roomEnteredAt: w.roomEnteredAt,
+      roomExitedAt: w.roomExitedAt,
+      materials: w.materials,
+      notes: w.notes,
+      completionPhotoUrl: w.completionPhotoUrl,
+      costs: viewer.role === "ADMIN" || w.contractorId === viewer.id ? { materials: w.materialsCost, labor: w.laborCost } : null,
+    }));
   const corrected = t.aiCategory !== t.category || t.aiSeverity !== t.severity || t.aiDepartment !== t.department;
 
-  const actions = canAct ? (
+  const actions = contractor ? (
+    <ContractorPanel ticketId={t.id} status={t.status} working={!!openLog} startedAt={openLog?.startedAt.toISOString() ?? null} roomTicket={t.scope === "ROOM"} />
+  ) : canAct && options ? (
     <StaffPanel
       ticket={{ id: t.id, status: t.status, category: t.category, severity: t.severity, summary: t.summary, department: t.department, assigneeId: t.assigneeId }}
-      staff={staffList.map((s) => ({ id: s.id, name: s.name, isSupervisor: s.isSupervisor }))}
+      options={options}
       viewerId={viewer.id}
+      canAssign={viewer.role === "ADMIN" || viewer.permissions?.canAssignWork !== false}
     />
   ) : staff ? (
     <div className="card p-4 text-sm">
@@ -123,8 +147,8 @@ export default async function TicketPage({ params, searchParams }: { params: Par
   return (
     <div className="mx-auto max-w-6xl px-4 pt-5 md:pt-8">
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
-        <Link href={staff ? "/staff" : "/tickets"} className="inline-flex items-center gap-1 rounded-md font-bold text-ink-2 hover:text-navy">
-          <ChevronLeft aria-hidden className="size-4" /> {staff ? "Back to queue" : "My reports"}
+        <Link href={staff ? "/staff" : contractor ? "/jobs" : "/my-tickets"} className="inline-flex items-center gap-1 rounded-md font-bold text-ink-2 hover:text-navy">
+          <ChevronLeft aria-hidden className="size-4" /> {staff ? "Back to queue" : contractor ? "My jobs" : "My tickets"}
         </Link>
         <span aria-hidden className="text-line-2">
           /
@@ -192,7 +216,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
               <h2 id="progress-title" className="h-section">
                 {stageCaption(t.status)}
               </h2>
-              {t.assignee && open && <p className="text-sm text-ink-3">Technician: {shortName(t.assignee.name)}</p>}
+              {t.assignee && open && <p className="text-sm text-ink-3">{t.assignee.role === "CONTRACTOR" ? "Contractor" : "Assigned to"}: {shortName(t.assignee.name)}</p>}
             </div>
             <Progress status={t.status} stamps={stageStamps(t.createdAt, t.events)} />
             {t.status === "REOPENED" && <p className="mt-4 text-sm font-bold text-[var(--st-reopened)]">Reopened by the reporter. It&apos;s back in the queue with a fresh response target.</p>}
@@ -220,12 +244,12 @@ export default async function TicketPage({ params, searchParams }: { params: Par
               </Prop>
               <Prop label="Owner">
                 <span className="font-bold">
-                  {t.ownerType === "STUDENT" ? (isOwner ? "You (it's in your room)" : `Room resident${staff && t.ownerUser ? ` (${shortName(t.ownerUser.name)})` : ""}`) : dept}
+                  {t.ownerType === "STUDENT" ? (isOwner ? "You (it's in your room)" : `Room resident${staff && t.ownerUser ? ` (${shortName(t.ownerUser.name)})` : contractor ? ` (${reporterFirst})` : ""}`) : dept}
                 </span>
               </Prop>
               <Prop label="Reported">
                 {formatDateTime(t.createdAt)}
-                {isReporter ? " by you" : staff ? ` by ${shortName(t.reporter.name)}` : ""}
+                {isReporter ? " by you" : staff ? ` by ${shortName(t.reporter.name)}` : contractor ? ` by ${reporterFirst}` : ""}
               </Prop>
               <Prop label="Respond by">
                 {formatDateTime(t.responseDueAt)}
@@ -261,6 +285,15 @@ export default async function TicketPage({ params, searchParams }: { params: Par
               </div>
             </div>
           </section>
+
+          {workLogs.length > 0 && (
+            <section aria-labelledby="worklog-title" className="card p-5">
+              <h2 id="worklog-title" className="h-section">
+                Work log
+              </h2>
+              <WorkLogList logs={workLogs} />
+            </section>
+          )}
 
           <section aria-labelledby="timeline-title" className="card p-5">
             <h2 id="timeline-title" className="h-section">

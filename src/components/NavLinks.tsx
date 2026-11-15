@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bell, ClipboardList, Home, ListChecks, Map, Plus, QrCode } from "lucide-react";
+import { BarChart3, Bell, ClipboardList, Home, ListChecks, Map, Plus, QrCode, UserRound, Wrench } from "lucide-react";
 import type { Role } from "@/lib/domain";
 import { isActive, navItemsFor, type NavItem } from "./navItems";
 
-const ICONS = { home: Home, map: Map, plus: Plus, list: ListChecks, bell: Bell, queue: ClipboardList, chart: BarChart3, qr: QrCode };
+const ICONS = { home: Home, map: Map, plus: Plus, list: ListChecks, bell: Bell, queue: ClipboardList, chart: BarChart3, qr: QrCode, wrench: Wrench, user: UserRound };
 
 export function TopNav({ role }: { role: Role }) {
   const pathname = usePathname();
   const items = navItemsFor(role);
-  const report = items.find((i) => i.icon === "plus")!;
+  const report = items.find((i) => i.icon === "plus");
   return (
     <nav aria-label="Main" className="flex h-[61px] items-stretch justify-between gap-4">
       <ul className="flex items-stretch gap-1 self-stretch">
@@ -34,10 +34,12 @@ export function TopNav({ role }: { role: Role }) {
             );
           })}
       </ul>
-      <Link href={report.href} aria-current={isActive(pathname, report.href) ? "page" : undefined} className="btn btn-accent btn-sm self-center">
-        <Plus aria-hidden className="size-4" strokeWidth={2.75} />
-        Report a problem
-      </Link>
+      {report && (
+        <Link href={report.href} aria-current={isActive(pathname, report.href) ? "page" : undefined} className="btn btn-accent btn-sm self-center">
+          <Plus aria-hidden className="size-4" strokeWidth={2.75} />
+          Report a problem
+        </Link>
+      )}
     </nav>
   );
 }
@@ -47,7 +49,7 @@ export function BottomNav({ role, unread }: { role: Role; unread: number }) {
   const items = navItemsFor(role);
   return (
     <nav aria-label="Main" className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
-      <ul className="grid grid-cols-5">
+      <ul className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => (
           <BottomItem key={item.href} item={item} active={isActive(pathname, item.href)} badge={item.icon === "bell" ? unread : 0} />
         ))}

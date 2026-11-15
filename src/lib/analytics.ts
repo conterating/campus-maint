@@ -131,3 +131,50 @@ export function formatHours(h: number | null): string {
   if (h < 48) return `${h < 10 ? h.toFixed(1) : Math.round(h)} hr`;
   return `${(h / 24).toFixed(1)} days`;
 }
+
+// ---------------------------------------------------------------------------
+// Contractors (from WorkLog)
+// ---------------------------------------------------------------------------
+
+export type WorkLogRow = {
+  ticketId: string;
+  contractorId: string;
+  contractorName: string;
+  department: string;
+  endedAt: Date | null;
+  minutes: number | null;
+  materialsCost: number | null;
+  laborCost: number | null;
+};
+
+/** Per contractor: jobs completed (distinct tickets with a finished log), average time on the job, and cost. */
+export function contractorStats(logs: WorkLogRow[]) {
+  const by = new Map<string, { id: string; name: string; tickets: Set<string>; minutes: number; sessions: number; cost: number }>();
+  for (const l of logs) {
+    if (!l.endedAt) continue;
+    const s = by.get(l.contractorId) ?? { id: l.contractorId, name: l.contractorName, tickets: new Set<string>(), minutes: 0, sessions: 0, cost: 0 };
+    s.tickets.add(l.ticketId);
+    s.minutes += l.minutes ?? 0;
+    s.sessions += 1;
+    s.cost += (l.materialsCost ?? 0) + (l.laborCost ?? 0);
+    by.set(l.contractorId, s);
+  }
+  return [...by.values()]
+    .map((s) => ({ id: s.id, name: s.name, jobsCompleted: s.tickets.size, avgMinutes: s.sessions ? Math.round(s.minutes / s.sessions) : null, totalCost: Math.round(s.cost * 100) / 100 }))
+    .sort((a, b) => b.jobsCompleted - a.jobsCompleted || a.name.localeCompare(b.name));
+}
+
+/** Total materials + labor cost of finished work, by the ticket's department. */
+export function costByDepartment(logs: WorkLogRow[]) {
+  const by = new Map<string, { materials: number; labor: number }>();
+  for (const l of logs) {
+    if (!l.endedAt) continue;
+    const s = by.get(l.department) ?? { materials: 0, labor: 0 };
+    s.materials += l.materialsCost ?? 0;
+    s.labor += l.laborCost ?? 0;
+    by.set(l.department, s);
+  }
+  return [...by.entries()]
+    .map(([department, s]) => ({ department, materials: Math.round(s.materials * 100) / 100, labor: Math.round(s.labor * 100) / 100, total: Math.round((s.materials + s.labor) * 100) / 100 }))
+    .sort((a, b) => b.total - a.total);
+}

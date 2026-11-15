@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { getContext, requirePageRole } from "@/lib/session";
 import { listMyTickets, listVisibleTickets } from "@/lib/tickets";
 import { isStaff } from "@/lib/visibility";
 import { CLOSED_STATUSES, OPEN_STATUSES, isOpenStatus } from "@/lib/domain";
@@ -21,6 +21,7 @@ const TABS = [
 
 export default async function TicketsPage({ searchParams }: { searchParams: Search }) {
   const { viewer, now } = await getContext();
+  requirePageRole(viewer, "STUDENT", "STAFF", "ADMIN");
   const { view = isStaff(viewer) ? "open" : "mine" } = await searchParams;
   const active = TABS.find((t) => t.key === view)?.key ?? "mine";
 

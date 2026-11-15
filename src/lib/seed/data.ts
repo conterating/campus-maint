@@ -1,5 +1,5 @@
 // Sample data for the Ramblin’ Repairs demo. Building coordinates come from OpenStreetMap.
-import type { Category, Department, Severity } from "@/lib/domain";
+import type { Category, Department, Gender, Severity, StudentYear } from "@/lib/domain";
 
 export type BuildingSeed = {
   id: string;
@@ -182,6 +182,11 @@ function generatedSpaces(): SpaceSeed[] {
       if (h.style === "traditional") out.push(shared(`s-${c}-${f}bath`, h.id, f, `${ordinal(f)} floor bathroom`, "bathroom"));
     }
     if (h.style === "apartment") out.push(shared(`s-${c}-trash`, h.id, 1, "Trash and recycling room", "utility"));
+    // A few rooms per floor, so students in every hall can sign up with a real room.
+    const prefix = h.style === "apartment" ? "Apartment" : h.style === "suite" ? "Suite" : "Room";
+    for (let f = 1; f <= h.floors; f++) {
+      for (let n = 1; n <= 3; n++) out.push(room(`s-${c}-r${f}0${n}`, h.id, f, `${prefix} ${f}0${n}`));
+    }
   }
   return out;
 }
@@ -243,46 +248,202 @@ export type UserSeed = {
   id: string;
   name: string;
   email: string;
-  role: "STUDENT" | "STAFF" | "ADMIN";
+  role: "STUDENT" | "CONTRACTOR" | "STAFF" | "ADMIN";
   department?: Department;
   isSupervisor?: boolean;
   residenceBuildingId?: string;
   roomId?: string;
   avatarHue: number;
   title?: string;
+  // Account fields
+  username: string;
+  firstName: string;
+  lastName: string;
+  preferredName?: string;
+  gtId?: string;
+  studentYear?: StudentYear;
+  gender?: Gender;
+  phone?: string;
+  /** Contractors (the former department technicians) */
+  contractor?: ContractorSeed;
+  /** Staff and admins */
+  staff?: StaffSeed;
 };
 
+export type ContractorSeed = {
+  contractorId: string;
+  companyName: string;
+  companyPhone?: string;
+  trades: Category[];
+  departments: Department[];
+  licenseNumber: string;
+  /** Days from now */
+  licenseExpiresInDays: number;
+  insuranceExpiresInDays: number;
+  backgroundCheckStatus: "PENDING" | "CLEARED" | "EXPIRED";
+  residenceHallAccess: boolean;
+  availability: "AVAILABLE" | "ON_JOB" | "OFF_DUTY";
+  maxActiveJobs: number;
+  hourlyRate: number;
+};
+
+export type StaffSeed = {
+  employeeId: string;
+  title: string;
+  officePhone?: string;
+  officeLocation?: string;
+  canManageUsers?: boolean;
+  canManageContractors?: boolean;
+  canVerifyResidence?: boolean;
+  canViewAnalytics?: boolean;
+  canAssignWork?: boolean;
+};
+
+type StudentRow = [id: string, first: string, last: string, username: string, gtId: string, year: StudentYear, gender: Gender, hall: string | null, room: string | null, hue: number, preferred?: string];
+
+const STUDENT_ROWS: StudentRow[] = [
+  ["u-maya", "Maya", "Patel", "mpatel3", "903100101", "SECOND", "WOMAN", "b-glenn", "s-gln-214", 340],
+  ["u-jordan", "Jordan", "Lee", "jlee42", "903100102", "SECOND", "PREFER_NOT_TO_SAY", "b-glenn", "s-gln-214", 200],
+  ["u-ethan", "Ethan", "Brooks", "ebrooks7", "903100103", "FIRST", "MAN", "b-glenn", "s-gln-309", 120],
+  ["u-sam", "Samuel", "Okoro", "sokoro2", "903100104", "THIRD", "MAN", "b-towers", "s-twr-305", 30, "Sam"],
+  ["u-priya", "Priya", "Raman", "praman6", "903100105", "FOURTH", "WOMAN", "b-nae", "s-nae-504", 280],
+  ["u-chloe", "Chloe", "Nguyen", "cnguyen31", "903100106", "SECOND", "WOMAN", "b-woodruff", "s-wds-221", 10],
+  ["u-diego", "Diego", "Alvarez", "dalvarez4", "903100107", "FIRST", "PREFER_NOT_TO_SAY", "b-fitten", "s-fit-118", 170],
+  ["u-nia", "Nia", "Thompson", "nthompson8", "903100108", "FIRST", "WOMAN", "b-smith", "s-smh-108", 300],
+  ["u-ben", "Benjamin", "Carter", "bcarter9", "903100109", "THIRD", "MAN", "b-armstrong", "s-arm-312", 95, "Ben"],
+  ["u-zoe", "Zoe", "Martin", "zmartin5", "903100110", "SECOND", "NONBINARY", "b-fulmer", "s-ful-204", 15],
+  ["u-kai", "Kai", "Yamamoto", "kyamamoto1", "903100111", "FOURTH", "MAN", "b-naw", "s-naw-512", 185],
+  ["u-lena", "Lena", "Ortiz", "lortiz12", "903100112", "FIFTH_PLUS", "WOMAN", "b-8th-south", "s-ess-207", 50],
+  ["u-hana", "Hana", "Ali", "hali3", "903100113", "GRADUATE", "PREFER_NOT_TO_SAY", "b-glc", "s-glc-618", 265],
+  ["u-alex", "Alex", "Kim", "akim88", "903100114", "THIRD", "PREFER_NOT_TO_SAY", null, null, 240],
+];
+
+const students: UserSeed[] = STUDENT_ROWS.map(([id, firstName, lastName, username, gtId, studentYear, gender, hall, room, avatarHue, preferredName]) => ({
+  id,
+  name: `${preferredName ?? firstName} ${lastName}`,
+  email: `${username}@gatech.edu`,
+  role: "STUDENT",
+  residenceBuildingId: hall ?? undefined,
+  roomId: room ?? undefined,
+  avatarHue,
+  username,
+  firstName,
+  lastName,
+  preferredName,
+  gtId,
+  studentYear,
+  gender,
+}));
+
+const contractor = (c: Partial<ContractorSeed> & Pick<ContractorSeed, "contractorId" | "companyName" | "trades" | "departments" | "licenseNumber">): ContractorSeed => ({
+  licenseExpiresInDays: 400,
+  insuranceExpiresInDays: 300,
+  backgroundCheckStatus: "CLEARED",
+  residenceHallAccess: false,
+  availability: "AVAILABLE",
+  maxActiveJobs: 8,
+  hourlyRate: 48,
+  ...c,
+});
+
+const staffProfile = (employeeId: string, title: string, extra: Partial<StaffSeed> = {}): StaffSeed => ({ employeeId, title, canAssignWork: true, ...extra });
+
 export const USERS: UserSeed[] = [
-  // Students
-  { id: "u-maya", name: "Maya Patel", email: "maya.patel@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-214", avatarHue: 340 },
-  { id: "u-jordan", name: "Jordan Lee", email: "jordan.lee@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-214", avatarHue: 200 },
-  { id: "u-ethan", name: "Ethan Brooks", email: "ethan.brooks@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-glenn", roomId: "s-gln-309", avatarHue: 120 },
-  { id: "u-sam", name: "Sam Okoro", email: "sam.okoro@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-towers", roomId: "s-twr-305", avatarHue: 30 },
-  { id: "u-priya", name: "Priya Raman", email: "priya.raman@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-nae", roomId: "s-nae-504", avatarHue: 280 },
-  { id: "u-chloe", name: "Chloe Nguyen", email: "chloe.nguyen@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-woodruff", roomId: "s-wds-221", avatarHue: 10 },
-  { id: "u-diego", name: "Diego Alvarez", email: "diego.alvarez@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-fitten", roomId: "s-fit-118", avatarHue: 170 },
-  { id: "u-nia", name: "Nia Thompson", email: "nia.thompson@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-smith", roomId: "s-smh-108", avatarHue: 300 },
-  { id: "u-ben", name: "Ben Carter", email: "ben.carter@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-armstrong", roomId: "s-arm-312", avatarHue: 95 },
-  { id: "u-zoe", name: "Zoe Martin", email: "zoe.martin@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-fulmer", roomId: "s-ful-204", avatarHue: 15 },
-  { id: "u-kai", name: "Kai Yamamoto", email: "kai.yamamoto@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-naw", roomId: "s-naw-512", avatarHue: 185 },
-  { id: "u-lena", name: "Lena Ortiz", email: "lena.ortiz@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-8th-south", roomId: "s-ess-207", avatarHue: 50 },
-  { id: "u-hana", name: "Hana Ali", email: "hana.ali@ramblinrepairs.test", role: "STUDENT", residenceBuildingId: "b-glc", roomId: "s-glc-618", avatarHue: 265 },
-  { id: "u-alex", name: "Alex Kim", email: "alex.kim@ramblinrepairs.test", role: "STUDENT", avatarHue: 240 },
-  // Staff: a technician and a supervisor for each department
-  { id: "u-terrence", name: "Terrence Wallace", email: "t.wallace@ramblinrepairs.test", role: "STAFF", department: "HOUSING", avatarHue: 25, title: "Maintenance technician" },
-  { id: "u-linda", name: "Linda Okafor", email: "l.okafor@ramblinrepairs.test", role: "STAFF", department: "HOUSING", isSupervisor: true, avatarHue: 300, title: "Maintenance supervisor" },
-  { id: "u-marcus", name: "Marcus Bell", email: "m.bell@ramblinrepairs.test", role: "STAFF", department: "FACILITIES", avatarHue: 190, title: "Facilities technician" },
-  { id: "u-rosa", name: "Rosa Delgado", email: "r.delgado@ramblinrepairs.test", role: "STAFF", department: "FACILITIES", isSupervisor: true, avatarHue: 0, title: "Facilities supervisor" },
-  { id: "u-kevin", name: "Kevin Tran", email: "k.tran@ramblinrepairs.test", role: "STAFF", department: "IT", avatarHue: 220, title: "Support technician" },
-  { id: "u-aisha", name: "Aisha Rahman", email: "a.rahman@ramblinrepairs.test", role: "STAFF", department: "IT", isSupervisor: true, avatarHue: 260, title: "Support supervisor" },
-  { id: "u-brenda", name: "Brenda Hollis", email: "b.hollis@ramblinrepairs.test", role: "STAFF", department: "DINING", avatarHue: 45, title: "Dining operations" },
-  { id: "u-omar", name: "Omar Haddad", email: "o.haddad@ramblinrepairs.test", role: "STAFF", department: "DINING", isSupervisor: true, avatarHue: 150, title: "Dining supervisor" },
-  { id: "u-grace", name: "Grace Liu", email: "g.liu@ramblinrepairs.test", role: "STAFF", department: "LIBRARY", avatarHue: 320, title: "Library facilities" },
-  { id: "u-henry", name: "Henry Osei", email: "h.osei@ramblinrepairs.test", role: "STAFF", department: "LIBRARY", isSupervisor: true, avatarHue: 90, title: "Library supervisor" },
-  { id: "u-tasha", name: "Tasha Green", email: "t.green@ramblinrepairs.test", role: "STAFF", department: "RECREATION", avatarHue: 110, title: "Recreation facilities" },
-  { id: "u-paul", name: "Paul Fischer", email: "p.fischer@ramblinrepairs.test", role: "STAFF", department: "RECREATION", isSupervisor: true, avatarHue: 205, title: "Recreation supervisor" },
+  ...students,
+  // Contractors: the workers who do the jobs (formerly department technicians)
+  {
+    id: "u-terrence", name: "Terrence Wallace", email: "terrence@peachtreemech.test", role: "CONTRACTOR", avatarHue: 25, title: "Maintenance contractor",
+    username: "twallace", firstName: "Terrence", lastName: "Wallace", phone: "(404) 555-0142",
+    contractor: contractor({
+      contractorId: "C-1001", companyName: "Peachtree Mechanical", companyPhone: "(404) 555-0100",
+      trades: ["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCE", "FURNITURE", "DOORS_LOCKS", "CLEANING", "STRUCTURAL", "ELEVATOR", "OTHER", "FITNESS", "FOOD_SERVICE"],
+      departments: ["HOUSING"], licenseNumber: "GA-MECH-55102", residenceHallAccess: true, hourlyRate: 52, maxActiveJobs: 30,
+    }),
+  },
+  {
+    id: "u-marcus", name: "Marcus Bell", email: "marcus@bellbuildingservices.test", role: "CONTRACTOR", avatarHue: 190, title: "Facilities contractor",
+    username: "mbell", firstName: "Marcus", lastName: "Bell", phone: "(404) 555-0177",
+    contractor: contractor({
+      contractorId: "C-1002", companyName: "Bell Building Services",
+      trades: ["PLUMBING", "ELECTRICAL", "HVAC", "ELEVATOR", "APPLIANCE", "FURNITURE", "DOORS_LOCKS", "CLEANING", "STRUCTURAL", "OTHER"],
+      departments: ["FACILITIES"], licenseNumber: "GA-EL-20931", licenseExpiresInDays: 12, hourlyRate: 55, maxActiveJobs: 30,
+    }),
+  },
+  {
+    id: "u-kevin", name: "Kevin Tran", email: "kevin@yellowjacketnetworks.test", role: "CONTRACTOR", avatarHue: 220, title: "Network and AV contractor",
+    username: "ktran", firstName: "Kevin", lastName: "Tran",
+    contractor: contractor({
+      contractorId: "C-1003", companyName: "Yellow Jacket Networks",
+      trades: ["NETWORK", "AV_TECH", "APPLIANCE"], departments: ["IT"], licenseNumber: "GA-LV-71200", residenceHallAccess: true, hourlyRate: 60, maxActiveJobs: 20,
+    }),
+  },
+  {
+    id: "u-brenda", name: "Brenda Hollis", email: "brenda@kitchenpro.test", role: "CONTRACTOR", avatarHue: 45, title: "Kitchen equipment contractor",
+    username: "bhollis", firstName: "Brenda", lastName: "Hollis",
+    contractor: contractor({
+      contractorId: "C-1004", companyName: "KitchenPro Service", trades: ["FOOD_SERVICE", "APPLIANCE", "FURNITURE", "CLEANING", "OTHER"], departments: ["DINING"], licenseNumber: "GA-CK-11873", hourlyRate: 45, maxActiveJobs: 20,
+    }),
+  },
+  {
+    id: "u-grace", name: "Grace Liu", email: "grace@stacksfacility.test", role: "CONTRACTOR", avatarHue: 320, title: "Library facilities contractor",
+    username: "gliu", firstName: "Grace", lastName: "Liu",
+    contractor: contractor({
+      contractorId: "C-1005", companyName: "Stacks Facility Care", trades: ["FURNITURE", "CLEANING", "OTHER"], departments: ["LIBRARY"], licenseNumber: "GA-GC-30017", hourlyRate: 40, maxActiveJobs: 20,
+    }),
+  },
+  {
+    id: "u-tasha", name: "Tasha Green", email: "tasha@fitfix.test", role: "CONTRACTOR", avatarHue: 110, title: "Fitness equipment contractor",
+    username: "tgreen", firstName: "Tasha", lastName: "Green",
+    contractor: contractor({
+      contractorId: "C-1006", companyName: "FitFix Equipment", trades: ["FITNESS", "APPLIANCE", "FURNITURE", "CLEANING", "OTHER"], departments: ["RECREATION"], licenseNumber: "GA-FE-44120", hourlyRate: 50, maxActiveJobs: 20,
+    }),
+  },
+  {
+    // Waiting on a background check: can't sign in or be assigned yet.
+    id: "u-victor", name: "Victor Ramos", email: "victor@ramosplumbing.test", role: "CONTRACTOR", avatarHue: 75, title: "Plumbing contractor",
+    username: "vramos", firstName: "Victor", lastName: "Ramos",
+    contractor: contractor({
+      contractorId: "C-1007", companyName: "Ramos Plumbing", trades: ["PLUMBING"], departments: ["HOUSING", "FACILITIES"], licenseNumber: "GA-PL-90211",
+      backgroundCheckStatus: "PENDING", residenceHallAccess: true, availability: "OFF_DUTY",
+    }),
+  },
+  // Staff: a supervisor (dispatcher) for each department
+  {
+    id: "u-linda", name: "Linda Okafor", email: "lokafor3@gatech.edu", role: "STAFF", department: "HOUSING", isSupervisor: true, avatarHue: 300, title: "Housing Maintenance Supervisor",
+    username: "lokafor3", firstName: "Linda", lastName: "Okafor", gtId: "902200201",
+    staff: staffProfile("E-20201", "Housing Maintenance Supervisor", { canVerifyResidence: true, officePhone: "(404) 894-2470", officeLocation: "Housing Office, 1st floor" }),
+  },
+  {
+    id: "u-rosa", name: "Rosa Delgado", email: "rdelgado7@gatech.edu", role: "STAFF", department: "FACILITIES", isSupervisor: true, avatarHue: 0, title: "Facilities Supervisor",
+    username: "rdelgado7", firstName: "Rosa", lastName: "Delgado", gtId: "902200202",
+    staff: staffProfile("E-20202", "Facilities Supervisor", { canManageContractors: true, canViewAnalytics: true }),
+  },
+  {
+    id: "u-aisha", name: "Aisha Rahman", email: "arahman5@gatech.edu", role: "STAFF", department: "IT", isSupervisor: true, avatarHue: 260, title: "IT Support Supervisor",
+    username: "arahman5", firstName: "Aisha", lastName: "Rahman", gtId: "902200203",
+    staff: staffProfile("E-20203", "IT Support Supervisor"),
+  },
+  {
+    id: "u-omar", name: "Omar Haddad", email: "ohaddad2@gatech.edu", role: "STAFF", department: "DINING", isSupervisor: true, avatarHue: 150, title: "Dining Supervisor",
+    username: "ohaddad2", firstName: "Omar", lastName: "Haddad", gtId: "902200204",
+    staff: staffProfile("E-20204", "Dining Supervisor"),
+  },
+  {
+    id: "u-henry", name: "Henry Osei", email: "hosei4@gatech.edu", role: "STAFF", department: "LIBRARY", isSupervisor: true, avatarHue: 90, title: "Library Supervisor",
+    username: "hosei4", firstName: "Henry", lastName: "Osei", gtId: "902200205",
+    staff: staffProfile("E-20205", "Library Supervisor"),
+  },
+  {
+    id: "u-paul", name: "Paul Fischer", email: "pfischer6@gatech.edu", role: "STAFF", department: "RECREATION", isSupervisor: true, avatarHue: 205, title: "Recreation Supervisor",
+    username: "pfischer6", firstName: "Paul", lastName: "Fischer", gtId: "902200206",
+    staff: staffProfile("E-20206", "Recreation Supervisor"),
+  },
   // Administrator
-  { id: "u-elena", name: "Elena Vasquez", email: "e.vasquez@ramblinrepairs.test", role: "ADMIN", avatarHue: 55, title: "Director, Campus Services" },
+  {
+    id: "u-elena", name: "Elena Vasquez", email: "evasquez1@gatech.edu", role: "ADMIN", avatarHue: 55, title: "Director, Campus Services",
+    username: "evasquez1", firstName: "Elena", lastName: "Vasquez", gtId: "902200100",
+    staff: staffProfile("E-20100", "Director, Campus Services", { canManageUsers: true, canManageContractors: true, canVerifyResidence: true, canViewAnalytics: true, officeLocation: "Campus Services, 2nd floor" }),
+  },
 ];
 
 /** Something that happens to a ticket, `t` hours after it was created. */

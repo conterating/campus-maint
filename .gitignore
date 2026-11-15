@@ -172,3 +172,9 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Development mail outbox (verification/reset links)
+/.mail/
+
+# Playwright sign-in state
+/tests/e2e/.auth/

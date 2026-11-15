@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, Phone } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { demoModeEnabled, getContextOrGuest } from "@/lib/session";
+import { GuestHome } from "./GuestHome";
 import { listMyTickets, listVisibleTickets, shortName } from "@/lib/tickets";
 import { DEPARTMENT_LABEL, OPEN_STATUSES, isOpenStatus, type Department } from "@/lib/domain";
 import { compareQueue } from "@/lib/sla";
@@ -17,9 +18,11 @@ function hallShort(name: string) {
 }
 
 export default async function HomePage() {
-  const { viewer, now } = await getContext();
+  const { viewer, now, guest } = await getContextOrGuest();
+  if (guest) return <GuestHome viewer={viewer} now={now} />;
   if (viewer.role === "STAFF") redirect("/staff");
   if (viewer.role === "ADMIN") redirect("/admin");
+  if (viewer.role === "CONTRACTOR") redirect("/jobs");
 
   const [mine, nearby, user] = await Promise.all([
     listMyTickets(prisma, viewer),
@@ -183,12 +186,15 @@ export default async function HomePage() {
         </section>
       </div>
 
-      <p className="mt-20 border-t border-line pt-5 text-[0.9375rem] text-ink-3">
-        Trying the demo?{" "}
-        <Link href="/demo" className="link-action">
-          Switch user or fast-forward the clock
-        </Link>
-      </p>
+      {/* Demo controls are admin-only; this shows when an admin is viewing as a student. */}
+      {viewer.impersonator && demoModeEnabled() && (
+        <p className="mt-20 border-t border-line pt-5 text-[0.9375rem] text-ink-3">
+          Trying the demo?{" "}
+          <Link href="/demo" className="link-action">
+            Switch user or fast-forward the clock
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

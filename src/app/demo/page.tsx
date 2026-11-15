@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { demoModeEnabled, getActor, getContext } from "@/lib/session";
 import { getClockOffsetMs } from "@/lib/clock";
 import { DEPARTMENTS, DEPARTMENT_LABEL } from "@/lib/domain";
 import { USERS } from "@/lib/seed/data";
@@ -17,20 +18,23 @@ export const maxDuration = 300;
 
 export default async function DemoPage() {
   const { viewer, now } = await getContext();
+  // Demo controls exist only in demo mode, and only for a signed-in administrator.
+  const actor = await getActor();
+  if (!demoModeEnabled() || actor.role !== "ADMIN") notFound();
   const [users, offset] = await Promise.all([
     prisma.user.findMany({ include: { residenceBuilding: true, room: true }, orderBy: { name: "asc" } }),
     getClockOffsetMs(),
   ]);
   const titles = new Map(USERS.map((u) => [u.id, u.title]));
   const students = users.filter((u) => u.role === "STUDENT");
-  const admins = users.filter((u) => u.role === "ADMIN");
+  const contractors = users.filter((u) => u.role === "CONTRACTOR");
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-12 pt-8 md:px-6 md:pt-12">
       <h1 className="h-page">Demo controls</h1>
       <p className="mt-3 max-w-prose text-[1.0625rem] text-ink-2">
-        There&apos;s no real login in this demo. Pick anyone to see exactly what they can see: residents only see their own hall, staff see their
-        department&apos;s queue, and the administrator sees campus-wide insights.
+        Signed in as {actor.name}. Pick anyone to view the app as them: residents only see their own hall, contractors only see jobs assigned to them, and staff
+        see their department&apos;s queue. Every switch is recorded in the audit log.
       </p>
 
       <DemoControls offsetMs={offset} nowLabel={formatDateTime(now)} />
@@ -51,6 +55,21 @@ export default async function DemoPage() {
                 detail={u.residenceBuilding ? `${u.residenceBuilding.name}${u.room ? `, ${u.room.label}` : ""}` : "Lives off campus"}
                 current={u.id === viewer.id}
               />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section aria-labelledby="contractors-title" className="mt-14">
+        <div className="rule-head">
+          <h2 id="contractors-title" className="h-section">
+            Contractors
+          </h2>
+        </div>
+        <ul className="mt-2 grid grid-cols-1 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
+          {contractors.map((u) => (
+            <li key={u.id}>
+              <UserButton id={u.id} name={u.name} hue={u.avatarHue} detail={titles.get(u.id) ?? "Contractor"} current={u.id === viewer.id} />
             </li>
           ))}
         </ul>
@@ -84,15 +103,13 @@ export default async function DemoPage() {
       <section aria-labelledby="admin-title" className="mt-14">
         <div className="rule-head">
           <h2 id="admin-title" className="h-section">
-            Administrator
+            Yourself
           </h2>
         </div>
         <ul className="mt-2 grid grid-cols-1 gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
-          {admins.map((u) => (
-            <li key={u.id}>
-              <UserButton id={u.id} name={u.name} hue={u.avatarHue} detail={titles.get(u.id) ?? "Administrator"} current={u.id === viewer.id} />
-            </li>
-          ))}
+          <li>
+            <UserButton id={actor.id} name={actor.name} hue={actor.avatarHue} detail={titles.get(actor.id) ?? "Administrator"} current={!viewer.impersonator} />
+          </li>
         </ul>
       </section>
     </div>

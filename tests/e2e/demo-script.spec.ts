@@ -48,27 +48,35 @@ test("3. staff update the student's ticket and the student is notified", async (
   const ticketUrl = page.url().split("?")[0];
   const num = (await page.getByText(/Filed as RR-\d+/).textContent())!.match(/RR-\d+/)![0];
 
-  // Terrence (Housing) sees it in his queue and takes it.
-  await viewAs(context, "u-terrence");
+  // Linda (Housing supervisor) sees it in her queue and dispatches it to Terrence, a contractor.
+  await viewAs(context, "u-linda");
   await page.goto("/staff");
   await expect(page.getByRole("link", { name: /leaking from under the bathroom sink/ }).filter({ visible: true })).toBeVisible();
   await page.goto(ticketUrl);
   await page.getByLabel("New status").selectOption("ASSIGNED");
+  await page.getByLabel("Assign to contractor").selectOption("u-terrence");
   await page.getByLabel("Message to the reporter (optional)").fill("On my way with a new trap.");
   await page.getByRole("button", { name: "Save status" }).click();
   await expect(page.getByText(/Updated to assigned/)).toBeVisible();
   await expect(page.getByText("Assigned to Terrence W. — On my way with a new trap.")).toBeVisible();
   await expect(page.getByText("Responded within target")).toBeVisible();
 
-  await page.getByLabel("New status").selectOption("RESOLVED");
-  await page.getByRole("button", { name: "Save status" }).click();
-  await expect(page.getByText(/Updated to resolved/)).toBeVisible();
+  // Terrence starts and finishes the job from his own account.
+  await viewAs(context, "u-terrence");
+  await page.goto("/jobs");
+  await page.getByRole("link", { name: /leaking from under the bathroom sink/ }).filter({ visible: true }).first().click();
+  await page.getByRole("button", { name: "Start work" }).click();
+  await expect(page.getByText("Work started. The reporter was notified.")).toBeVisible();
+  await page.getByLabel("What you did").fill("Replaced the P-trap.");
+  await page.getByRole("button", { name: "Finish and mark resolved" }).click();
+  await expect(page.getByText(/Marked resolved/)).toBeVisible();
 
   // Maya gets the alerts and confirms the fix.
   await viewAs(context, "u-maya");
   await page.goto("/notifications");
   await expect(page.getByRole("link", { name: `Unread. ${num} is resolved. Check it and confirm, or reopen it.` })).toBeVisible();
-  await expect(page.getByRole("link", { name: `Unread. ${num} is now assigned (Terrence W.)` })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Unread. A contractor (Terrence W.) is assigned to ${num}` })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Unread. Work has started on ${num}` })).toBeVisible();
   await page.goto(ticketUrl);
   await page.getByRole("button", { name: "Yes, it's fixed" }).click();
   await expect(page.getByText("Thanks! Marked as confirmed.")).toBeVisible();
@@ -106,10 +114,13 @@ test("5. an overdue ticket escalates to the supervisor when the clock moves forw
   await expect(page.getByText(/Response due in 4\dm/).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByRole("region", { name: "Escalated to you" })).toHaveCount(0);
 
+  // Demo controls belong to the administrator.
+  await viewAs(context, "u-elena");
   await page.goto("/demo");
   await page.getByRole("button", { name: "+1 hour" }).click();
   await expect(page.getByText(/Clock moved 1 hour ahead\. \d+ overdue tickets? escalated\./)).toBeVisible();
 
+  await viewAs(context, "u-aisha");
   await page.goto("/staff");
   await expect(page.getByRole("region", { name: "Escalated to you" }).getByRole("link", { name: /Room 249 projector/ })).toBeVisible();
   await expect(queueItem()).toBeVisible();

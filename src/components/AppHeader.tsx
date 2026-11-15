@@ -1,40 +1,58 @@
 import Link from "next/link";
 import { Bell, Clock } from "lucide-react";
-import { DEPARTMENT_LABEL, type Department } from "@/lib/domain";
-import type { Viewer } from "@/lib/visibility";
+import { DEPARTMENT_LABEL, ROLE_LABEL, type Department } from "@/lib/domain";
+import { can, type Viewer } from "@/lib/visibility";
 import { formatDuration } from "@/lib/sla";
 import { TopNav } from "./NavLinks";
-import { Avatar } from "./Avatar";
+import { AccountMenu, type AccountLink } from "./AccountMenu";
+import { Wordmark } from "./LogoMark";
+
+export { LogoMark } from "./LogoMark";
 
 export function roleLine(v: Viewer): string {
   if (v.role === "ADMIN") return "Administrator";
   if (v.role === "STAFF") return `${DEPARTMENT_LABEL[v.department as Department] ?? "Staff"}${v.isSupervisor ? ", supervisor" : ""}`;
+  if (v.role === "CONTRACTOR") return "Contractor";
   return "Student";
 }
 
-/** The mark: a work-order tag with a check on it, i.e. "reported, and getting fixed". */
-export function LogoMark({ className = "size-8", onNavy = false }: { className?: string; onNavy?: boolean }) {
-  const body = onNavy ? "#eaaa00" : "#003057";
-  const ink = onNavy ? "#003057" : "#eaaa00";
-  return (
-    <svg aria-hidden viewBox="0 0 32 32" className={`${className} shrink-0`}>
-      <path d="M11 4h17a2.5 2.5 0 0 1 2.5 2.5v19A2.5 2.5 0 0 1 28 28H11L2.5 16z" fill={body} />
-      <circle cx="9" cy="16" r="2.2" fill={onNavy ? "#003057" : "#fff"} />
-      <path d="M14.5 16.5l3.6 3.6L26 11.5" fill="none" stroke={ink} strokeWidth="3.2" strokeLinecap="square" />
-    </svg>
-  );
+/** Where "Current tickets" goes for each role. */
+const CURRENT_TICKETS: Record<Viewer["role"], string> = { STUDENT: "/my-tickets", CONTRACTOR: "/jobs", STAFF: "/staff", ADMIN: "/staff" };
+
+function accountLinks(v: Viewer, demoMode: boolean, realRole: string): AccountLink[] {
+  const links: AccountLink[] = [
+    { href: "/account", label: "View profile" },
+    { href: CURRENT_TICKETS[v.role], label: "Current tickets" },
+    { href: "/account/security", label: "Password & security" },
+  ];
+  if (can(v, "canManageUsers") || can(v, "canVerifyResidence")) links.push({ href: "/admin/users", label: "People & residences" });
+  if (can(v, "canManageContractors")) links.push({ href: "/admin/contractors", label: "Contractors" });
+  if (v.role === "ADMIN") links.push({ href: "/admin/audit", label: "Audit log" });
+  if (demoMode && realRole === "ADMIN") links.push({ href: "/demo", label: "Demo controls" });
+  return links;
 }
 
-export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; unread: number; clockOffsetMs: number }) {
+/** The signed-in header: navy band on a Buzz Gold rule, the main nav, alerts, and the account menu. */
+export function AppHeader({
+  viewer,
+  displayName,
+  unread,
+  clockOffsetMs,
+  demoMode,
+  realRole,
+}: {
+  viewer: Viewer;
+  displayName: string;
+  unread: number;
+  clockOffsetMs: number;
+  demoMode: boolean;
+  realRole: string;
+}) {
   return (
     <header className="no-print sticky top-0 z-40 border-b-[3px] border-buzz bg-navy text-white">
       <div className="mx-auto flex h-[61px] max-w-6xl items-center gap-2 px-4 md:gap-4 md:px-6">
         <Link href="/" className="logo-swing flex items-center gap-2.5 pr-1">
-          <LogoMark onNavy className="size-8" />
-          <span className="font-display text-[1.5rem] font-extrabold uppercase leading-none tracking-[0.01em]">
-            Ramblin’<span className="ml-1.5 text-buzz">Repairs</span>
-          </span>
-          <span className="sr-only"> home</span>
+          <Wordmark />
         </Link>
 
         <div className="ml-6 hidden flex-1 self-stretch md:block">
@@ -42,7 +60,7 @@ export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; u
         </div>
         <div className="flex-1 md:hidden" />
 
-        {clockOffsetMs > 0 && (
+        {clockOffsetMs > 0 && demoMode && (
           <Link href="/demo" className="hidden items-center gap-1.5 rounded-[3px] bg-buzz px-2 py-1 text-navy sm:flex" title="The demo clock is running ahead of real time">
             <Clock aria-hidden className="size-3.5" />
             <span className="num text-[0.9375rem]">
@@ -62,17 +80,14 @@ export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; u
           )}
         </Link>
 
-        <Link href="/demo" className="flex items-center gap-2.5 rounded-[4px] py-1 pl-1 pr-1 transition-colors hover:bg-white/10 lg:pr-2.5" title="Switch user (demo)">
-          <span className="rounded-full ring-2 ring-buzz/70">
-            <Avatar name={viewer.name} hue={hueFor(viewer.id)} size="sm" />
-          </span>
-          <span className="sr-only">Switch user. Viewing as </span>
-          <span className="hidden flex-col text-left leading-tight lg:flex">
-            <span className="text-[0.9375rem] font-bold text-white">{viewer.name}</span>
-            <span className="text-[0.8125rem] text-white/75">{roleLine(viewer)}</span>
-          </span>
-          <span className="sr-only lg:hidden">{viewer.name}</span>
-        </Link>
+        <AccountMenu
+          onNavy
+          name={displayName}
+          hue={hueFor(viewer.id)}
+          roleLabel={ROLE_LABEL[viewer.role]}
+          detail={roleLine(viewer)}
+          links={accountLinks(viewer, demoMode, realRole)}
+        />
       </div>
     </header>
   );

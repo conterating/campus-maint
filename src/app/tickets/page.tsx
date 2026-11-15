@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { getContextOrGuest, requirePageRole } from "@/lib/session";
 import { listMyTickets, listVisibleTickets } from "@/lib/tickets";
 import { isStaff } from "@/lib/visibility";
 import { CLOSED_STATUSES, OPEN_STATUSES, isOpenStatus } from "@/lib/domain";
@@ -21,9 +21,11 @@ const TABS = [
 ] as const;
 
 export default async function TicketsPage({ searchParams }: { searchParams: Search }) {
-  const { viewer, now } = await getContext();
-  const { view = isStaff(viewer) ? "open" : "mine" } = await searchParams;
-  const active = TABS.find((t) => t.key === view)?.key ?? "mine";
+  const { viewer, now, guest } = await getContextOrGuest();
+  requirePageRole(viewer, "STUDENT", "STAFF", "ADMIN");
+  const { view = isStaff(viewer) || guest ? "open" : "mine" } = await searchParams;
+  const tabs = guest ? TABS.filter((t) => t.key !== "mine") : TABS;
+  const active = tabs.find((t) => t.key === view)?.key ?? tabs[0].key;
 
   const tickets =
     active === "mine"
@@ -45,19 +47,25 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
     <div className="mx-auto max-w-5xl px-4 pb-12 pt-8 md:px-6 md:pt-14">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="h-page">{staffView ? "All issues" : "My reports"}</h1>
+          <h1 className="h-page">{staffView ? "All issues" : guest ? "Issues on campus" : "My reports"}</h1>
           <p className="mt-2 text-[1.0625rem] text-ink-2">
-            {active === "mine" ? "What you reported, live in, or follow." : staffView ? "Across every department." : "Everything you're able to see on campus."}
+            {active === "mine"
+              ? "What you reported, live in, or follow."
+              : staffView
+                ? "Across every department."
+                : guest
+                  ? "Public issues in classrooms, libraries, dining and recreation. Sign in to see your own hall."
+                  : "Everything you're able to see on campus."}
           </p>
         </div>
-        <Link href="/report" className="btn btn-primary">
-          <Plus aria-hidden className="size-4" /> Report a problem
+        <Link href={guest ? "/login?next=%2Freport" : "/report"} className="btn btn-primary">
+          <Plus aria-hidden className="size-4" /> {guest ? "Sign in to report" : "Report a problem"}
         </Link>
       </div>
 
       <nav aria-label="Filter issues" className="mt-8">
         <div className="seg flex w-full">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <Link key={t.key} href={`/tickets?view=${t.key}`} aria-current={active === t.key ? "page" : undefined}>
               {t.label}
             </Link>

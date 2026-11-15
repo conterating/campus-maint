@@ -55,7 +55,7 @@ test("a student adds a comment with a photo, and other people can see it", async
   await expect(page.getByText(/New comment on RR-\d+ \(with a photo\): Still won't turn on/).first()).toBeVisible();
 
   // Staff see the commenter's name.
-  await viewAs(context, "u-kevin");
+  await viewAs(context, "u-aisha");
   await page.goto(url);
   await expect(page.locator("ol > li", { hasText: text })).toContainText("Ethan B.");
 });

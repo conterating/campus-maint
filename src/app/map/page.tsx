@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { getContextOrGuest, requirePageRole } from "@/lib/session";
 import { listVisibleTickets } from "@/lib/tickets";
 import { CLOSED_STATUSES, OPEN_STATUSES } from "@/lib/domain";
 import { MapClient, type MapPoint } from "./MapClient";
@@ -10,7 +10,8 @@ export const metadata: Metadata = { title: "Campus map" };
 const RECENT_DAYS = 14;
 
 export default async function MapPage() {
-  const { viewer, now } = await getContext();
+  const { viewer, now, guest } = await getContextOrGuest();
+  requirePageRole(viewer, "STUDENT", "STAFF", "ADMIN");
   const recent = new Date(now.getTime() - RECENT_DAYS * 86_400_000);
 
   // Visibility is enforced by listVisibleTickets: dorm issues never reach
@@ -43,11 +44,12 @@ export default async function MapPage() {
     isReporter: t.reporterId === viewer.id,
     isOwner: t.ownerUserId === viewer.id,
     createdAt: t.createdAt.toISOString(),
+    guest,
   }));
 
   // A browser key for the Maps JavaScript API (restrict it to your domain in
   // Google Cloud). Without one, the map falls back to OpenStreetMap tiles.
   const googleKey = process.env.GOOGLE_MAPS_API_KEY?.trim() || null;
 
-  return <MapClient points={points} now={now.toISOString()} isStudent={viewer.role === "STUDENT"} googleKey={googleKey} />;
+  return <MapClient points={points} now={now.toISOString()} isStudent={!guest && viewer.role === "STUDENT"} googleKey={googleKey} />;
 }

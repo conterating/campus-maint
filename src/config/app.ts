@@ -64,3 +64,9 @@ export const SAFETY_EXCEPTIONS: { pattern: RegExp; cancels: string }[] = [
   { pattern: /\bfire (alarm|extinguisher|door|exit) (sign|light|tag|inspection|cabinet)\b/i, cancels: "Smoke or fire" },
   { pattern: /\bfire ?place\b|\bfire drill\b/i, cancels: "Smoke or fire" },
 ];
+
+/**
+ * Georgia Tech single sign-on (Microsoft Entra ID / GT CAS). Off until OIT
+ * approves an app registration; the login page shows a placeholder button.
+ */
+export const SSO_ENABLED = false;

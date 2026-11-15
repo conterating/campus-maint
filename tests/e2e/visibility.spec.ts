@@ -30,9 +30,23 @@ test("a dorm-room ticket opens for its residents and 404s for everyone else", as
     await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   }
 
-  await viewAs(context, "u-kevin"); // staff from another department can still see it
+  await viewAs(context, "u-aisha"); // staff from another department can still see it
   await page.goto(url);
   await expect(page.getByText("This ticket belongs to Housing Maintenance.")).toBeVisible();
+});
+
+test("a contractor sees only jobs assigned to them", async ({ page, context }) => {
+  const url = await glennRoomTicketUrl(page, context); // resolved by Terrence long ago
+  await viewAs(context, "u-marcus"); // Facilities contractor, not on this job
+  expect((await page.goto(url))?.status()).toBe(404);
+  await page.goto("/tickets?view=open");
+  await expect(page).toHaveURL(/\/jobs$/);
+  await viewAs(context, "u-terrence");
+  await page.goto(url);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Desk drawer");
+  // Only the reporter's first name, and the room.
+  await expect(page.getByText(/by Maya$/)).toBeVisible();
+  await expect(page.getByText("Patel")).toHaveCount(0);
 });
 
 test("an off-campus student sees no dorm issues in lists or on the map", async ({ page, context }) => {

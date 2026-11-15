@@ -28,6 +28,8 @@ export type MapPoint = {
   isReporter: boolean;
   isOwner: boolean;
   createdAt: string;
+  /** Signed-out visitor: show a sign-in link instead of Me too / Follow. */
+  guest?: boolean;
 };
 
 const loading = () => (

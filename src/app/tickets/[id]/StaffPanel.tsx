@@ -8,7 +8,10 @@ import { useAction } from "@/components/useAction";
 import { ActionMessage } from "@/components/ActionMessage";
 
 type Ticket = { id: string; status: string; category: string; severity: string; summary: string; department: string; assigneeId: string | null };
-type Staff = { id: string; name: string; isSupervisor: boolean };
+type Options = {
+  contractors: { id: string; name: string; company: string; availability: string; activeJobs: number; maxActiveJobs: number; problems: string[] }[];
+  staff: { id: string; name: string; activeJobs: number }[];
+};
 
 function Section({ title, icon: Icon, children, defaultOpen = false }: { title: string; icon: typeof Wrench; children: React.ReactNode; defaultOpen?: boolean }) {
   return (
@@ -23,14 +26,16 @@ function Section({ title, icon: Icon, children, defaultOpen = false }: { title: 
   );
 }
 
-export function StaffPanel({ ticket, staff, viewerId }: { ticket: Ticket; staff: Staff[]; viewerId: string }) {
+export function StaffPanel({ ticket, options, viewerId, canAssign }: { ticket: Ticket; options: Options; viewerId: string; canAssign: boolean }) {
+  const eligible = options.contractors.filter((c) => c.problems.length === 0);
+  const ineligible = options.contractors.filter((c) => c.problems.length > 0);
   const { pending, message, run } = useAction();
   const id = { status: useId(), assignee: useId(), statusNote: useId(), dept: useId(), deptReason: useId(), cat: useId(), sev: useId(), sum: useId(), why: useId(), note: useId() };
   const closed = ticket.status === "CONFIRMED";
 
   const nextStatus = ticket.status === "TRIAGED" || ticket.status === "SUBMITTED" || ticket.status === "REOPENED" ? "ASSIGNED" : ticket.status === "ASSIGNED" ? "IN_PROGRESS" : "RESOLVED";
   const [status, setStatus] = useState<string>(nextStatus);
-  const [assignee, setAssignee] = useState(ticket.assigneeId ?? (staff.some((s) => s.id === viewerId) ? viewerId : staff[0]?.id ?? ""));
+  const [assignee, setAssignee] = useState(ticket.assigneeId ?? eligible[0]?.id ?? options.staff[0]?.id ?? "");
   const [statusNote, setStatusNote] = useState("");
   const [dept, setDept] = useState<string>(DEPARTMENTS.find((d) => d !== ticket.department) ?? "FACILITIES");
   const [deptReason, setDeptReason] = useState("");
@@ -55,7 +60,7 @@ export function StaffPanel({ ticket, staff, viewerId }: { ticket: Ticket; staff:
           onSubmit={(e) => {
             e.preventDefault();
             run(
-              () => staffStatusAction(ticket.id, status, statusNote, status === "ASSIGNED" ? assignee : undefined),
+              () => staffStatusAction(ticket.id, status, statusNote, status === "ASSIGNED" ? assignee || undefined : undefined),
               `Updated to ${STATUS_LABEL[status as keyof typeof STATUS_LABEL].toLowerCase()}. Followers notified.`,
               () => setStatusNote(""),
             );
@@ -77,17 +82,45 @@ export function StaffPanel({ ticket, staff, viewerId }: { ticket: Ticket; staff:
           {status === "ASSIGNED" && (
             <div>
               <label htmlFor={id.assignee} className="label">
-                Assign to
+                Assign to contractor
               </label>
-              <select id={id.assignee} className="field" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-                {staff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                    {s.isSupervisor ? " (supervisor)" : ""}
-                    {s.id === viewerId ? " — me" : ""}
-                  </option>
-                ))}
+              <select id={id.assignee} className="field" value={assignee} onChange={(e) => setAssignee(e.target.value)} disabled={!canAssign}>
+                {!eligible.length && !options.staff.length && <option value="">No one is eligible</option>}
+                {eligible.length > 0 && (
+                  <optgroup label="Eligible contractors">
+                    {eligible.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} · {c.company} ({c.activeJobs}/{c.maxActiveJobs} jobs)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {options.staff.length > 0 && (
+                  <optgroup label="Department staff">
+                    {options.staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.id === viewerId ? " (me)" : ""} ({s.activeJobs} jobs)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
+              {!canAssign && <p className="hint mt-1">You don&apos;t have permission to assign work.</p>}
+              {ineligible.length > 0 && (
+                <details className="mt-2 text-sm">
+                  <summary className="min-h-6 cursor-pointer font-bold text-ink-2">
+                    {ineligible.length} contractor{ineligible.length === 1 ? "" : "s"} can&apos;t take this job
+                  </summary>
+                  <ul className="mt-1.5 space-y-1.5 text-ink-2">
+                    {ineligible.map((c) => (
+                      <li key={c.id}>
+                        <span className="font-bold text-ink">{c.name}</span>: {c.problems.join("; ")}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </div>
           )}
           <div>

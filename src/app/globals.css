@@ -407,11 +407,13 @@ body {
     color: var(--ink);
   }
   .seg > [aria-current="page"],
-  .seg > [aria-pressed="true"] {
+  .seg > [aria-pressed="true"],
+  .seg > [aria-selected="true"] {
     color: var(--navy);
   }
   .seg > [aria-current="page"]::after,
-  .seg > [aria-pressed="true"]::after {
+  .seg > [aria-pressed="true"]::after,
+  .seg > [aria-selected="true"]::after {
     transform: scaleX(1);
   }
 

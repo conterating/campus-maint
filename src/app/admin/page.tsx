@@ -4,8 +4,13 @@ import { cleanWhere } from "@/components/WorkOrder";
 import { redirect } from "next/navigation";
 import { Repeat } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { getContext, homeFor } from "@/lib/session";
+import { can } from "@/lib/visibility";
+import { AdminNav } from "./AdminNav";
+import { money } from "@/app/tickets/[id]/WorkLogList";
 import {
+  contractorStats,
+  costByDepartment,
   avgResolutionHours,
   formatHours,
   headline,
@@ -14,7 +19,7 @@ import {
   responseTargetShare,
   type AnalyticsTicket,
 } from "@/lib/analytics";
-import { CATEGORY_LABEL, DEPARTMENT_LABEL, type Category } from "@/lib/domain";
+import { CATEGORY_LABEL, DEPARTMENT_LABEL, type Category, type Department } from "@/lib/domain";
 import { relativeTime } from "@/lib/format";
 import { BarChart, CHART_BAR } from "@/components/BarChart";
 
@@ -24,7 +29,8 @@ const pct = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)}%
 
 export default async function AdminPage() {
   const { viewer, now } = await getContext();
-  if (viewer.role !== "ADMIN") redirect(viewer.role === "STAFF" ? "/staff" : "/");
+  if (!can(viewer, "canViewAnalytics")) redirect(homeFor(viewer.role));
+  const showCosts = viewer.role === "ADMIN";
 
   const rows = await prisma.ticket.findMany({ include: { building: true, space: true, asset: true } });
   const tickets: AnalyticsTicket[] = rows.map((t) => ({
@@ -53,11 +59,16 @@ export default async function AdminPage() {
   const recurring = recurringProblems(tickets, now);
   const resolution = avgResolutionHours(tickets);
   const sla = responseTargetShare(tickets, now);
+  const logs = await prisma.workLog.findMany({ include: { contractor: { select: { name: true } }, ticket: { select: { department: true } } } });
+  const logRows = logs.map((l) => ({ ticketId: l.ticketId, contractorId: l.contractorId, contractorName: l.contractor.name, department: l.ticket.department, endedAt: l.endedAt, minutes: l.minutes, materialsCost: l.materialsCost, laborCost: l.laborCost }));
+  const perContractor = contractorStats(logRows);
+  const deptCost = costByDepartment(logRows);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-12 pt-8 md:px-6 md:pt-12">
       <p className="wo-label">Campus Services, all departments</p>
       <h1 className="h-page mt-2">Insights</h1>
+      <AdminNav viewer={viewer} current="insights" />
 
       <section aria-labelledby="sla-title" className="mt-10 grid grid-cols-1 gap-x-14 gap-y-8 lg:grid-cols-[1fr_1.6fr]">
         <div>
@@ -183,6 +194,62 @@ export default async function AdminPage() {
           )}
         </section>
       </div>
+      <section aria-labelledby="contractors-title" className="card mt-5 p-4 md:p-5">
+        <h2 id="contractors-title" className="h-section">
+          Contractor work
+        </h2>
+        <p className="mt-0.5 text-sm text-ink-3">From contractors&apos; work logs: finished jobs and average time on the job{showCosts ? ", with materials and labor cost" : ""}.</p>
+        {perContractor.length ? (
+          <div className="mt-4 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Jobs completed by contractor</caption>
+              <thead className="text-xs text-ink-3">
+                <tr>
+                  <th scope="col" className="pb-2 font-bold">Contractor</th>
+                  <th scope="col" className="pb-2 pl-4 text-right font-bold">Jobs done</th>
+                  <th scope="col" className="pb-2 pl-4 text-right font-bold">Avg time</th>
+                  {showCosts && <th scope="col" className="pb-2 pl-4 text-right font-bold">Cost</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {perContractor.map((c) => (
+                  <tr key={c.id}>
+                    <th scope="row" className="py-2.5 pr-2 font-bold text-ink">{c.name}</th>
+                    <td className="num py-2.5 pl-4 text-right">{c.jobsCompleted}</td>
+                    <td className="num py-2.5 pl-4 text-right">{c.avgMinutes == null ? "—" : formatHours(c.avgMinutes / 60)}</td>
+                    {showCosts && <td className="num py-2.5 pl-4 text-right">{money(c.totalCost)}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {showCosts && (
+              <table className="w-full text-left text-sm">
+                <caption className="mb-2 text-left text-xs font-bold text-ink-3">Total cost by department</caption>
+                <thead className="text-xs text-ink-3">
+                  <tr>
+                    <th scope="col" className="pb-2 font-bold">Department</th>
+                    <th scope="col" className="pb-2 pl-4 text-right font-bold">Materials</th>
+                    <th scope="col" className="pb-2 pl-4 text-right font-bold">Labor</th>
+                    <th scope="col" className="pb-2 pl-4 text-right font-bold">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {deptCost.map((d) => (
+                    <tr key={d.department}>
+                      <th scope="row" className="py-2.5 pr-2 font-bold text-ink">{DEPARTMENT_LABEL[d.department as Department]}</th>
+                      <td className="num py-2.5 pl-4 text-right">{money(d.materials)}</td>
+                      <td className="num py-2.5 pl-4 text-right">{money(d.labor)}</td>
+                      <td className="num py-2.5 pl-4 text-right font-bold">{money(d.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : (
+          <p className="mt-4 text-ink-3">No finished work logged yet.</p>
+        )}
+      </section>
     </div>
   );
 }

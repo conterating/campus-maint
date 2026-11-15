@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowRight, Map, QrCode, ShieldAlert, Siren, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { getContext, requirePageRole } from "@/lib/session";
 import { listDepartmentQueue, shortName } from "@/lib/tickets";
+import { assignmentProblems } from "@/lib/eligibility";
+import type { AssignChoice } from "./QuickAssign";
 import { compareQueue, isOverdue } from "@/lib/sla";
 import { DEPARTMENTS, DEPARTMENT_LABEL, formatTicketNumber, isDepartment, isOpenStatus, type Department } from "@/lib/domain";
 import { SeverityText, StatusPill } from "@/components/badges";
@@ -22,7 +23,7 @@ type Search = Promise<{ dept?: string; view?: string }>;
 
 export default async function StaffPage({ searchParams }: { searchParams: Search }) {
   const { viewer, now } = await getContext();
-  if (viewer.role === "STUDENT") redirect("/");
+  requirePageRole(viewer, "STAFF", "ADMIN");
   const params = await searchParams;
   const dept: Department =
     viewer.role === "ADMIN" ? (isDepartment(params.dept) ? params.dept : "HOUSING") : ((viewer.department as Department) ?? "FACILITIES");
@@ -36,7 +37,27 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
   const overdue = open.filter((t) => isOverdue(t, now));
   const unassigned = open.filter((t) => !t.assigneeId);
   const escalatedToMe = viewer.isSupervisor ? overdue.filter((t) => t.escalatedAt) : [];
-  const canAct = viewer.role === "ADMIN" || viewer.department === dept;
+  const canAct = (viewer.role === "ADMIN" || viewer.department === dept) && viewer.permissions?.canAssignWork !== false;
+
+  // Who each unassigned ticket could go to: eligible contractors first, then department staff.
+  const [contractors, deptStaff] = await Promise.all([
+    prisma.user.findMany({ where: { role: "CONTRACTOR", contractorProfile: { departments: { contains: dept } } }, include: { contractorProfile: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({ where: { role: "STAFF", department: dept, disabledAt: null }, orderBy: { name: "asc" } }),
+  ]);
+  const jobCounts = new globalThis.Map<string, number>();
+  for (const t of open) if (t.assigneeId) jobCounts.set(t.assigneeId, (jobCounts.get(t.assigneeId) ?? 0) + 1);
+  const otherDeptJobs = await prisma.ticket.groupBy({
+    by: ["assigneeId"],
+    where: { assigneeId: { in: contractors.map((c) => c.id) }, department: { not: dept }, status: { in: ["SUBMITTED", "TRIAGED", "ASSIGNED", "IN_PROGRESS", "REOPENED"] } },
+    _count: { _all: true },
+  });
+  for (const g of otherDeptJobs) if (g.assigneeId) jobCounts.set(g.assigneeId, (jobCounts.get(g.assigneeId) ?? 0) + g._count._all);
+  const choicesFor = (t: { department: string; category: string; scope: string }): AssignChoice[] => [
+    ...contractors
+      .filter((c) => c.contractorProfile && assignmentProblems({ ...c.contractorProfile, userId: c.id, role: c.role, disabledAt: c.disabledAt }, t, jobCounts.get(c.id) ?? 0, now).length === 0)
+      .map((c) => ({ id: c.id, label: `${shortName(c.name)} (${jobCounts.get(c.id) ?? 0} jobs)` })),
+    ...deptStaff.map((s) => ({ id: s.id, label: `${s.id === viewer.id ? "Me" : shortName(s.name)} (staff)` })),
+  ];
   const deptLink = (d: string, v = view) => `/staff?${viewer.role === "ADMIN" ? `dept=${d}&` : ""}view=${v}`;
 
   const stats = [
@@ -203,7 +224,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
                             {shortName(t.assignee.name)}
                           </span>
                         ) : view === "open" && canAct ? (
-                          <QuickAssign ticketId={t.id} label={formatTicketNumber(t.number)} />
+                          <QuickAssign ticketId={t.id} label={formatTicketNumber(t.number)} choices={choicesFor(t)} />
                         ) : (
                           <span className="text-ink-3">—</span>
                         )}

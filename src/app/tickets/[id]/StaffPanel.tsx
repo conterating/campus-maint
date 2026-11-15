@@ -13,12 +13,12 @@ type Staff = { id: string; name: string; isSupervisor: boolean };
 function Section({ title, icon: Icon, children, defaultOpen = false }: { title: string; icon: typeof Wrench; children: React.ReactNode; defaultOpen?: boolean }) {
   return (
     <details className="group border-t border-line" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none items-center gap-2.5 px-4 py-3 text-sm font-bold text-ink hover:bg-surface-2 [&::-webkit-details-marker]:hidden">
-        <Icon aria-hidden className="size-4 text-ink-3" />
+      <summary className="flex cursor-pointer list-none items-center gap-2.5 py-3 font-display text-[1.125rem] font-bold uppercase tracking-[0.02em] text-navy hover:text-navy-hover [&::-webkit-details-marker]:hidden">
+        <Icon aria-hidden className="size-4" />
         <span className="flex-1">{title}</span>
-        <ChevronDown aria-hidden className="size-4 text-ink-3 transition-transform group-open:rotate-180" />
+        <ChevronDown aria-hidden className="size-4 transition-transform duration-200 group-open:rotate-180" />
       </summary>
-      <div className="px-4 pb-4">{children}</div>
+      <div className="pb-5">{children}</div>
     </details>
   );
 }
@@ -42,10 +42,10 @@ export function StaffPanel({ ticket, staff, viewerId }: { ticket: Ticket; staff:
   const [internal, setInternal] = useState(false);
 
   return (
-    <div className="card overflow-hidden">
-      <div className="px-4 pb-3 pt-4">
+    <div className="border-t-2 border-navy">
+      <div className="pb-3 pt-3">
         <h2 className="h-section">Staff controls</h2>
-        <p className="hint mt-0.5">{DEPARTMENT_LABEL[ticket.department as Department]} queue</p>
+        <p className="hint mt-1">{DEPARTMENT_LABEL[ticket.department as Department]} queue</p>
         {closed && <p className="mt-2 text-sm text-ink-2">The reporter confirmed this fix. They can reopen it if it breaks again.</p>}
       </div>
 

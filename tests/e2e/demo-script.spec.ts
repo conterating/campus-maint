@@ -94,7 +94,7 @@ test("4. a second student hits the duplicate check on a public issue and says me
   await expect(page.getByText("You're counted.")).toBeVisible();
   await expect(page.getByText("You said “me too” on this.")).toBeVisible();
   await expect(page.getByText("7 people affected", { exact: true })).toBeVisible(); // reporter + 6
-  await expect(page.getByRole("button", { name: /Following/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Unfollow" })).toBeVisible();
 });
 
 test("5. an overdue ticket escalates to the supervisor when the clock moves forward", async ({ page, context }) => {
@@ -120,7 +120,8 @@ test("5. an overdue ticket escalates to the supervisor when the clock moves forw
   await expect(page.getByRole("link", { name: /Room 249 projector won't turn on before 2pm class missed its 4h response target/ })).toBeVisible();
 
   await page.getByRole("link", { name: /Room 249 projector won't turn on/ }).first().click();
-  await expect(page.getByText("Escalated", { exact: true })).toBeVisible();
+  // The header flag (the activity log also has an "Escalated" entry).
+  await expect(page.getByText("Escalated", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/No response within the 4-hour target\. Escalated to the IT supervisor \(Aisha R\.\)/)).toBeVisible();
 });
 

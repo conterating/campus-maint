@@ -39,7 +39,7 @@ export function CommentForm({ ticketId, audience }: { ticketId: string; audience
   }
 
   return (
-    <form onSubmit={submit} className="mt-5 border-t border-line pt-5">
+    <form onSubmit={submit} className="mt-8 border-t-2 border-navy pt-5">
       <label htmlFor={textId} className="label">
         Add a comment
       </label>
@@ -49,7 +49,7 @@ export function CommentForm({ ticketId, audience }: { ticketId: string; audience
         value={text}
         onChange={(e) => setText(e.target.value)}
         maxLength={MAX_COMMENT_LENGTH}
-        placeholder="Anything new? It got worse, it's also happening somewhere else, a photo from a different angle…"
+        placeholder="Add an update or photo"
         aria-describedby={`${textId}-hint`}
         disabled={pending}
       />

@@ -1,6 +1,5 @@
 // The repair tracker: four plain-language stages a student actually cares about,
-// drawn as work-order status tiles. Staff still see the precise status elsewhere.
-import { Check, CircleDashed, RefreshCw, RotateCcw, UserCheck } from "lucide-react";
+// drawn like a package tracker. Staff still see the precise status elsewhere.
 import { formatDateTime } from "@/lib/format";
 
 export const STAGES = ["Reported", "Assigned", "In progress", "Fixed"] as const;
@@ -53,58 +52,70 @@ export function stageStamps(createdAt: Date, events: { type: string; toStatus: s
   return [createdAt, last("ASSIGNED"), last("IN_PROGRESS", "REOPENED"), last("RESOLVED", "CONFIRMED")];
 }
 
-const STAGE_ICONS = [CircleDashed, UserCheck, RefreshCw, Check] as const;
-
-/** Four status tiles, work-order style: done ones tinted, the current one solid. */
-export function Progress({ status, stamps = [] }: { status: string; stamps?: Stamp[] }) {
+/**
+ * The tracker: a package-tracking line from Reported to Fixed. Segments fill
+ * one after another up to the current stop on load (~600ms total). Vertical on
+ * phones, horizontal from `sm`. Progress uses the navy scale; Fixed is green;
+ * Reopened is dark gold. `notes` adds a line under a stop (e.g. the technician).
+ */
+export function Progress({ status, stamps = [], notes = [] }: { status: string; stamps?: Stamp[]; notes?: (string | null | undefined)[] }) {
   const current = stageIndex(status);
   const complete = status === "CONFIRMED";
+  const fixed = status === "RESOLVED" || complete;
   const reopened = status === "REOPENED";
+  const accent = fixed ? "var(--st-fixed)" : reopened ? "var(--st-reopened)" : "var(--st-progress)";
+  const SEG_MS = 190;
   return (
-    <ol className="grid grid-cols-4 gap-2" aria-label="Repair progress">
+    <ol className="grid grid-cols-1 sm:grid-cols-4" aria-label="Repair progress">
       {STAGES.map((label, i) => {
         const done = i < current || (i === current && complete);
         const isCurrent = i === current;
         const reached = i <= current;
         const stamp = reached ? stamps[i] : null;
         const name = i === 2 && reopened ? "Reopened" : label;
-        const Icon = i === 2 && reopened ? RotateCcw : STAGE_ICONS[i];
-        const tone =
-          isCurrent && !complete
-            ? reopened
-              ? "border-[var(--st-reopened)] bg-[var(--st-reopened)] text-white"
-              : "border-navy bg-navy text-white"
-            : reached
-              ? "border-navy-100 bg-navy-50 text-navy"
-              : "border-line bg-surface text-ink-3";
+        const note = reached ? notes[i] : null;
         return (
-          <li key={label} className={`min-w-0 rounded-[8px] border px-1.5 py-2.5 text-center ${tone}`} aria-current={isCurrent ? "step" : undefined}>
-            <Icon aria-hidden className="mx-auto size-[1.125rem]" strokeWidth={2.2} />
-            <p className="mt-1 truncate text-[0.8125rem] font-semibold leading-tight">
-              {name}
-              <span className="sr-only">{isCurrent ? " (current)" : done || reached ? " (done)" : " (not yet)"}</span>
-            </p>
-            {stamp && (
-              <p className={`mt-0.5 hidden truncate text-[0.6875rem] sm:block ${isCurrent && !complete ? "text-white/80" : "text-ink-3"}`}>
-                <time dateTime={stamp.toISOString()}>{formatDateTime(stamp)}</time>
-              </p>
+          <li key={label} className="relative flex gap-4 pb-8 last:pb-0 sm:block sm:pb-0 sm:pr-3" aria-current={isCurrent ? "step" : undefined}>
+            {i < STAGES.length - 1 && (
+              <span aria-hidden className="absolute bottom-1 left-[14px] top-9 w-1 rounded-full bg-line sm:left-10 sm:right-2 sm:top-[14px] sm:bottom-auto sm:h-1 sm:w-auto">
+                {i < current && <span className="wo-track-fill block size-full rounded-full" style={{ background: accent, animationDelay: `${120 + i * SEG_MS}ms`, animationDuration: `${SEG_MS}ms` }} />}
+              </span>
             )}
+            <span
+              aria-hidden
+              className={`relative z-10 grid size-8 shrink-0 place-items-center rounded-full ${reached ? "anim-stop" : ""}`}
+              style={{
+                animationDelay: reached ? `${100 + i * SEG_MS}ms` : undefined,
+                background: done ? accent : "var(--surface)",
+                boxShadow: done ? "none" : isCurrent ? `inset 0 0 0 4px ${accent}` : "inset 0 0 0 2px var(--line-2)",
+              }}
+            >
+              {done ? (
+                <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3.5 8.5l3 3 6-7" />
+                </svg>
+              ) : isCurrent ? (
+                <span className="size-2.5 rounded-full" style={{ background: accent }} />
+              ) : null}
+            </span>
+            <div className="min-w-0 sm:mt-3">
+              <p
+                className={`font-display text-[1.375rem] font-bold uppercase leading-none tracking-[0.01em] sm:text-[1.5rem] ${isCurrent ? "" : reached ? "text-ink" : "text-ink-3"}`}
+                style={isCurrent ? { color: accent } : undefined}
+              >
+                {name}
+                <span className="sr-only">{isCurrent ? " (current)" : done || reached ? " (done)" : " (not yet)"}</span>
+              </p>
+              {stamp && (
+                <p className="num mt-1 text-[0.9375rem] font-semibold text-ink-3">
+                  <time dateTime={stamp.toISOString()}>{formatDateTime(stamp)}</time>
+                </p>
+              )}
+              {note && <p className="mt-0.5 text-[0.9375rem] font-bold text-ink-2">{note}</p>}
+            </div>
           </li>
         );
       })}
     </ol>
-  );
-}
-
-/** Four thin segments for list cards. Decorative: the caption beside it carries the meaning. */
-export function ProgressBar({ status }: { status: string }) {
-  const current = stageIndex(status);
-  const color = status === "REOPENED" ? "var(--st-reopened)" : status === "CONFIRMED" || status === "RESOLVED" ? "var(--st-resolved)" : "var(--navy)";
-  return (
-    <span aria-hidden className="grid w-full grid-cols-4 gap-1">
-      {STAGES.map((s, i) => (
-        <span key={s} className="h-1.5 rounded-full" style={{ background: i <= current ? color : "var(--line)" }} />
-      ))}
-    </span>
   );
 }

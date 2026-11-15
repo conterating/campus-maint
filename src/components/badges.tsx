@@ -61,13 +61,13 @@ export const STATUS_COLOR: Record<Status, string> = {
 
 /** Raw hex values for places CSS variables can't reach (map pins, SVG data URIs). */
 export const STATUS_HEX: Record<Status, string> = {
-  SUBMITTED: "#5f6b7c",
-  TRIAGED: "#6b3fd4",
-  ASSIGNED: "#0b6a8a",
-  IN_PROGRESS: "#c4320a",
-  REOPENED: "#b0136b",
-  RESOLVED: "#087443",
-  CONFIRMED: "#344054",
+  SUBMITTED: "#5b6880",
+  TRIAGED: "#3d6390",
+  ASSIGNED: "#1f5596",
+  IN_PROGRESS: "#003057",
+  REOPENED: "#7a5c12",
+  RESOLVED: "#0b6b3a",
+  CONFIRMED: "#0b6b3a",
 };
 
 const asStatus = (s: string) => ((s in STATUS_LABEL ? s : "SUBMITTED") as Status);

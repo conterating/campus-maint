@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Building2, CheckCircle2, ChevronLeft, Eye, Lock, MapPin, ShieldAlert, Users } from "lucide-react";
+import { Building2, ChevronLeft, Eye, Lock, ShieldAlert } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/session";
 import { getTicketDetail, shortName } from "@/lib/tickets";
@@ -9,13 +9,12 @@ import { isStaff } from "@/lib/visibility";
 import { CATEGORY_LABEL, DEPARTMENT_LABEL, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, parseEventPhotos, type Category, type Department, type Severity } from "@/lib/domain";
 import { APP_CONFIG } from "@/config/app";
 import { formatDateTime } from "@/lib/format";
-import { CategoryChip, SeverityText, StatusPill } from "@/components/badges";
+import { SeverityText } from "@/components/badges";
 import { Countdown } from "@/components/Countdown";
 import { EmergencyBanner } from "@/components/EmergencyBanner";
 import { Timeline } from "@/components/Timeline";
 import { Progress, stageCaption, stageStamps } from "@/components/Progress";
-import { Avatar } from "@/components/Avatar";
-import { hueFor } from "@/components/AppHeader";
+import { FiledTag, Stamp, WoField, placeParts } from "@/components/WorkOrder";
 import { StudentActions } from "./StudentActions";
 import { StaffPanel } from "./StaffPanel";
 import { CommentForm } from "./CommentForm";
@@ -27,15 +26,6 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { id } = await params;
   const t = await prisma.ticket.findUnique({ where: { id }, select: { number: true } });
   return { title: t ? formatTicketNumber(t.number) : "Ticket" };
-}
-
-function Prop({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-2.5">
-      <dt className="shrink-0 text-[0.8125rem] text-ink-3">{label}</dt>
-      <dd className="flex min-w-0 flex-col items-end text-right text-sm text-ink">{children}</dd>
-    </div>
-  );
 }
 
 export default async function TicketPage({ params, searchParams }: { params: Params; searchParams: Search }) {
@@ -50,7 +40,8 @@ export default async function TicketPage({ params, searchParams }: { params: Par
   const isReporter = t.reporterId === viewer.id;
   const isOwner = t.ownerUserId === viewer.id;
   const dept = DEPARTMENT_LABEL[t.department as Department];
-  const where = [t.building.name, t.space?.label ?? t.roomText, t.asset?.name].filter(Boolean).join(" · ");
+  const place = placeParts(t.building.name, t.space?.label ?? t.roomText, t.asset?.name);
+  const number = formatTicketNumber(t.number);
 
   // Students see other students anonymously; staff names are always shown.
   const actorLabel = (actor: { id: string; name: string; role: string; department: string | null } | null) => {
@@ -103,7 +94,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
       viewerId={viewer.id}
     />
   ) : staff ? (
-    <div className="card p-4 text-sm">
+    <div className="border-l-4 border-line-2 pl-4 text-[0.9375rem]">
       <p className="font-bold">This ticket belongs to {dept}.</p>
       <p className="mt-1 text-ink-3">Only that department (or an administrator) can update it.</p>
     </div>
@@ -116,159 +107,148 @@ export default async function TicketPage({ params, searchParams }: { params: Par
       following={t.viewerFollows}
       meToo={t.viewerMeToo}
       canMeToo={open && !isReporter && t.scope !== "ROOM"}
+      affected={t.meTooCount + 1}
       watchers={t._count.followers + (t.ownerUserId && !t.viewerFollows ? 1 : 0)}
     />
   );
 
+  // "People affected" lives with the Me too control when there is one; otherwise in the header.
+  const meTooInRail = !staff && ((open && !isReporter && t.scope !== "ROOM") || t.viewerMeToo);
+  const ownerText =
+    t.ownerType === "STUDENT" ? (isOwner ? "You (it's in your room)" : `Room resident${staff && t.ownerUser ? ` (${shortName(t.ownerUser.name)})` : ""}`) : null;
+  const sortedNote = corrected
+    ? `Sorted automatically as ${CATEGORY_LABEL[t.aiCategory as Category]}, ${SEVERITY_LABEL[t.aiSeverity as Severity]}, for ${DEPARTMENT_LABEL[t.aiDepartment as Department]}. It's been changed since; the activity shows how.`
+    : `Sorted automatically as ${CATEGORY_LABEL[t.aiCategory as Category]} for ${DEPARTMENT_LABEL[t.aiDepartment as Department]}. Staff fix it if that's off.`;
+
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-5 md:pt-8">
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
-        <Link href={staff ? "/staff" : "/tickets"} className="inline-flex items-center gap-1 rounded-md font-bold text-ink-2 hover:text-navy">
+    <div className="mx-auto max-w-6xl overflow-x-clip px-4 pb-10 pt-5 md:px-6 md:pt-8">
+      <nav aria-label="Breadcrumb" className="text-[0.9375rem]">
+        <Link href={staff ? "/staff" : "/tickets"} className="inline-flex items-center gap-1 font-bold text-ink-2 hover:text-navy">
           <ChevronLeft aria-hidden className="size-4" /> {staff ? "Back to queue" : "My reports"}
         </Link>
       </nav>
 
       {flags.created && (
-        <p role="status" className="rise mt-4 flex items-center gap-2.5 rounded-[8px] bg-[#ecfdf3] px-4 py-3 text-sm text-ink ring-1 ring-inset ring-resolved/20">
-          <CheckCircle2 aria-hidden className="size-5 shrink-0 text-resolved" />
-          <span>
-            <span className="font-bold">Filed as {formatTicketNumber(t.number)}</span> and sent to {dept}. You&apos;ll get an alert every time it changes.
-          </span>
-        </p>
+        <div className="mt-6">
+          <FiledTag number={number} category={CATEGORY_LABEL[t.category as Category]} department={dept} />
+        </div>
       )}
       {flags.metoo && (
-        <p role="status" className="rise mt-4 flex items-center gap-2.5 rounded-[8px] bg-navy-50 px-4 py-3 text-sm text-ink ring-1 ring-inset ring-navy-100">
-          <Users aria-hidden className="size-5 shrink-0 text-navy" />
-          <span>
-            <span className="font-bold">You&apos;re counted.</span> {t.meTooCount + 1} people now report this, and you&apos;re following it for updates.
-          </span>
+        <p role="status" className="rise mt-6 border-l-4 border-navy pl-4 text-ink">
+          <span className="font-bold">You&apos;re counted.</span> {t.meTooCount + 1} people now report this, and you&apos;re following it for updates.
         </p>
       )}
 
       {t.severity === "EMERGENCY" && open && (
-        <div className="mt-4">
+        <div className="mt-6">
           <EmergencyBanner police={APP_CONFIG.campusPolice} compact />
         </div>
       )}
 
-      {/* One actions panel, placed by the grid: after the header on phones, a sticky sidebar on desktop. */}
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:grid-rows-[auto_1fr] lg:gap-x-8">
-        <div className="min-w-0 space-y-5 lg:col-start-1 lg:row-start-1">
+      {/* Phones: header, then actions, then the rest. Desktop: actions ride along in a right rail. */}
+      <div className="mt-8 grid gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,1fr)_19rem] lg:grid-rows-[auto_1fr]">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           <header>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span className="num text-sm font-semibold text-ink-3">{formatTicketNumber(t.number)}</span>
-              <CategoryChip category={t.category} />
-              {t.escalatedAt && open && (
-                <span className="pill bg-emergency text-white">
-                  <ShieldAlert aria-hidden className="size-3.5" />
-                  Escalated
-                </span>
-              )}
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+              {/* Just filed? The tag above already stamped the number; don't say it twice. */}
+              {!flags.created && <Stamp number={number} className="-rotate-2" />}
+              <div className="flex flex-wrap items-center gap-2 pb-1 sm:justify-end">
+                <span className="font-display text-[1.25rem] font-bold uppercase leading-none tracking-[0.03em] text-ink-2">{CATEGORY_LABEL[t.category as Category]}</span>
+                {t.escalatedAt && open && (
+                  <span className="pill bg-emergency text-white">
+                    <ShieldAlert aria-hidden className="size-3.5" />
+                    Escalated
+                  </span>
+                )}
+              </div>
             </div>
-            <h1 className="mt-2 text-[1.625rem] font-bold leading-[1.18] tracking-[-0.01em] text-ink md:text-[2.125rem]">{t.summary}</h1>
-            <p className="mt-2 flex items-start gap-1.5 text-ink-2">
-              <MapPin aria-hidden className="mt-1 size-4 shrink-0 text-ink-3" />
-              {where}
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-              <StatusPill status={t.status} />
-              <SeverityText severity={t.severity} />
-              <Countdown dueAt={t.responseDueAt.toISOString()} serverNow={now.toISOString()} respondedAt={t.firstResponseAt?.toISOString() ?? null} closed={!open} escalated={!!t.escalatedAt} />
-              {t.meTooCount > 0 && (
-                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-2">
-                  <Users aria-hidden className="size-4" />
-                  <span>{t.meTooCount + 1} people affected</span>
+            <h1 className="mt-6 text-[1.75rem] font-bold leading-[1.15] text-ink md:text-[2.25rem]">{t.summary}</h1>
+
+            <dl className="mt-7 grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4">
+              <WoField label="Location" className="col-span-2 sm:col-span-1">
+                <span className="block font-bold leading-snug">{place.building}</span>
+                {place.spot && <span className="block leading-snug text-ink-2">{place.spot}</span>}
+              </WoField>
+              <WoField label="Technician">
+                <span className="block font-bold leading-snug">{t.assignee ? shortName(t.assignee.name) : "Not assigned yet"}</span>
+                <span className="block leading-snug text-ink-2">{dept}</span>
+              </WoField>
+              <WoField label="Respond by">
+                <span className="num block text-[1.1875rem] leading-snug">{formatDateTime(t.responseDueAt)}</span>
+                <span className="mt-0.5 block">
+                  <Countdown dueAt={t.responseDueAt.toISOString()} serverNow={now.toISOString()} respondedAt={t.firstResponseAt?.toISOString() ?? null} closed={!open} escalated={!!t.escalatedAt} />
                 </span>
+              </WoField>
+              <WoField label="Priority">
+                <span className="block font-bold">
+                  <SeverityText severity={t.severity} />
+                </span>
+                {!meTooInRail && t.meTooCount > 0 && <span className="block text-ink-2">{t.meTooCount + 1} people affected</span>}
+              </WoField>
+              {ownerText && (
+                <WoField label="Owner" className="col-span-2 lg:col-span-4">
+                  <span className="font-bold">{ownerText}</span>
+                </WoField>
               )}
-            </div>
+            </dl>
           </header>
 
-          <section aria-labelledby="progress-title" className="card p-5 md:p-6">
-            <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <h2 id="progress-title" className="h-section">
+          <section aria-labelledby="progress-title" className="mt-14">
+            <div className="rule-head">
+              <h2 id="progress-title" className="font-display text-[1.875rem] font-extrabold uppercase leading-none text-navy md:text-[2.25rem]">
                 {stageCaption(t.status)}
               </h2>
-              {t.assignee && open && <p className="text-sm text-ink-3">Technician: {shortName(t.assignee.name)}</p>}
             </div>
-            <Progress status={t.status} stamps={stageStamps(t.createdAt, t.events)} />
-            {t.status === "REOPENED" && <p className="mt-4 text-sm font-bold text-[var(--st-reopened)]">Reopened by the reporter. It&apos;s back in the queue with a fresh response target.</p>}
+            <div className="mt-7">
+              <Progress
+                status={t.status}
+                stamps={stageStamps(t.createdAt, t.events)}
+                notes={[isReporter ? "by you" : staff ? `by ${shortName(t.reporter.name)}` : null, t.assignee ? shortName(t.assignee.name) : null]}
+              />
+            </div>
+            {t.status === "REOPENED" && <p className="mt-6 border-l-4 border-st-reopened pl-4 font-bold text-st-reopened">Reopened by the reporter. It&apos;s back in the queue with a fresh response target.</p>}
           </section>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start" aria-label="Actions">
+        <aside className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start" aria-label="Actions">
           {actions}
-
-          <section aria-labelledby="details-title" className="card px-4 py-1.5">
-            <h2 id="details-title" className="sr-only">
-              Details
-            </h2>
-            <dl className="divide-y divide-line">
-              <Prop label="Status">
-                <StatusPill status={t.status} size="sm" />
-              </Prop>
-              <Prop label="Priority">
-                <SeverityText severity={t.severity} />
-              </Prop>
-              <Prop label="Category">
-                <CategoryChip category={t.category} />
-              </Prop>
-              <Prop label="Handled by">
-                <span className="font-bold">{dept}</span>
-                {t.assignee && (
-                  <span className="mt-1 flex items-center justify-end gap-1.5 text-ink-2">
-                    <Avatar name={t.assignee.name} hue={hueFor(t.assignee.id)} size="xs" /> {shortName(t.assignee.name)}
-                  </span>
-                )}
-              </Prop>
-              <Prop label="Owner">
-                <span className="font-bold">
-                  {t.ownerType === "STUDENT" ? (isOwner ? "You (it's in your room)" : `Room resident${staff && t.ownerUser ? ` (${shortName(t.ownerUser.name)})` : ""}`) : dept}
-                </span>
-              </Prop>
-              <Prop label="Reported">
-                {formatDateTime(t.createdAt)}
-                {isReporter ? " by you" : staff ? ` by ${shortName(t.reporter.name)}` : ""}
-              </Prop>
-              <Prop label="Respond by">
-                {formatDateTime(t.responseDueAt)}
-              </Prop>
-              <Prop label="Visibility">
-                <span className="text-ink-2">
-                  <scopeNote.Icon aria-hidden className="mr-1.5 inline size-4 align-[-3px] text-ink-3" />
-                  {scopeNote.text}
-                </span>
-              </Prop>
-            </dl>
-          </section>
+          <p className="mt-6 flex items-start gap-2 border-t border-line pt-4 text-[0.9375rem] text-ink-3">
+            <scopeNote.Icon aria-hidden className="mt-0.5 size-4 shrink-0" />
+            {scopeNote.text}
+          </p>
         </aside>
 
-        <div className="min-w-0 space-y-5 lg:col-start-1 lg:row-start-2">
-          <section aria-labelledby="report-title" className="card overflow-hidden">
-            {t.photoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element -- user upload served by our route
-              <img src={t.photoUrl} alt={`Photo of the problem: ${t.summary}`} className="max-h-[26rem] w-full bg-bg object-contain" />
-            )}
-            <div className="p-5">
+        <div className="min-w-0 space-y-14 lg:col-start-1 lg:row-start-2">
+          <section aria-labelledby="report-title">
+            <div className="rule-head">
               <h2 id="report-title" className="h-section">
                 What was reported
               </h2>
-              <p className="mt-2 whitespace-pre-line text-[1.0625rem] leading-relaxed text-ink">{t.description}</p>
-              <div className="mt-5 border-t border-line pt-4 text-sm text-ink-3">
-                <p>
-                  {t.aiSource === "claude" ? "Claude" : "The routing rules"} sorted this as <strong className="text-ink-2">{CATEGORY_LABEL[t.aiCategory as Category]}</strong>,{" "}
-                  <strong className="text-ink-2">{SEVERITY_LABEL[t.aiSeverity as Severity]}</strong>, for <strong className="text-ink-2">{DEPARTMENT_LABEL[t.aiDepartment as Department]}</strong>.
-                  {corrected && <> It was later changed; the activity below shows who changed what.</>}
-                  {staff && t.aiRationale && <span className="mt-1 block text-ink-3">{t.aiRationale}</span>}
+            </div>
+            <div className="mt-5 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="min-w-0">
+                <p className="whitespace-pre-line text-[1.1875rem] leading-relaxed text-ink">{t.description}</p>
+                <p className="mt-4 text-[0.9375rem] text-ink-3">
+                  {t.aiSource === "claude" ? sortedNote : sortedNote.replace("Sorted automatically", "Sorted by the routing rules")}
+                  {staff && t.aiRationale && <span className="mt-1 block">{t.aiRationale}</span>}
                 </p>
               </div>
+              {t.photoUrl && (
+                <a href={t.photoUrl} target="_blank" rel="noopener" className="block self-start">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- user upload served by our route */}
+                  <img src={t.photoUrl} alt={`Photo of the problem: ${t.summary}`} className="max-h-72 w-full rounded-[4px] object-cover ring-1 ring-line md:w-64" />
+                </a>
+              )}
             </div>
           </section>
 
-          <section aria-labelledby="timeline-title" className="card p-5">
-            <h2 id="timeline-title" className="h-section">
-              Activity
-            </h2>
-            <div className="mt-4">
+          <section aria-labelledby="timeline-title">
+            <div className="rule-head">
+              <h2 id="timeline-title" className="h-section">
+                Activity
+              </h2>
+            </div>
+            <div className="mt-5">
               <Timeline events={events} now={now} />
             </div>
             <CommentForm ticketId={t.id} audience={commentAudience} />

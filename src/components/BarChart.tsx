@@ -2,7 +2,7 @@
 // the white surface), values in ink beside each bar, a hover tooltip per bar, and
 // a table view for screen readers and anyone who prefers numbers.
 
-export const CHART_BAR = "#1f5fa6";
+export const CHART_BAR = "#003057";
 
 export type BarRow = { key: string; label: string; value: number | null; valueLabel: string; detail: string };
 

@@ -25,10 +25,10 @@ export function initialView(): { center: { lat: number; lng: number }; zoom: num
 /** Pin colors: open issues by severity, anything fixed in green. */
 export const PIN_COLOR: Record<Severity | "FIXED", string> = {
   EMERGENCY: "#b42318",
-  URGENT: "#c4500a",
-  STANDARD: "#1f5fa6",
-  LOW: "#5f6b7c",
-  FIXED: "#087443",
+  URGENT: "#b54708",
+  STANDARD: "#003057",
+  LOW: "#5b6880",
+  FIXED: "#0b6b3a",
 };
 
 export function pinColor(p: Pick<MapPoint, "status" | "severity">): string {

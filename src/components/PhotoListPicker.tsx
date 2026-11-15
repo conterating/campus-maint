@@ -98,7 +98,7 @@ export function PhotoListPicker({
         {busy ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <ImagePlus aria-hidden className="size-4" />}
         {busy ? "Preparing photos…" : value.length ? "Add another photo" : "Add photos"}
       </label>
-      <span id={`${id}-hint`} className="ml-2 text-sm text-ink-3">
+      <span id={`${id}-hint`} className="num ml-2 whitespace-nowrap text-[0.9375rem] text-ink-3">
         {value.length} of {max}
       </span>
       {note && (

@@ -7,15 +7,13 @@ export function initials(name: string): string {
     .toUpperCase();
 }
 
-const DIMS = { xs: "size-6 text-[0.625rem]", sm: "size-8 text-xs", md: "size-10 text-sm", lg: "size-12 text-base" } as const;
+const DIMS = { xs: "size-6 text-[0.75rem]", sm: "size-8 text-[0.9375rem]", md: "size-10 text-[1.0625rem]", lg: "size-12 text-[1.25rem]" } as const;
 
-export function Avatar({ name, hue = 210, size = "md" }: { name: string; hue?: number; size?: keyof typeof DIMS }) {
+/** Navy disc, gold initials in the display face. `hue` is accepted for compatibility but unused: one palette. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function Avatar({ name, hue, size = "md" }: { name: string; hue?: number; size?: keyof typeof DIMS }) {
   return (
-    <span
-      aria-hidden
-      className={`${DIMS[size]} inline-grid shrink-0 place-items-center rounded-full font-bold ring-1 ring-inset ring-black/5`}
-      style={{ background: `hsl(${hue} 60% 92%)`, color: `hsl(${hue} 55% 26%)` }}
-    >
+    <span aria-hidden className={`${DIMS[size]} inline-grid shrink-0 place-items-center rounded-full bg-navy font-display font-bold tracking-[0.04em] text-buzz`}>
       {initials(name)}
     </span>
   );

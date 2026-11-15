@@ -2,59 +2,81 @@
 
 /* ---------------------------------------------------------------------------
    Ramblin’ Repairs — design tokens
-   Parkinsans for headings and numbers, Funnel Sans for text, white surfaces on a cool gray
-   page, GT Navy for ink and primary actions, Buzz Gold only for "report" and
-   focus. Every text pair below meets WCAG AA on both --bg and --surface.
+   Concept: the maintenance work order. White paper, navy ink, ruled lines,
+   stamped numbers. Boxes are rare and mean something (the emergency callout,
+   the manila work-order tag). Big Shoulders for display, stamps, IDs, and
+   times (its plain zero reads cleanly); Atkinson Hyperlegible for reading.
+
+   One status system:
+     progress  = a slate → blue → navy scale (Reported → Assigned → In progress)
+     fixed     = green, and only green
+     reopened  = dark gold
+     severity  = red (emergency) and orange (urgent) ONLY. Red never means progress.
+   Every text color below meets WCAG AA on white.
 --------------------------------------------------------------------------- */
 :root {
-  --bg: #f3f4f6;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f9fafb;
-  --ink: #0f1a2a;
-  --ink-2: #3f4b5c; /* body secondary — 9.2:1 */
-  --ink-3: #5f6b7c; /* meta — 5.5:1 on white, 5.2:1 on --bg */
-  --line: #e5e8ed;
-  --line-2: #d2d7df;
+  --surface-2: #f6f7f9;
+  --panel: #f3f5f8;
+  --ink: #0d1b2e;
+  --ink-2: #3c4859; /* 9.6:1 */
+  --ink-3: #5b6880; /* 5.6:1 — meta */
+  --line: #e3e6eb;
+  --line-2: #cdd3dc;
 
   --navy: #003057;
-  --navy-hover: #002444;
+  --navy-hover: #00213d;
   --navy-50: #eef3f9;
-  --navy-100: #dbe5f1;
-  --buzz: #eaaa00;
+  --navy-100: #d9e3ef;
+  --buzz: #eaaa00; /* the one action color: Report / Continue */
   --buzz-hover: #f5b800;
   --buzz-50: #fdf5df;
-  --tech-gold: #b3a369; /* decorative only */
-  --gold-ink: #6b5c1e; /* gold-family text, 6.4:1 */
-  --focus: #eaaa00;
+  --tech-gold: #b3a369; /* rules and marks on navy */
+  --gold-ink: #6b5418; /* gold text on white, 7.2:1 */
 
-  /* Severity */
+  /* The work-order tag: manila card stock. */
+  --tag: #f3ebcf;
+  --tag-line: #d8c994;
+  --tag-ink: #3d3214;
+
+  /* Progress scale */
+  --st-reported: #5b6880; /* slate, 5.6:1 */
+  --st-triaged: #3d6390; /* blue-gray, 6.2:1 */
+  --st-assigned: #1f5596; /* blue, 7.5:1 */
+  --st-progress: #003057; /* navy, 13:1 */
+  --st-fixed: #0b6b3a; /* green, 6.6:1 */
+  --st-reopened: #7a5c12; /* dark gold, 6.2:1 */
+
+  /* Severity: the only red and orange in the app */
   --sev-emergency: #b42318;
   --sev-emergency-bg: #fef3f2;
   --sev-urgent: #b54708;
-  --sev-urgent-bg: #fffaeb;
-  --sev-standard: #1f5fa6;
-  --sev-standard-bg: #eff6ff;
-  --sev-low: #5f6b7c;
-  --sev-low-bg: #f2f4f7;
+  --sev-urgent-bg: #fff6ea;
+  --sev-standard: #003057;
+  --sev-standard-bg: #eef3f9;
+  --sev-low: #5b6880;
+  --sev-low-bg: #f3f5f8;
 
-  /* Status (pills + map pins) */
-  --st-submitted: #5f6b7c;
-  --st-triaged: #6b3fd4;
-  --st-assigned: #0b6a8a;
-  --st-in-progress: #c4320a;
-  --st-reopened: #b0136b;
-  --st-resolved: #087443;
-  --st-confirmed: #344054;
+  /* Back-compat names used around the app */
+  --st-submitted: var(--st-reported);
+  --st-in-progress: var(--st-progress);
+  --st-resolved: var(--st-fixed);
+  --st-confirmed: var(--st-fixed);
 
-  --shadow-xs: 0 0 #0000; /* cards are separated by borders, not shadows */
-  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
-  --shadow-lg: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.06);
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 1px 2px rgb(13 27 46 / 0.08);
+  --shadow-lg: 0 18px 40px -16px rgb(13 27 46 / 0.28), 0 2px 6px rgb(13 27 46 / 0.06);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-stamp: cubic-bezier(0.3, 1.4, 0.5, 1);
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-panel: var(--panel);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
@@ -68,6 +90,16 @@
   --color-buzz-50: var(--buzz-50);
   --color-tech-gold: var(--tech-gold);
   --color-gold-ink: var(--gold-ink);
+  --color-tag: var(--tag);
+  --color-tag-line: var(--tag-line);
+  --color-tag-ink: var(--tag-ink);
+
+  --color-st-reported: var(--st-reported);
+  --color-st-triaged: var(--st-triaged);
+  --color-st-assigned: var(--st-assigned);
+  --color-st-progress: var(--st-progress);
+  --color-st-fixed: var(--st-fixed);
+  --color-st-reopened: var(--st-reopened);
 
   --color-emergency: var(--sev-emergency);
   --color-emergency-bg: var(--sev-emergency-bg);
@@ -77,10 +109,10 @@
   --color-standard-bg: var(--sev-standard-bg);
   --color-low: var(--sev-low);
   --color-low-bg: var(--sev-low-bg);
-  --color-resolved: var(--st-resolved);
+  --color-resolved: var(--st-fixed);
 
-  --font-display: var(--font-parkinsans), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-funnel), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-signage), "Arial Narrow", ui-sans-serif, sans-serif;
+  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -94,27 +126,20 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 1rem;
+  font-size: 1.0625rem;
   line-height: 1.5;
 }
 
-/* Headings in the friendly display face; everything you read stays in Funnel Sans. */
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-}
-
 ::selection {
-  background: var(--navy-100);
+  background: var(--buzz-50);
 }
 
-/* One focus style everywhere: navy outline with a soft gold halo. */
+/* One focus style everywhere: navy outline with a Buzz Gold halo. */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--navy);
   outline-offset: 2px;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--buzz) 55%, transparent);
-  border-radius: 8px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--buzz) 60%, transparent);
+  border-radius: 4px;
 }
 
 @layer components {
@@ -122,42 +147,67 @@ h3 {
   .font-display {
     font-family: var(--font-display);
   }
-  .h-hero {
+  /* The stamp: ticket numbers set like a rubber stamp. */
+  .t-stamp {
+    font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(1.875rem, 1.2rem + 2.6vw, 2.75rem);
-    line-height: 1.08;
-    letter-spacing: -0.015em;
-    color: var(--ink);
+    font-size: clamp(4rem, 2.6rem + 5.4vw, 6.5rem);
+    line-height: 0.85;
+    letter-spacing: 0.005em;
+    font-variant-numeric: tabular-nums;
+    text-transform: uppercase;
+  }
+  .h-hero {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(3rem, 1.9rem + 4.6vw, 4.75rem);
+    line-height: 0.9;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    color: var(--navy);
   }
   .h-page {
+    font-family: var(--font-display);
     font-weight: 800;
-    font-size: 1.75rem;
-    line-height: 1.15;
-    letter-spacing: -0.01em;
-    color: var(--ink);
+    font-size: clamp(2.125rem, 1.6rem + 2vw, 2.75rem);
+    line-height: 0.95;
+    text-transform: uppercase;
+    color: var(--navy);
   }
-  @media (min-width: 768px) {
-    .h-page {
-      font-size: 2rem;
-    }
-  }
+  /* Section heads: condensed caps over a 2px navy rule. */
   .h-section {
+    font-family: var(--font-display);
     font-weight: 700;
-    font-size: 1.0625rem;
-    line-height: 1.3;
-    letter-spacing: -0.005em;
-    color: var(--ink);
+    font-size: 1.375rem;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    color: var(--navy);
   }
-  .eyebrow {
+  .rule-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--navy);
+  }
+  /* Field labels on the work order. */
+  .eyebrow,
+  .wo-label {
+    font-family: var(--font-sans);
     font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-3);
   }
+  /* IDs, times, counts: Big Shoulders, whose zero isn't slashed. */
   .num {
     font-family: var(--font-display);
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
   }
 
   .skip-link {
@@ -169,28 +219,51 @@ h3 {
     color: #fff;
     font-weight: 700;
     padding: 0.6rem 1rem;
-    border-radius: 10px;
+    border-radius: 4px;
   }
   .skip-link:focus {
     top: 0.75rem;
   }
 
-  /* ---- Surfaces ---- */
+  /* ---- Surfaces ----
+     Boxes are the exception. .card is kept for the few places a box earns it;
+     most sections are separated by space and rules instead. */
   .card {
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
   }
   .list-group {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: var(--shadow-xs);
-    overflow: hidden;
+    border-top: 1px solid var(--line-2);
+    border-bottom: 1px solid var(--line-2);
   }
   .list-group > li + li {
     border-top: 1px solid var(--line);
+  }
+
+  /* ---- The work-order tag (manila card stock, punched hole, tear line) ---- */
+  .wo-tag {
+    position: relative;
+    background-color: var(--tag);
+    color: var(--tag-ink);
+    border-radius: 6px;
+    background-image: repeating-linear-gradient(to bottom, transparent 0 31px, color-mix(in srgb, var(--tag-line) 55%, transparent) 31px 32px);
+    box-shadow: 0 1px 0 var(--tag-line), 0 14px 30px -18px rgb(61 50 20 / 0.45);
+  }
+  .wo-tag::before {
+    /* the punched hole, reinforced with a ring */
+    content: "";
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--bg);
+    box-shadow: 0 0 0 4px var(--tag-line);
+  }
+  .wo-perf {
+    border-top: 2px dashed var(--tag-line);
   }
 
   /* ---- Buttons ---- */
@@ -199,21 +272,23 @@ h3 {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    min-height: 2.75rem;
-    padding: 0.55rem 1rem;
-    border-radius: 8px;
+    min-height: 2.875rem;
+    padding: 0.55rem 1.1rem;
+    border-radius: 4px;
     font-weight: 700;
-    font-size: 0.9375rem;
+    font-size: 1rem;
     line-height: 1.2;
-    border: 1px solid transparent;
-    transition: background-color 120ms, border-color 120ms, color 120ms, box-shadow 120ms;
+    border: 2px solid transparent;
+    transition: background-color 150ms var(--ease-out), border-color 150ms, color 150ms, transform 120ms var(--ease-out), opacity 150ms;
     white-space: nowrap;
   }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px) scale(0.98);
+  }
   .btn-sm {
-    min-height: 2.25rem;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.875rem;
-    border-radius: 7px;
+    min-height: 2.375rem;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.9375rem;
   }
   .btn:disabled,
   .btn[aria-disabled="true"] {
@@ -223,7 +298,6 @@ h3 {
   .btn-primary {
     background: var(--navy);
     color: #fff;
-    box-shadow: var(--shadow-xs), inset 0 1px 0 rgb(255 255 255 / 0.08);
   }
   .btn-primary:hover:not(:disabled) {
     background: var(--navy-hover);
@@ -231,32 +305,28 @@ h3 {
   .btn-accent {
     background: var(--buzz);
     color: var(--navy-hover);
-    box-shadow: var(--shadow-xs), inset 0 -1px 0 rgb(0 0 0 / 0.08);
   }
   .btn-accent:hover:not(:disabled) {
     background: var(--buzz-hover);
   }
   .btn-secondary {
     background: var(--surface);
-    color: var(--ink);
-    border-color: var(--line-2);
-    box-shadow: var(--shadow-xs);
+    color: var(--navy);
+    border-color: var(--navy);
   }
   .btn-secondary:hover:not(:disabled) {
-    background: var(--surface-2);
-    border-color: #b9c0cb;
+    background: var(--navy-50);
   }
   .btn-secondary[aria-pressed="true"] {
-    background: var(--navy-50);
-    border-color: var(--navy);
-    color: var(--navy);
+    background: var(--navy);
+    color: #fff;
   }
   .btn-ghost {
     background: transparent;
     color: var(--ink-2);
   }
   .btn-ghost:hover:not(:disabled) {
-    background: rgb(16 24 40 / 0.05);
+    background: var(--panel);
     color: var(--ink);
   }
   .btn-danger {
@@ -267,52 +337,76 @@ h3 {
     background: #912018;
   }
   .btn-success {
-    background: var(--st-resolved);
+    background: var(--st-fixed);
     color: #fff;
   }
   .btn-success:hover:not(:disabled) {
-    background: #065f37;
+    background: #08552e;
+  }
+  /* Text-style action, e.g. "Unfollow" */
+  .link-action {
+    font-weight: 700;
+    color: var(--navy);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+    text-decoration-color: var(--line-2);
+    transition: text-decoration-color 150ms;
+  }
+  .link-action:hover {
+    text-decoration-color: var(--navy);
   }
 
-  /* ---- Segmented control ---- */
+  /* ---- Segmented control: tabs on a ruled line ---- */
   .seg {
     display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    border-radius: 9px;
-    background: #eaedf1;
+    gap: 1.5rem;
+    border-bottom: 1px solid var(--line-2);
   }
   .seg > * {
+    position: relative;
     display: inline-flex;
-    flex: 1 1 auto;
     align-items: center;
-    justify-content: center;
     gap: 0.4rem;
-    min-height: 2.25rem;
-    padding: 0.3rem 0.85rem;
-    border-radius: 6px;
-    font-size: 0.875rem;
+    min-height: 2.75rem;
+    padding: 0.25rem 0;
+    font-size: 0.9375rem;
     font-weight: 700;
-    color: var(--ink-2);
+    color: var(--ink-3);
     white-space: nowrap;
+    transition: color 150ms;
+  }
+  .seg > *::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 3px;
+    background: var(--navy);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 200ms var(--ease-out);
   }
   .seg > *:hover {
     color: var(--ink);
   }
   .seg > [aria-current="page"],
   .seg > [aria-pressed="true"] {
-    background: var(--surface);
-    color: var(--ink);
-    box-shadow: var(--shadow-sm);
+    color: var(--navy);
+  }
+  .seg > [aria-current="page"]::after,
+  .seg > [aria-pressed="true"]::after {
+    transform: scaleX(1);
   }
 
-  /* ---- Pills ---- */
+  /* ---- Pills (rare: severity flags) ---- */
   .pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.125rem 0.55rem 0.125rem 0.5rem;
-    border-radius: 999px;
+    gap: 0.35rem;
+    padding: 0.0625rem 0.45rem;
+    border-radius: 3px;
     font-size: 0.8125rem;
     font-weight: 700;
     line-height: 1.4;
@@ -322,25 +416,24 @@ h3 {
   /* ---- Fields ---- */
   .field {
     width: 100%;
-    min-height: 2.75rem;
+    min-height: 2.875rem;
     border: 1px solid var(--line-2);
-    border-radius: 8px;
+    border-radius: 4px;
     background: var(--surface);
     padding: 0.55rem 0.8rem;
     color: var(--ink);
-    box-shadow: var(--shadow-xs);
-    transition: border-color 120ms, box-shadow 120ms;
+    transition: border-color 150ms, box-shadow 150ms;
   }
   .field::placeholder {
-    color: #737f8f;
+    color: #6c788c;
   }
   .field:hover:not(:disabled) {
-    border-color: #b0b8c4;
+    border-color: #aab3c0;
   }
   .field:focus-visible {
     border-color: var(--navy);
     outline: none;
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--buzz) 45%, transparent);
+    box-shadow: 0 0 0 1px var(--navy), 0 0 0 5px color-mix(in srgb, var(--buzz) 55%, transparent);
   }
   .field:disabled {
     background: var(--surface-2);
@@ -348,7 +441,7 @@ h3 {
   }
   select.field {
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235f6b7c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23003057' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.7rem center;
     padding-right: 2.4rem;
@@ -356,12 +449,12 @@ h3 {
   .label {
     display: block;
     margin-bottom: 0.375rem;
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     font-weight: 700;
     color: var(--ink);
   }
   .hint {
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     color: var(--ink-3);
   }
 
@@ -384,7 +477,7 @@ h3 {
   outline: 2px solid var(--navy);
   outline-offset: 2px;
   border-radius: 999px;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--buzz) 55%, transparent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--buzz) 60%, transparent);
 }
 .fx-map-popup {
   position: absolute;
@@ -400,7 +493,7 @@ h3 {
   height: 14px;
   background: var(--surface);
   transform: translateX(-50%) rotate(45deg);
-  box-shadow: 3px 3px 4px rgb(16 24 40 / 0.06);
+  box-shadow: 3px 3px 4px rgb(13 27 46 / 0.06);
 }
 
 /* Leaflet */
@@ -410,7 +503,7 @@ h3 {
 }
 /* Calm the busy OpenStreetMap palette so pins and heat carry the color. */
 .leaflet-tile-pane {
-  filter: saturate(0.45) contrast(0.92) brightness(1.04);
+  filter: saturate(0.4) contrast(0.92) brightness(1.04);
 }
 .leaflet-container a.leaflet-popup-close-button {
   width: 32px;
@@ -419,7 +512,7 @@ h3 {
   color: var(--ink-3);
 }
 .leaflet-popup-content-wrapper {
-  border-radius: 14px;
+  border-radius: 6px;
   box-shadow: var(--shadow-lg);
 }
 .leaflet-popup-content {
@@ -428,16 +521,16 @@ h3 {
   line-height: 1.45;
 }
 .leaflet-bar {
-  border: 1px solid var(--line-2) !important;
-  border-radius: 10px !important;
+  border: 2px solid var(--navy) !important;
+  border-radius: 4px !important;
   overflow: hidden;
-  box-shadow: var(--shadow-sm) !important;
+  box-shadow: none !important;
 }
 .leaflet-bar a {
   width: 36px !important;
   height: 36px !important;
   line-height: 36px !important;
-  color: var(--ink) !important;
+  color: var(--navy) !important;
 }
 .fx-pin {
   background: transparent;
@@ -449,10 +542,14 @@ h3 {
   border-radius: 999px;
 }
 
+/* ---------------------------------------------------------------------------
+   Motion. Every animation confirms an action, shows progress, or guides the
+   eye. Nothing loops; nothing blocks input; reduced motion shows end states.
+--------------------------------------------------------------------------- */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -460,13 +557,160 @@ h3 {
   }
 }
 .rise {
-  animation: rise 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: rise 320ms var(--ease-out) both;
 }
+
+/* Submit moment: the tag swings in, then the number is stamped onto it. */
+@keyframes tag-in {
+  from {
+    opacity: 0;
+    transform: translateY(-28px) rotate(-5deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(3px) rotate(0.8deg);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-1deg);
+  }
+}
+@keyframes stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.9) rotate(-9deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.94) rotate(-3deg);
+  }
+  75% {
+    transform: scale(1.03) rotate(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-3deg);
+  }
+}
+@keyframes type-on {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.anim-tag-in {
+  animation: tag-in 520ms var(--ease-out) both;
+}
+.anim-stamp {
+  animation: stamp 420ms var(--ease-stamp) both;
+}
+.anim-type-on {
+  animation: type-on 360ms steps(18, end) both;
+}
+
+/* Tracker: the line fills to the current stop. */
+@keyframes track-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes track-fill-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes stop-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.anim-stop {
+  animation: stop-pop 260ms var(--ease-out) both;
+}
+/* Segments grow down on phones (vertical tracker) and right from sm up. */
+.wo-track-fill {
+  transform-origin: top;
+  animation: track-fill-y 190ms var(--ease-out) both;
+}
+@media (min-width: 640px) {
+  .wo-track-fill {
+    transform-origin: left;
+    animation-name: track-fill;
+  }
+}
+
+/* "Me too": the count ticks up and the button presses like a stamp. */
+@keyframes tick-up {
+  from {
+    transform: translateY(70%);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes press {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.93);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.anim-tick {
+  display: inline-block;
+  animation: tick-up 220ms var(--ease-out) both;
+}
+.anim-press {
+  animation: press 200ms var(--ease-out);
+}
+
+/* Map pins drop in with a stagger (delay set inline). */
+@keyframes pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.anim-pin {
+  animation: pin-drop 380ms var(--ease-out) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;

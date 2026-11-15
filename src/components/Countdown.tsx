@@ -35,7 +35,7 @@ export function Countdown({
     if (compact) return null;
     const met = new Date(respondedAt).getTime() <= new Date(dueAt).getTime();
     return (
-      <span className={`inline-flex items-center gap-1.5 text-sm font-bold ${met ? "text-resolved" : "text-urgent"}`}>
+      <span className={`inline-flex items-center gap-1.5 text-[0.9375rem] font-bold ${met ? "text-resolved" : "text-urgent"}`}>
         <CheckCircle2 aria-hidden className="size-4" />
         {met ? "Responded within target" : "Responded after target"}
       </span>
@@ -46,10 +46,10 @@ export function Countdown({
   const remaining = new Date(dueAt).getTime() - (new Date(serverNow).getTime() + elapsed);
   const overdue = remaining < 0;
   const soon = !overdue && remaining < 60 * 60 * 1000;
-  const tone = overdue ? "text-emergency bg-emergency-bg ring-emergency/25" : soon ? "text-urgent bg-urgent-bg ring-urgent/25" : "text-ink-2 bg-surface-2 ring-line-2";
+  const tone = overdue ? "text-emergency" : soon ? "text-urgent" : "text-ink-2";
 
   return (
-    <span className={`num inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 font-bold ring-1 ring-inset ${compact ? "text-xs" : "text-sm"} ${tone}`}>
+    <span className={`num inline-flex items-center gap-1 ${compact ? "whitespace-nowrap" : "flex-wrap"} ${compact ? "text-[0.9375rem]" : "text-[1.0625rem]"} ${tone}`}>
       {overdue ? <Siren aria-hidden className="size-3.5" /> : <Clock aria-hidden className="size-3.5" />}
       {overdue ? (
         <span>

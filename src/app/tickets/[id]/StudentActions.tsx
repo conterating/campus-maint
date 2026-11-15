@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Bell, BellOff, CheckCircle2, Loader2, RotateCcw, Users } from "lucide-react";
+import { Bell, CheckCircle2, RotateCcw } from "lucide-react";
 import { confirmAction, followAction, meTooAction, reopenAction } from "@/app/actions";
 import { useAction } from "@/components/useAction";
 import { ActionMessage } from "@/components/ActionMessage";
@@ -14,20 +14,40 @@ export function StudentActions(props: {
   following: boolean;
   meToo: boolean;
   canMeToo: boolean;
+  /** People affected (reporter + "me too"s), as the server last saw it. */
+  affected: number;
   watchers: number;
 }) {
-  const { pending, message, run } = useAction();
+  const { pending, message, run, setMessage } = useAction();
   const [reopening, setReopening] = useState(false);
   const [reason, setReason] = useState("");
+  // Optimistic "me too": count it the moment it's tapped; undo if the server says no.
+  const [pressed, setPressed] = useState(false);
   const reasonId = useId();
   const canCloseOut = props.isReporter || props.isOwner;
+  const counted = props.meToo || pressed;
+  const affected = props.affected + (pressed && !props.meToo ? 1 : 0);
+  const showMeToo = props.canMeToo || props.meToo;
+
+  function meToo() {
+    setPressed(true);
+    setMessage(null);
+    run(
+      async () => {
+        const res = await meTooAction(props.ticketId);
+        if (!res.ok) setPressed(false);
+        return res;
+      },
+      (d) => (d.raisedTo ? `Counted. That pushed its priority up to ${d.raisedTo.toLowerCase()}.` : "Counted. You're following it now."),
+    );
+  }
 
   return (
-    <div className="card p-4">
+    <div className="space-y-6">
       {props.status === "RESOLVED" && canCloseOut && !reopening && (
-        <div className="mb-4 rounded-[8px] bg-[#ecfdf3] p-3.5 ring-1 ring-inset ring-resolved/20">
-          <p className="font-bold text-ink">Staff marked this fixed. Is it?</p>
-          <p className="mt-0.5 text-sm text-ink-2">Confirming closes the ticket. If it&apos;s still broken, reopen it and tell them what&apos;s wrong.</p>
+        <div className="border-l-4 border-st-fixed pl-4">
+          <p className="font-display text-[1.5rem] font-bold uppercase leading-none text-st-fixed">Fixed? Confirm it.</p>
+          <p className="mt-1.5 text-[0.9375rem] text-ink-2">Confirming closes the ticket. Still broken? Reopen it and say what&apos;s wrong.</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button type="button" className="btn btn-success" disabled={pending} onClick={() => run(() => confirmAction(props.ticketId), "Thanks! Marked as confirmed.")}>
               <CheckCircle2 aria-hidden className="size-4" /> Yes, it&apos;s fixed
@@ -40,14 +60,13 @@ export function StudentActions(props: {
       )}
 
       {props.status === "CONFIRMED" && canCloseOut && !reopening && (
-        <button type="button" className="btn btn-secondary mb-3 w-full" onClick={() => setReopening(true)} aria-expanded={reopening}>
-          <RotateCcw aria-hidden className="size-4" /> It broke again — reopen
+        <button type="button" className="btn btn-secondary w-full" onClick={() => setReopening(true)} aria-expanded={reopening}>
+          <RotateCcw aria-hidden className="size-4" /> It broke again: reopen
         </button>
       )}
 
       {reopening && (
         <form
-          className="mb-4"
           onSubmit={(e) => {
             e.preventDefault();
             run(() => reopenAction(props.ticketId, reason), "Reopened. Staff have been told.", () => {
@@ -71,53 +90,64 @@ export function StudentActions(props: {
         </form>
       )}
 
-      {props.canMeToo && (
-        <div className="mb-3">
-          {props.meToo ? (
-            <p className="flex items-center gap-2 rounded-[8px] bg-navy-50 px-3 py-2.5 text-sm font-bold text-navy">
-              <Users aria-hidden className="size-4" /> You said “me too” on this.
-            </p>
+      {showMeToo && (
+        <div>
+          <p className="flex items-end gap-3 leading-none">
+            <span className="overflow-hidden">
+              <span key={affected} className="anim-tick font-display text-[3.5rem] font-extrabold leading-[0.8] text-navy">
+                {affected}
+              </span>
+            </span>{" "}
+            <span className="pb-1 font-display text-[1.375rem] font-bold uppercase leading-none text-ink">{affected === 1 ? "person affected" : "people affected"}</span>
+          </p>
+          <p className="mt-1.5 text-[0.9375rem] text-ink-2">{counted ? "Including you." : "Same problem? Add yourself instead of filing a new report."}</p>
+          {counted ? (
+            <p className="mt-3 flex items-center gap-2 border-l-4 border-navy pl-3 font-bold text-navy">You said “me too” on this.</p>
           ) : (
             <>
-              <button
-                type="button"
-                className="btn btn-accent w-full"
-                disabled={pending}
-                onClick={() =>
-                  run(
-                    () => meTooAction(props.ticketId),
-                    (d) => (d.raisedTo ? `Counted. That pushed its priority up to ${d.raisedTo.toLowerCase()}.` : "Counted. You're following it now."),
-                  )
-                }
-              >
-                {pending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Users aria-hidden className="size-4" />}
+              <button key={String(pressed)} type="button" className={`btn btn-accent mt-3 w-full text-[1.0625rem] ${pressed ? "anim-press" : ""}`} disabled={pending} onClick={meToo}>
                 Me too
               </button>
-              <p className="hint mt-1.5 text-center">Raises its priority and follows it for you.</p>
+              <p className="hint mt-1.5">Raises its priority and follows it for you.</p>
             </>
           )}
         </div>
       )}
 
-      {props.isOwner ? (
-        <p className="flex items-center gap-2 text-sm text-ink-2">
-          <Bell aria-hidden className="size-4 text-ink-3" /> You own this ticket, so you get every update.
+      <div className="border-t border-line pt-4">
+        {props.isOwner ? (
+          <p className="flex items-center gap-2 text-[0.9375rem] text-ink-2">
+            <Bell aria-hidden className="size-4 text-navy" /> It&apos;s your room, so you get every update.
+          </p>
+        ) : props.following ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="flex items-center gap-2 font-bold text-navy">
+              <Bell aria-hidden className="size-4" /> Following
+            </p>
+            <button
+              type="button"
+              className="link-action text-[0.9375rem]"
+              disabled={pending}
+              onClick={() => run(() => followAction(props.ticketId, false), "Unfollowed.")}
+            >
+              Unfollow
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-secondary w-full"
+            disabled={pending}
+            onClick={() => run(() => followAction(props.ticketId, true), "Following. You'll get alerts on every change.")}
+          >
+            <Bell aria-hidden className="size-4" />
+            Follow for updates
+          </button>
+        )}
+        <p className="hint mt-2">
+          {props.watchers} {props.watchers === 1 ? "person is" : "people are"} watching this
         </p>
-      ) : (
-        <button
-          type="button"
-          className="btn btn-secondary w-full"
-          aria-pressed={props.following}
-          disabled={pending}
-          onClick={() => run(() => followAction(props.ticketId, !props.following), (d) => (d.following ? "Following. You'll get alerts on every change." : "Unfollowed."))}
-        >
-          {props.following ? <BellOff aria-hidden className="size-4" /> : <Bell aria-hidden className="size-4" />}
-          {props.following ? "Following · tap to stop" : "Follow for updates"}
-        </button>
-      )}
-      <p className="hint mt-2.5 text-center">
-        {props.watchers} {props.watchers === 1 ? "person is" : "people are"} watching this
-      </p>
+      </div>
 
       <ActionMessage message={message} />
     </div>

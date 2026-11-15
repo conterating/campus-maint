@@ -41,7 +41,7 @@ test("a student adds a comment with a photo, and other people can see it", async
   expect(served.headers()["content-type"]).toBe("image/png");
   // The form clears, and commenting followed the ticket.
   await expect(page.getByLabel("Add a comment")).toHaveValue("");
-  await expect(page.getByRole("button", { name: /Following/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Unfollow" })).toBeVisible();
   await expectAccessible(page);
 
   // Another student sees it without Ethan's name.

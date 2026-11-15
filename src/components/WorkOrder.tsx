@@ -69,3 +69,21 @@ export function FiledTag({ number, category, department }: { number: string; cat
     </div>
   );
 }
+
+/** Running text with ticket IDs ("RR-1061") set in the stamp face, so zeros read as zeros. */
+export function IdText({ text }: { text: string }) {
+  const parts = text.split(/(RR-\d+)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        /^RR-\d+$/.test(p) ? (
+          <span key={i} className="num text-[1.06em]">
+            {p}
+          </span>
+        ) : (
+          p
+        ),
+      )}
+    </>
+  );
+}

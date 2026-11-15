@@ -1,6 +1,7 @@
 import { STATUS_LABEL, type Status } from "@/lib/domain";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { STATUS_COLOR } from "./badges";
+import { IdText } from "./WorkOrder";
 
 type Event = {
   id: string;
@@ -103,12 +104,20 @@ export function Timeline({ events, now }: { events: Event[]; now: Date }) {
               {note ? (
                 (text || (e.photos && e.photos.length > 0)) && (
                   <div className={`mt-1.5 border-l-[3px] pl-3.5 ${e.internal ? "border-tech-gold" : e.type === "COMMENT" ? "border-line-2" : "border-navy"}`}>
-                    {text && <p className="whitespace-pre-line leading-snug text-ink">{text}</p>}
+                    {text && (
+                      <p className="whitespace-pre-line leading-snug text-ink">
+                        <IdText text={text} />
+                      </p>
+                    )}
                     {e.photos && e.photos.length > 0 && <CommentPhotos photos={e.photos} />}
                   </div>
                 )
               ) : (
-                text && <p className={`mt-0.5 leading-snug ${e.type === "ESCALATED" ? "font-bold text-emergency" : "text-ink-2"}`}>{text}</p>
+                text && (
+                  <p className={`mt-0.5 leading-snug ${e.type === "ESCALATED" ? "font-bold text-emergency" : "text-ink-2"}`}>
+                    <IdText text={text} />
+                  </p>
+                )
               )}
               {e.actorLabel && <p className="mt-1 text-[0.9375rem] text-ink-3">{e.actorLabel}</p>}
             </div>

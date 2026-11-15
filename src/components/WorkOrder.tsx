@@ -22,7 +22,7 @@ export function placeText(building: string, space?: string | null, asset?: strin
 /** The ticket number, set like a rubber stamp. `animate` plays the stamp press. */
 export function Stamp({ number, size = "lg", animate = false, delayMs = 0, className = "" }: { number: string; size?: "lg" | "md" | "sm"; animate?: boolean; delayMs?: number; className?: string }) {
   const dims =
-    size === "lg" ? "t-stamp px-[0.12em] pt-[0.1em] pb-[0.04em] border-[0.055em]" : size === "md" ? "font-display font-extrabold text-[2.5rem] leading-[0.85] px-2 pt-1.5 pb-0.5 border-[3px]" : "font-display font-extrabold text-xl leading-none px-1.5 pt-1 pb-0.5 border-2";
+    size === "lg" ? "t-stamp px-[0.12em] pt-[0.1em] pb-[0.04em] border-[0.055em]" : size === "md" ? "font-stamp font-extrabold text-[2.5rem] leading-[0.85] px-2 pt-1.5 pb-0.5 border-[3px]" : "font-stamp font-extrabold text-xl leading-none px-1.5 pt-1 pb-0.5 border-2";
   return (
     <span
       className={`inline-block origin-center rounded-[0.08em] border-current text-navy num ${dims} ${animate ? "anim-stamp" : ""} ${className}`}

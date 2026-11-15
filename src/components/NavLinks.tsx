@@ -15,7 +15,8 @@ export function TopNav({ role }: { role: NavRole }) {
     <nav aria-label="Main" className="flex h-full items-stretch justify-between gap-4">
       <ul className="flex items-stretch gap-5">
         {items
-          .filter((i) => i.icon !== "plus")
+          // Report and Sign in render as buttons on the right, not as tabs.
+          .filter((i) => i.icon !== "plus" && i.icon !== "login")
           .map((item) => {
             const active = isActive(pathname, item.href);
             return (
@@ -40,6 +41,21 @@ export function TopNav({ role }: { role: NavRole }) {
         </Link>
       )}
     </nav>
+  );
+}
+
+/** Signed-out header: "Sign in" as a button beside "Create account" (desktop; phones use the bottom tab). */
+export function HeaderSignIn() {
+  const pathname = usePathname();
+  return (
+    <Link
+      href="/login"
+      aria-current={isActive(pathname, "/login") ? "page" : undefined}
+      className="btn btn-sm hidden border-white/50 text-white hover:bg-white/10 aria-[current=page]:border-white aria-[current=page]:bg-white/10 md:inline-flex"
+    >
+      <LogIn aria-hidden className="size-4" />
+      Sign in
+    </Link>
   );
 }
 

@@ -178,8 +178,9 @@ test("forgot password, reset from the email link, then sign in", async ({ page }
 test("signed out, the site is browsable with Sign in as a tab; signed in, the profile menu has profile, tickets and log out", async ({ page }, info) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Report it once. Watch it get fixed." })).toBeVisible();
-  const nav = page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).first();
-  await expect(nav.getByRole("link", { name: "Sign in" })).toBeVisible();
+  // Sign in is a header button on desktop and a bottom tab on phones.
+  const signIn = page.locator('header, nav[aria-label="Main"]').getByRole("link", { name: "Sign in", exact: true }).filter({ visible: true }).first();
+  await expect(signIn).toBeVisible();
   // Public issues only, and no actions without signing in.
   await page.goto("/tickets");
   await expect(page.getByRole("heading", { level: 1, name: "Issues on campus" })).toBeVisible();
@@ -187,9 +188,9 @@ test("signed out, the site is browsable with Sign in as a tab; signed in, the pr
   await page.getByRole("link", { name: /Wi-Fi dropping every few minutes/ }).filter({ visible: true }).first().click();
   await expect(page.getByRole("heading", { name: "Have this problem too?" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Me too/ })).toHaveCount(0);
-  await nav.getByRole("link", { name: "Sign in" }).click();
+  await signIn.click();
   await expect(page).toHaveURL(/\/login/);
-  await expect(nav.getByRole("link", { name: "Sign in" })).toHaveAttribute("aria-current", "page");
+  await expect(signIn).toHaveAttribute("aria-current", "page");
 
   await loginWithForm(page, "mpatel3");
   await page.getByRole("button", { name: /account menu/ }).click();

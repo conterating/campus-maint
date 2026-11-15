@@ -75,7 +75,7 @@ export default async function AdminPage() {
           <h2 id="sla-title" className="wo-label">
             First response on time
           </h2>
-          <p className="mt-1 font-display text-[6.5rem] font-extrabold leading-[0.82] text-navy md:text-[8rem]">{pct(sla.overall.share)}</p>
+          <p className="mt-1 font-stamp text-[6.5rem] font-extrabold leading-[0.82] text-navy md:text-[8rem]">{pct(sla.overall.share)}</p>
           {sla.overall.total > 0 && (
             <div aria-hidden className="mt-4 flex h-3 gap-[3px]">
               <span className="wo-bar origin-left" style={{ width: `${(sla.overall.met / sla.overall.total) * 100}%`, background: CHART_BAR }} />
@@ -102,7 +102,7 @@ export default async function AdminPage() {
               className={`border-line px-4 py-4 ${i % 2 ? "border-l" : "border-l-0"} ${i % 3 ? "sm:border-l" : "sm:border-l-0"} ${i >= 2 ? "border-t" : ""} ${i >= 3 ? "sm:border-t" : "sm:border-t-0"}`}
             >
               <dt className="wo-label">{s.label}</dt>
-              <dd className={`mt-1 font-display text-[2.5rem] font-extrabold leading-[0.9] ${s.alert ? "text-emergency" : "text-navy"}`}>{s.value}</dd>
+              <dd className={`mt-1 font-stamp text-[2.5rem] font-extrabold leading-[0.9] ${s.alert ? "text-emergency" : "text-navy"}`}>{s.value}</dd>
             </div>
           ))}
         </dl>
@@ -183,7 +183,7 @@ export default async function AdminPage() {
                         {CATEGORY_LABEL[r.category as Category]}, last reported <span className="num">{relativeTime(r.lastReported, now)}</span>
                       </span>
                     </th>
-                    <td className="py-3 text-right align-top font-display text-[1.75rem] font-extrabold leading-none text-navy">{r.count}</td>
+                    <td className="py-3 text-right align-top font-stamp text-[1.75rem] font-extrabold leading-none text-navy">{r.count}</td>
                     <td className="num py-3 pl-4 text-right align-top text-[1.25rem] text-ink-2">{r.openNow}</td>
                   </tr>
                 ))}

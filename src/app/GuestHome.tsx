@@ -1,5 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, LogIn, Map, UserPlus } from "lucide-react";
+import { ArrowRight, Map, Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { listVisibleTickets } from "@/lib/tickets";
 import { compareQueue } from "@/lib/sla";
@@ -14,8 +15,27 @@ export async function GuestHome({ viewer, now }: { viewer: Viewer; now: Date }) 
   const busiest = [...open].sort((a, b) => b.meTooCount - a.meTooCount || compareQueue(a, b, now)).slice(0, 5);
 
   return (
+    <div className="overflow-x-clip">
     <div className="mx-auto max-w-6xl px-4 pt-8 md:pt-14">
-      <section aria-labelledby="hero-title">
+      <section aria-labelledby="hero-title" className="relative isolate pb-6 lg:pb-12">
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-[calc(50%-50vw)] -z-10 w-screen lg:w-[64vw]">
+          <div className="absolute inset-0 [mask-image:linear-gradient(to_bottom,black_0%,transparent_55%)] lg:[mask-image:linear-gradient(to_left,black_30%,transparent_92%)]">
+            <Image
+              src="/brand/tech-tower.jpg"
+              alt=""
+              fill
+              priority
+              sizes="(min-width: 1024px) 64vw, 100vw"
+              className="object-cover object-[50%_28%] opacity-30 saturate-[.8] lg:opacity-70"
+            />
+            <div className="absolute inset-0 bg-navy/10 mix-blend-multiply" />
+          </div>
+          <div className="absolute inset-x-0 top-0 hidden h-1/4 bg-gradient-to-b from-bg to-transparent lg:block" />
+          <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-bg via-bg/60 to-transparent" />
+          <div className="absolute inset-0 hidden bg-gradient-to-r from-bg/70 to-transparent lg:block" />
+          <span className="absolute bottom-3 right-[calc(50vw-50%+1rem)] hidden text-xs text-ink-3 lg:block">Tech Tower</span>
+        </div>
+        <div className="relative min-w-0 max-w-2xl lg:py-10">
         <p className="eyebrow">Georgia Tech campus maintenance</p>
         <h1 id="hero-title" className="h-hero mt-2 max-w-xl">
           Report it once. Watch it get fixed.
@@ -24,17 +44,16 @@ export async function GuestHome({ viewer, now }: { viewer: Viewer; now: Date }) 
           Tell us what&apos;s broken in your room, your hall, or anywhere on campus. We route it to the right team in seconds and show you every step until it&apos;s fixed.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/login" className="btn btn-primary">
-            <LogIn aria-hidden className="size-4" /> Sign in
-          </Link>
-          <Link href="/signup" className="btn btn-accent">
-            <UserPlus aria-hidden className="size-4" /> Create a student account
+          {/* Not signed in? /report sends them through sign-in and straight back to the form. */}
+          <Link href="/report" className="btn btn-accent">
+            <Plus aria-hidden className="size-4" strokeWidth={2.75} /> File an issue
           </Link>
           <Link href="/map" className="btn btn-secondary">
             <Map aria-hidden className="size-4" /> See the map
           </Link>
         </div>
         <CampusStats now={now} />
+        </div>
       </section>
       <section aria-labelledby="busiest-title" className="mt-16">
         <div className="rule-head">
@@ -55,6 +74,7 @@ export async function GuestHome({ viewer, now }: { viewer: Viewer; now: Date }) 
         </div>
       </section>
       <HowItWorks />
+    </div>
     </div>
   );
 }

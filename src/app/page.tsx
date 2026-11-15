@@ -73,7 +73,7 @@ export default async function HomePage() {
           {viewer.name.split(" ")[0]}
           {hall ? `, ${hall.name}${room ? ` ${room.label}` : ""}` : ", off campus"}
         </p>
-        <h1 id="hero-title" className="h-hero mt-3 max-w-[11ch] md:text-[6rem] md:leading-[0.86]">
+        <h1 id="hero-title" className="h-hero mt-3 max-w-[11ch] md:text-[4.75rem] md:leading-[0.9]">
           What needs fixing?
         </h1>
         <HomeComposer places={places} />
@@ -147,7 +147,7 @@ export default async function HomePage() {
               {trending.map((t) => (
                 <li key={t.id}>
                   <Link href={`/tickets/${t.id}`} className="group grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-3 py-3.5">
-                    <span className="font-display text-[2.5rem] font-extrabold leading-[0.8] text-navy">
+                    <span className="font-stamp text-[2.5rem] font-extrabold leading-[0.8] text-navy">
                       {t.meTooCount + 1}
                       <span className="sr-only"> reports:</span>
                     </span>

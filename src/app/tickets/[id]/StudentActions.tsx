@@ -94,7 +94,7 @@ export function StudentActions(props: {
         <div>
           <p className="flex items-end gap-3 leading-none">
             <span className="overflow-hidden">
-              <span key={affected} className="anim-tick font-display text-[3.5rem] font-extrabold leading-[0.8] text-navy">
+              <span key={affected} className="anim-tick font-stamp text-[3.5rem] font-extrabold leading-[0.8] text-navy">
                 {affected}
               </span>
             </span>{" "}

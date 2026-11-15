@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible_Next, Big_Shoulders } from "next/font/google";
+import { Bricolage_Grotesque, Gabarito, Big_Shoulders } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { PublicHeader } from "@/components/PublicHeader";
@@ -11,9 +11,10 @@ import { prisma } from "@/lib/db";
 import { getClockOffsetMs } from "@/lib/clock";
 import { ROLE_LABEL } from "@/lib/domain";
 
-// Big Shoulders: display, stamps, IDs, and times (plain zero). Atkinson Hyperlegible Next: reading.
+// Bricolage Grotesque: display headings. Gabarito: reading and UI. Big Shoulders: stamped ticket numbers, IDs, times, counts.
 const signage = Big_Shoulders({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-signage", display: "swap" });
-const atkinson = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--font-atkinson", display: "swap", adjustFontFallback: false });
+const bricolage = Bricolage_Grotesque({ subsets: ["latin"], axes: ["opsz", "wdth"], variable: "--font-bricolage", display: "swap" });
+const gabarito = Gabarito({ subsets: ["latin"], variable: "--font-gabarito", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Ramblin’ Repairs", template: "%s · Ramblin’ Repairs" },
@@ -41,7 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const displayName = shown ? (shown.firstName || shown.preferredName ? `${shown.preferredName || shown.firstName} ${shown.lastName}`.trim() : shown.name) : "";
 
   return (
-    <html lang="en" className={`${signage.variable} ${atkinson.variable}`}>
+    <html lang="en" className={`${signage.variable} ${bricolage.variable} ${gabarito.variable}`}>
       <body className="min-h-dvh flex flex-col antialiased">
         <a href="#main" className="skip-link">
           Skip to main content

@@ -126,7 +126,7 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
               <h1 className="font-display text-[1.75rem] font-extrabold uppercase leading-none">Campus map</h1>
               <p className="mt-1.5 text-[0.9375rem] text-white/80" aria-live="polite">
                 Showing{" "}
-                <strong key={filtered.length} className="anim-tick font-display text-[1.625rem] font-extrabold leading-none text-buzz">
+                <strong key={filtered.length} className="anim-tick font-stamp text-[1.625rem] font-extrabold leading-none text-buzz">
                   {filtered.length}
                 </strong>{" "}
                 of <span className="num">{points.length}</span> issues{isStudent ? " you can see" : ""}.

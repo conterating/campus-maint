@@ -4,8 +4,9 @@
    Ramblin’ Repairs — design tokens
    Concept: the maintenance work order. Off-white paper, navy ink, ruled lines,
    stamped numbers. Boxes are rare and mean something (the emergency callout,
-   the manila work-order tag). Big Shoulders for display, stamps, IDs, and
-   times (its plain zero reads cleanly); Atkinson Hyperlegible for reading.
+   the manila work-order tag). Bricolage Grotesque (heavy, slightly condensed)
+   for display headings; Gabarito for reading and UI; Big Shoulders only for
+   stamped ticket numbers, IDs, times, and counts. All have unslashed zeros.
 
    One status system:
      progress  = a slate → blue → navy scale (Reported → Assigned → In progress)
@@ -111,8 +112,9 @@
   --color-low-bg: var(--sev-low-bg);
   --color-resolved: var(--st-fixed);
 
-  --font-display: var(--font-signage), "Arial Narrow", ui-sans-serif, sans-serif;
-  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), "Arial Narrow", ui-sans-serif, sans-serif;
+  --font-stamp: var(--font-signage), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-gabarito), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -146,10 +148,12 @@ body {
   /* ---- Type ---- */
   .font-display {
     font-family: var(--font-display);
+    font-stretch: 82%;
+    font-weight: 800;
   }
   /* The stamp: ticket numbers set like a rubber stamp. */
   .t-stamp {
-    font-family: var(--font-display);
+    font-family: var(--font-stamp);
     font-weight: 800;
     font-size: clamp(3.25rem, 1.6rem + 8vw, 6.5rem); /* ~52px on a 320 phone, 104px on laptops */
     line-height: 0.85;
@@ -163,8 +167,9 @@ body {
   }
   .h-hero {
     font-family: var(--font-display);
+    font-stretch: 82%;
     font-weight: 800;
-    font-size: clamp(3rem, 1.9rem + 4.6vw, 4.75rem);
+    font-size: clamp(2.5rem, 1.6rem + 4vw, 4rem);
     line-height: 0.9;
     letter-spacing: -0.005em;
     text-transform: uppercase;
@@ -172,8 +177,9 @@ body {
   }
   .h-page {
     font-family: var(--font-display);
+    font-stretch: 82%;
     font-weight: 800;
-    font-size: clamp(2.125rem, 1.6rem + 2vw, 2.75rem);
+    font-size: clamp(1.875rem, 1.45rem + 1.8vw, 2.5rem);
     line-height: 0.95;
     text-transform: uppercase;
     color: var(--navy);
@@ -181,7 +187,8 @@ body {
   /* Section heads: condensed caps over a 2px navy rule. */
   .h-section {
     font-family: var(--font-display);
-    font-weight: 700;
+    font-stretch: 82%;
+    font-weight: 800;
     font-size: 1.375rem;
     line-height: 1.05;
     letter-spacing: 0.01em;
@@ -219,7 +226,7 @@ body {
   }
   /* IDs, times, counts: Big Shoulders, whose zero isn't slashed. */
   .num {
-    font-family: var(--font-display);
+    font-family: var(--font-stamp);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;

@@ -101,7 +101,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
         {stats.map((s, i) => (
           <div key={s.label} className={`px-1 py-4 sm:px-5 ${i % 2 ? "border-l border-line pl-4" : ""} ${i >= 2 ? "border-t border-line sm:border-t-0" : ""} ${i === 2 ? "sm:border-l" : ""}`}>
             <dt className="wo-label">{s.label}</dt>
-            <dd className={`mt-1 font-display text-[3.25rem] font-extrabold leading-[0.85] ${s.alert ? "text-emergency" : "text-navy"}`}>{s.value}</dd>
+            <dd className={`mt-1 font-stamp text-[3.25rem] font-extrabold leading-[0.85] ${s.alert ? "text-emergency" : "text-navy"}`}>{s.value}</dd>
           </div>
         ))}
       </dl>

@@ -28,7 +28,7 @@ const valid: SignupInput = {
   genderSelfDescribe: "",
   studentYear: "SECOND",
   residenceBuildingId: "b-glenn",
-  roomId: "s-gln-216",
+  roomNumber: "216",
   phone: "",
   acceptTerms: true,
 };
@@ -41,7 +41,7 @@ const errorsFor = (input: Partial<SignupInput>) => {
 describe("sign-up schema", () => {
   it("accepts a complete student and normalizes it", () => {
     const r = signupSchema.parse({ ...valid, username: "  GBurdell3@gatech.edu ", gtId: "903-123-456", phone: "+1 404.555.0123" });
-    expect(r).toMatchObject({ username: "gburdell3", gtId: "903123456", phone: "(404) 555-0123", residenceBuildingId: "b-glenn", roomId: "s-gln-216" });
+    expect(r).toMatchObject({ username: "gburdell3", gtId: "903123456", phone: "(404) 555-0123", residenceBuildingId: "b-glenn", roomNumber: "216" });
     expect(r).not.toHaveProperty("confirmPassword");
     expect(r).not.toHaveProperty("acceptTerms");
   });
@@ -74,10 +74,13 @@ describe("sign-up schema", () => {
   });
 
   it("requires a room unless the student lives off campus", () => {
-    expect(errorsFor({ roomId: "" }).roomId).toMatch(/room number/);
+    expect(errorsFor({ roomNumber: "" }).roomNumber).toMatch(/room number/);
+    expect(errorsFor({ roomNumber: "by the stairs" }).roomNumber).toMatch(/like 214/);
+    expect(signupSchema.parse({ ...valid, roomNumber: "Room 504b" }).roomNumber).toBe("504B");
+    expect(signupSchema.parse({ ...valid, roomNumber: "apt #3-112" }).roomNumber).toBe("3-112");
     expect(errorsFor({ residenceBuildingId: "" }).residenceBuildingId).toBeDefined();
-    const off = signupSchema.parse({ ...valid, residenceBuildingId: "OFF_CAMPUS", roomId: "" });
-    expect(off).toMatchObject({ residenceBuildingId: null, roomId: null });
+    const off = signupSchema.parse({ ...valid, residenceBuildingId: "OFF_CAMPUS", roomNumber: "" });
+    expect(off).toMatchObject({ residenceBuildingId: null, roomNumber: null });
   });
 
   it("requires a description only for self-described gender, and drops it otherwise", () => {

@@ -46,7 +46,7 @@ const student: SignupInput = {
   genderSelfDescribe: "Yellow jacket",
   studentYear: "THIRD",
   residenceBuildingId: "b-glenn",
-  roomId: "s-gln-216",
+  roomNumber: "216",
   phone: "404-555-0199",
   acceptTerms: true,
 };
@@ -120,13 +120,27 @@ describe("sign-up", () => {
     expect(dupId).toMatchObject({ ok: false, code: "DUPLICATE", error: "An account already exists for this GT ID." });
   });
 
-  it("requires the room to be a dorm room in the chosen hall", async () => {
-    const wrongHall = await registerStudent({ ...student, roomId: "s-twr-305" }, new Headers());
-    expect(wrongHall).toMatchObject({ ok: false, fieldErrors: { roomId: expect.stringMatching(/Glenn/) } });
-    const notARoom = await registerStudent({ ...student, roomId: "s-gln-2bath" }, new Headers());
-    expect(notARoom).toMatchObject({ ok: false, fieldErrors: { roomId: expect.any(String) } });
-    const notAHall = await registerStudent({ ...student, residenceBuildingId: "b-library", roomId: "s-lib-2study" }, new Headers());
-    expect(notAHall.ok).toBe(false);
+  it("matches a typed room number to the hall's room, or adds the room to that hall", async () => {
+    // "216" is already Glenn's Room 216.
+    await registerStudent(student, new Headers());
+    expect((await db.user.findUniqueOrThrow({ where: { username: "gburdell3" } })).roomId).toBe("s-gln-216");
+
+    // "305" exists in Towers, not Glenn: it becomes a new Glenn room, never Towers' 305.
+    await registerStudent({ ...student, username: "gburdell4", gtId: "903999002", roomNumber: "Room 305" }, new Headers());
+    const u = await db.user.findUniqueOrThrow({ where: { username: "gburdell4" }, include: { room: true } });
+    expect(u.room).toMatchObject({ buildingId: "b-glenn", scope: "DORM_ROOM", label: "Room 305", floor: 3 });
+    expect(u.roomId).not.toBe("s-twr-305");
+    expect(u.residenceVerified).toBe(false);
+    // A second student typing the same number shares that room record.
+    await registerStudent({ ...student, username: "gburdell5", gtId: "903999003", roomNumber: "305" }, new Headers());
+    expect((await db.user.findUniqueOrThrow({ where: { username: "gburdell5" } })).roomId).toBe(u.roomId);
+  });
+
+  it("rejects a hall that isn't a residence hall and a room that isn't a number", async () => {
+    const notAHall = await registerStudent({ ...student, residenceBuildingId: "b-library" }, new Headers());
+    expect(notAHall).toMatchObject({ ok: false, fieldErrors: { residenceBuildingId: expect.any(String) } });
+    const badRoom = await registerStudent({ ...student, roomNumber: "near the stairs" }, new Headers());
+    expect(badRoom).toMatchObject({ ok: false, fieldErrors: { roomNumber: expect.any(String) } });
     expect(await db.user.count({ where: { username: "gburdell3" } })).toBe(0);
   });
 

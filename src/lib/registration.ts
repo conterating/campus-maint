@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "./db";
 import { auth } from "./auth";
+import { findOrCreateRoom } from "./rooms";
 import { errorCode, errorMessage, type FormResult } from "./sign-in";
 import { emailForUsername, fieldErrors, signupSchema, type FieldErrors, type SignupInput } from "./auth-schemas";
 
@@ -30,14 +31,12 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
     });
   }
 
-  // The room must be a real DORM_ROOM in the chosen residence hall.
+  // The hall must be a residence hall; the typed room number becomes a DORM_ROOM in it.
+  let hall: Awaited<ReturnType<typeof prisma.building.findUnique>> = null;
   if (v.residenceBuildingId) {
-    const hall = await prisma.building.findUnique({ where: { id: v.residenceBuildingId } });
+    hall = await prisma.building.findUnique({ where: { id: v.residenceBuildingId } });
     if (!hall || hall.kind !== "RESIDENCE") return fail("Fix the errors below.", { fieldErrors: { residenceBuildingId: "Choose a residence hall from the list." } });
-    const room = v.roomId ? await prisma.space.findUnique({ where: { id: v.roomId } }) : null;
-    if (!room || room.buildingId !== hall.id || room.scope !== "DORM_ROOM") {
-      return fail("Fix the errors below.", { fieldErrors: { roomId: `Choose a room in ${hall.name}.` } });
-    }
+    if (!v.roomNumber) return fail("Fix the errors below.", { fieldErrors: { roomNumber: "Enter your room number, or pick Off campus." } });
   }
 
   const email = emailForUsername(v.username);
@@ -62,13 +61,14 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
       headers: reqHeaders,
     });
     // Fields that can't come from client input are written by the server.
+    const room = hall && v.roomNumber ? await findOrCreateRoom(prisma, hall, v.roomNumber) : null;
     await prisma.user.update({
       where: { id: res.user.id },
       data: {
         role: "STUDENT",
         gtId: v.gtId,
         residenceBuildingId: v.residenceBuildingId,
-        roomId: v.roomId,
+        roomId: room?.id ?? null,
         residenceVerified: false,
         termsAcceptedAt: new Date(),
         avatarHue: Math.floor(Math.random() * 360),

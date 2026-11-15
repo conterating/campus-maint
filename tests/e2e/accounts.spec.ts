@@ -29,7 +29,7 @@ test("student: sign up, verify from the email link, sign in, report, sign out", 
   await expect(page.getByText(`Your email will be ${username}@gatech.edu`)).toBeVisible();
   await page.getByLabel("GT ID", { exact: true }).fill(gtId);
   await page.getByLabel("Residence hall").selectOption("b-glenn");
-  await page.getByLabel("Room number").selectOption("s-gln-216");
+  await page.getByLabel("Room number").fill("216");
   await expect(page.getByText("Create a password for Ramblin' Repairs. Don't reuse your Georgia Tech password.")).toBeVisible();
   await page.getByLabel("Password", { exact: true }).fill("ramblin wreck from tech");
   await page.getByLabel("Retype password").fill("ramblin wreck from tech");

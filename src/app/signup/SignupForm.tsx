@@ -21,7 +21,7 @@ const EMPTY: SignupInput = {
   genderSelfDescribe: "",
   studentYear: "" as never,
   residenceBuildingId: "",
-  roomId: "",
+  roomNumber: "",
   phone: "",
   acceptTerms: false as never,
 };
@@ -181,7 +181,7 @@ export function SignupForm({ halls }: { halls: HallOption[] }) {
               {...a}
               className="field"
               value={v.residenceBuildingId}
-              onChange={(e) => setV((p) => ({ ...p, residenceBuildingId: e.target.value, roomId: "" }))}
+              onChange={(e) => setV((p) => ({ ...p, residenceBuildingId: e.target.value }))}
             >
               <option value="">Choose your hall</option>
               <option value={OFF_CAMPUS}>Off campus</option>
@@ -200,16 +200,23 @@ export function SignupForm({ halls }: { halls: HallOption[] }) {
           )}
         </Field>
         {v.residenceBuildingId && v.residenceBuildingId !== OFF_CAMPUS && (
-          <Field id="roomId" label="Room number" hint="Housing confirms your room before you can see or report issues inside it." error={errors.roomId}>
+          <Field
+            id="roomNumber"
+            label="Room number"
+            hint={`Your room or apartment number${hall ? ` in ${hall.name}` : ""}, like 214. Housing confirms it before you can see or report issues inside it.`}
+            error={errors.roomNumber}
+          >
             {(a) => (
-              <select {...a} className="field" value={v.roomId ?? ""} onChange={(e) => set("roomId", e.target.value)}>
-                <option value="">Choose your room</option>
-                {hall?.rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
+              <input
+                {...a}
+                className="field max-w-48"
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                maxLength={20}
+                value={v.roomNumber ?? ""}
+                onChange={(e) => set("roomNumber", e.target.value)}
+              />
             )}
           </Field>
         )}

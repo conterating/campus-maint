@@ -22,6 +22,16 @@ export const CONTRACTOR_USERNAME_PATTERN = /^[a-z][a-z0-9._-]{1,31}$/;
 export const GT_ID_PATTERN = /^90\d{7}$/;
 export const OFF_CAMPUS = "OFF_CAMPUS";
 
+/** "Room 214", "apt #504b", " 3-112 " → "214", "504B", "3-112". Empty if it isn't a plausible room number. */
+export function normalizeRoomNumber(raw: string): string {
+  const v = raw
+    .trim()
+    .replace(/^(room|rm\.?|apartment|apt\.?|suite|ste\.?|unit)\s*/i, "")
+    .replace(/^#\s*/, "")
+    .toUpperCase();
+  return /^[A-Z0-9][A-Z0-9-]{0,7}$/.test(v) ? v : "";
+}
+
 /** Lowercase, trim, and drop a pasted "@gatech.edu". */
 export function normalizeUsername(raw: string): string {
   return raw.trim().toLowerCase().replace(/@gatech\.edu$/, "");
@@ -148,7 +158,7 @@ export const signupSchema = z
     genderSelfDescribe: optionalText(60),
     studentYear: z.enum(STUDENT_YEARS, "Choose your year."),
     residenceBuildingId: z.string().min(1, "Choose your residence hall, or Off campus."),
-    roomId: optionalText(64),
+    roomNumber: optionalText(20),
     phone: phoneField,
     acceptTerms: z.literal(true, "You need to agree to the terms and privacy notice."),
   })
@@ -156,8 +166,9 @@ export const signupSchema = z
     const pw = passwordProblem(v.password, v.username);
     if (pw) ctx.addIssue({ code: "custom", path: ["password"], message: pw });
     if (v.confirmPassword !== v.password) ctx.addIssue({ code: "custom", path: ["confirmPassword"], message: "The passwords don't match." });
-    if (v.residenceBuildingId !== OFF_CAMPUS && !v.roomId) {
-      ctx.addIssue({ code: "custom", path: ["roomId"], message: "Choose your room number, or pick Off campus." });
+    if (v.residenceBuildingId !== OFF_CAMPUS) {
+      if (!v.roomNumber) ctx.addIssue({ code: "custom", path: ["roomNumber"], message: "Enter your room number, or pick Off campus." });
+      else if (!normalizeRoomNumber(v.roomNumber)) ctx.addIssue({ code: "custom", path: ["roomNumber"], message: "Enter just the room or apartment number, like 214 or 504B." });
     }
     if (v.gender === "SELF_DESCRIBE" && !v.genderSelfDescribe) {
       ctx.addIssue({ code: "custom", path: ["genderSelfDescribe"], message: "Describe your gender, or choose another option." });
@@ -173,7 +184,7 @@ export const signupSchema = z
     ...v,
     genderSelfDescribe: v.gender === "SELF_DESCRIBE" ? v.genderSelfDescribe : undefined,
     residenceBuildingId: v.residenceBuildingId === OFF_CAMPUS ? null : v.residenceBuildingId,
-    roomId: v.residenceBuildingId === OFF_CAMPUS ? null : (v.roomId ?? null),
+    roomNumber: v.residenceBuildingId === OFF_CAMPUS ? null : normalizeRoomNumber(v.roomNumber ?? "") || null,
   }));
 export type SignupInput = z.input<typeof signupSchema>;
 export type SignupData = z.output<typeof signupSchema>;

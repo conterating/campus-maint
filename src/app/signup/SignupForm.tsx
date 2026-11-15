@@ -28,7 +28,7 @@ const EMPTY: SignupInput = {
 
 const RESEND_COOLDOWN_S = 60;
 
-export function SignupForm({ halls, devMail }: { halls: HallOption[]; devMail: { link: boolean } | null }) {
+export function SignupForm({ halls, devMail, redirectedTo = null }: { halls: HallOption[]; devMail: { link: boolean } | null; redirectedTo?: string | null }) {
   const [v, setV] = useState<SignupInput>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<React.ReactNode>(null);
@@ -107,6 +107,11 @@ export function SignupForm({ halls, devMail }: { halls: HallOption[]; devMail: {
           We sent a confirmation link to <span className="font-bold text-ink">{sentTo}</span>. It expires in 24 hours.
         </p>
         <p className="mt-2 text-ink-2">Housing will also confirm your room. Until then you can report issues in public buildings.</p>
+        {redirectedTo && (
+          <p className="mt-3 rounded-[10px] bg-[#fffbeb] px-3 py-2.5 text-sm font-bold text-ink ring-1 ring-inset ring-[#f59e0b]/30">
+            Email is in testing mode: the confirmation link was sent to {redirectedTo} instead.
+          </p>
+        )}
         {devMail && (
           <p className="mt-3 rounded-[10px] bg-[#fffbeb] px-3 py-2.5 text-sm font-bold text-ink ring-1 ring-inset ring-[#f59e0b]/30">
             Email isn&apos;t configured on this machine.{" "}

@@ -22,13 +22,28 @@ let resend: Resend | null = null;
 
 // Resend's shared sandbox sender only delivers to the Resend account owner, so
 // a real deployment needs its own verified sender.
-if (process.env.RESEND_API_KEY && !process.env.EMAIL_FROM) {
+if (process.env.RESEND_API_KEY && !process.env.EMAIL_FROM && !process.env.EMAIL_REDIRECT_TO) {
   console.warn(
     "[email] RESEND_API_KEY is set but EMAIL_FROM is not. The default sender onboarding@resend.dev can only deliver to the Resend account owner, so students will not receive mail. Set EMAIL_FROM to an address on a domain verified in Resend.",
   );
 }
 
 const domainOf = (address: string) => address.split("@")[1] ?? "unknown";
+
+/**
+ * Optional testing redirect. Resend's shared sender (onboarding@resend.dev) only
+ * delivers to the Resend account owner, so until a domain is verified, set
+ * EMAIL_REDIRECT_TO to that owner's address: every app email goes there instead,
+ * labelled with who it was meant for, and the link inside still works.
+ * Ignored in production unless EMAIL_REDIRECT_IN_PRODUCTION=1 (it would hand
+ * everyone's sign-in links to one inbox).
+ */
+function redirectTarget(): string | null {
+  const to = process.env.EMAIL_REDIRECT_TO?.trim();
+  if (!to || !to.includes("@")) return null;
+  if (isProduction() && process.env.EMAIL_REDIRECT_IN_PRODUCTION !== "1") return null;
+  return to;
+}
 
 /** Append to the local dev mailbox (.mail/outbox.jsonl). Returns false if it couldn't be written. */
 async function writeOutbox(mail: OutgoingEmail): Promise<boolean> {
@@ -65,15 +80,16 @@ export async function sendEmail(mail: OutgoingEmail): Promise<SendResult> {
   if (key) {
     try {
       resend ??= new Resend(key);
+      const redirect = redirectTarget();
       const { data, error } = await resend.emails.send({
         from: process.env.EMAIL_FROM || "Ramblin' Repairs <onboarding@resend.dev>",
-        to: mail.to,
-        subject: mail.subject,
-        text: mail.text,
+        to: redirect ?? mail.to,
+        subject: redirect ? `[for ${mail.to}] ${mail.subject}` : mail.subject,
+        text: redirect ? `This email was meant for ${mail.to}. It was redirected to you by EMAIL_REDIRECT_TO while email is in testing mode.\n\n${mail.text}` : mail.text,
       });
       if (!error) {
         // Log the outcome, never the message: it carries a single-use link.
-        console.info(`[email] sent a "${mail.kind}" email through Resend (id ${data?.id})`);
+        console.info(`[email] sent a "${mail.kind}" email through Resend (id ${data?.id})${redirect ? " to the EMAIL_REDIRECT_TO inbox" : ""}`);
         return { ok: true, id: data?.id };
       }
       return await failed(mail, `${error.name}: ${error.message}`);

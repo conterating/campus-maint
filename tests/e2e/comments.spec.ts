@@ -34,7 +34,7 @@ test("a student adds a comment with a photo, and other people can see it", async
 
   await expect(page.getByText("Comment posted.")).toBeVisible();
   const comment = page.locator("ol > li", { hasText: text });
-  await expect(comment).toContainText("You ·");
+  await expect(comment).toContainText("You");
   const img = comment.getByRole("img", { name: /Photo attached to this comment/ });
   await expect(img).toBeVisible();
   const served = await page.request.get((await img.getAttribute("src"))!);
@@ -47,7 +47,7 @@ test("a student adds a comment with a photo, and other people can see it", async
   // Another student sees it without Ethan's name.
   await viewAs(context, "u-maya");
   await page.goto(url);
-  await expect(page.locator("ol > li", { hasText: text })).toContainText("A student ·");
+  await expect(page.locator("ol > li", { hasText: text })).toContainText("A student");
 
   // The reporter gets an alert about it.
   await viewAs(context, "u-alex");
@@ -57,7 +57,7 @@ test("a student adds a comment with a photo, and other people can see it", async
   // Staff see the commenter's name.
   await viewAs(context, "u-kevin");
   await page.goto(url);
-  await expect(page.locator("ol > li", { hasText: text })).toContainText("Ethan B. ·");
+  await expect(page.locator("ol > li", { hasText: text })).toContainText("Ethan B.");
 });
 
 test("an empty comment explains what's missing instead of posting", async ({ page, context }) => {

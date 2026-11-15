@@ -69,9 +69,9 @@ model User {
   id                  String    @id
   name                String
   email               String    @unique
-  // STUDENT | STAFF | ADMIN
-  role                String
-  // Department key for staff (see src/config/departments.ts)
+  // STUDENT | CONTRACTOR | STAFF | ADMIN (see src/lib/domain.ts)
+  role                String    @default("STUDENT")
+  // Department key for staff (see src/lib/domain.ts DEPARTMENTS)
   department          String?
   isSupervisor        Boolean   @default(false)
   residenceBuildingId String?
@@ -80,6 +80,40 @@ model User {
   room                Space?    @relation("Room", fields: [roomId], references: [id])
   avatarHue           Int       @default(210)
 
+  // Sign-in identity. Lowercase; required by validation for every account, but
+  // nullable in the database so rows created before accounts existed stay valid.
+  username           String? @unique
+  displayUsername    String?
+  // 9 digits starting with "90". Required by validation for students and
+  // staff/admins; null for contractors, who have no GT account.
+  gtId               String? @unique
+  firstName          String  @default("")
+  lastName           String  @default("")
+  preferredName      String?
+  // WOMAN | MAN | NONBINARY | SELF_DESCRIBE | PREFER_NOT_TO_SAY
+  gender             String?
+  genderSelfDescribe String?
+  // FIRST | SECOND | THIRD | FOURTH | FIFTH_PLUS | GRADUATE
+  studentYear        String?
+  phone              String?
+
+  residenceVerified     Boolean   @default(false)
+  residenceVerifiedAt   DateTime?
+  residenceVerifiedById String?
+  residenceVerifiedBy   User?     @relation("ResidenceVerifier", fields: [residenceVerifiedById], references: [id])
+  residencesVerified    User[]    @relation("ResidenceVerifier")
+
+  termsAcceptedAt DateTime?
+  disabledAt      DateTime?
+  lastLoginAt     DateTime?
+
+  // Better Auth
+  emailVerified    Boolean  @default(false)
+  image            String?
+  twoFactorEnabled Boolean? @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
   reported      Ticket[]       @relation("Reporter")
   owned         Ticket[]       @relation("Owner")
   assigned      Ticket[]       @relation("Assignee")
@@ -87,6 +121,14 @@ model User {
   meToos        MeToo[]
   events        TicketEvent[]
   notifications Notification[]
+
+  sessions          Session[]
+  accounts          Account[]
+  twoFactors        TwoFactor[]
+  contractorProfile ContractorProfile?
+  staffProfile      StaffProfile?
+  workLogs          WorkLog[]
+  auditEntries      AuditLog[]
 }
 
 model Ticket {
@@ -152,9 +194,14 @@ model Ticket {
   meToos        MeToo[]
   notifications Notification[]
 
+  workLogs WorkLog[]
+
   @@index([scope, buildingId])
   @@index([department, status])
   @@index([status])
+  @@index([reporterId])
+  @@index([ownerUserId])
+  @@index([assigneeId])
 }
 
 model TicketEvent {
@@ -214,4 +261,181 @@ model Notification {
 model Setting {
   key   String @id
   value String
+}
+
+// ---------------------------------------------------------------------------
+// Accounts and roles
+// ---------------------------------------------------------------------------
+
+// The worker who does the job. 1:1 with a CONTRACTOR user.
+model ContractorProfile {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Badge or vendor number
+  contractorId          String    @unique
+  companyName           String
+  companyPhone          String?
+  // Comma-separated Category keys, e.g. "PLUMBING,HVAC"
+  trades                String
+  // Comma-separated Department keys they work for
+  departments           String
+  licenseNumber         String?
+  licenseExpiresAt      DateTime?
+  insuranceExpiresAt    DateTime?
+  // PENDING | CLEARED | EXPIRED
+  backgroundCheckStatus String    @default("PENDING")
+  backgroundCheckedAt   DateTime?
+  // Allowed to work inside residence hall rooms
+  residenceHallAccess   Boolean   @default(false)
+  // AVAILABLE | ON_JOB | OFF_DUTY
+  availability          String    @default("OFF_DUTY")
+  maxActiveJobs         Int       @default(5)
+  // Visible to ADMIN only
+  hourlyRate            Float?
+  contractStartsAt      DateTime?
+  contractEndsAt        DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+// Time on a job. One or more per ticket per contractor.
+model WorkLog {
+  id                 String    @id @default(cuid())
+  ticketId           String
+  ticket             Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  contractorId       String
+  contractor         User      @relation(fields: [contractorId], references: [id])
+  startedAt          DateTime
+  endedAt            DateTime?
+  minutes            Int?
+  // For ROOM-scope tickets
+  roomEnteredAt      DateTime?
+  roomExitedAt       DateTime?
+  materials          String?
+  materialsCost      Float?
+  laborCost          Float?
+  notes              String?
+  completionPhotoUrl String?
+  createdAt          DateTime  @default(now())
+
+  @@index([ticketId])
+  @@index([contractorId, startedAt])
+}
+
+// 1:1 with a STAFF or ADMIN user. ADMIN implies every permission.
+model StaffProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId           String   @unique
+  title                String
+  officePhone          String?
+  officeLocation       String?
+  canManageUsers       Boolean  @default(false)
+  canManageContractors Boolean  @default(false)
+  canVerifyResidence   Boolean  @default(false)
+  canViewAnalytics     Boolean  @default(false)
+  canAssignWork        Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// Every account/permission change and every impersonation.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  // See AUDIT_ACTIONS in src/lib/domain.ts
+  action     String
+  targetType String
+  targetId   String
+  // JSON snapshots
+  before     String?
+  after      String?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([actorId, createdAt])
+}
+
+// Sign-in attempts by username, for the 5-failures-in-15-minutes lockout.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  username  String
+  success   Boolean
+  // Why a correct-looking attempt was refused (never shown to the user).
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([username, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Better Auth (https://www.better-auth.com/docs/concepts/database)
+// ---------------------------------------------------------------------------
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@index([identifier])
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+}
+
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
 }

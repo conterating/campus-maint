@@ -169,7 +169,141 @@ export const LOCATION_TYPE_LABEL: Record<LocationType, string> = {
   RECREATION: "Recreation center",
 };
 
-export type Role = "STUDENT" | "STAFF" | "ADMIN";
+export const ROLES = ["STUDENT", "CONTRACTOR", "STAFF", "ADMIN"] as const;
+export type Role = (typeof ROLES)[number];
+
+export const ROLE_LABEL: Record<Role, string> = {
+  STUDENT: "Student",
+  CONTRACTOR: "Contractor",
+  STAFF: "Staff",
+  ADMIN: "Administrator",
+};
+
+export function isRole(v: unknown): v is Role {
+  return typeof v === "string" && (ROLES as readonly string[]).includes(v);
+}
+
+// ---------------------------------------------------------------------------
+// Account fields (SQLite has no enums; these are the allowed column values)
+// ---------------------------------------------------------------------------
+
+export const GENDERS = ["WOMAN", "MAN", "NONBINARY", "SELF_DESCRIBE", "PREFER_NOT_TO_SAY"] as const;
+export type Gender = (typeof GENDERS)[number];
+export const GENDER_LABEL: Record<Gender, string> = {
+  WOMAN: "Woman",
+  MAN: "Man",
+  NONBINARY: "Non-binary",
+  SELF_DESCRIBE: "Self-describe",
+  PREFER_NOT_TO_SAY: "Prefer not to say",
+};
+export function isGender(v: unknown): v is Gender {
+  return typeof v === "string" && (GENDERS as readonly string[]).includes(v);
+}
+
+export const STUDENT_YEARS = ["FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH_PLUS", "GRADUATE"] as const;
+export type StudentYear = (typeof STUDENT_YEARS)[number];
+export const STUDENT_YEAR_LABEL: Record<StudentYear, string> = {
+  FIRST: "1st year",
+  SECOND: "2nd year",
+  THIRD: "3rd year",
+  FOURTH: "4th year",
+  FIFTH_PLUS: "5th year or more",
+  GRADUATE: "Graduate",
+};
+export function isStudentYear(v: unknown): v is StudentYear {
+  return typeof v === "string" && (STUDENT_YEARS as readonly string[]).includes(v);
+}
+
+export const BACKGROUND_CHECK_STATUSES = ["PENDING", "CLEARED", "EXPIRED"] as const;
+export type BackgroundCheckStatus = (typeof BACKGROUND_CHECK_STATUSES)[number];
+export const BACKGROUND_CHECK_LABEL: Record<BackgroundCheckStatus, string> = {
+  PENDING: "Pending",
+  CLEARED: "Cleared",
+  EXPIRED: "Expired",
+};
+export function isBackgroundCheckStatus(v: unknown): v is BackgroundCheckStatus {
+  return typeof v === "string" && (BACKGROUND_CHECK_STATUSES as readonly string[]).includes(v);
+}
+
+export const AVAILABILITIES = ["AVAILABLE", "ON_JOB", "OFF_DUTY"] as const;
+export type Availability = (typeof AVAILABILITIES)[number];
+export const AVAILABILITY_LABEL: Record<Availability, string> = {
+  AVAILABLE: "Available",
+  ON_JOB: "On a job",
+  OFF_DUTY: "Off duty",
+};
+export function isAvailability(v: unknown): v is Availability {
+  return typeof v === "string" && (AVAILABILITIES as readonly string[]).includes(v);
+}
+
+export const AUDIT_ACTIONS = [
+  "ACCOUNT_CREATED",
+  "ACCOUNT_UPDATED",
+  "ROLE_CHANGED",
+  "PERMISSIONS_CHANGED",
+  "RESIDENCE_VERIFIED",
+  "RESIDENCE_REJECTED",
+  "RESIDENCE_EDITED",
+  "ACCOUNT_DISABLED",
+  "ACCOUNT_ENABLED",
+  "CONTRACTOR_CREATED",
+  "CONTRACTOR_UPDATED",
+  "CONTRACTOR_DEACTIVATED",
+  "INVITE_SENT",
+  "PASSWORD_RESET_SENT",
+  "IMPERSONATION_STARTED",
+  "IMPERSONATION_STOPPED",
+  "DEMO_RESET",
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
+  ACCOUNT_CREATED: "Account created",
+  ACCOUNT_UPDATED: "Account updated",
+  ROLE_CHANGED: "Role changed",
+  PERMISSIONS_CHANGED: "Permissions changed",
+  RESIDENCE_VERIFIED: "Residence verified",
+  RESIDENCE_REJECTED: "Residence rejected",
+  RESIDENCE_EDITED: "Residence edited",
+  ACCOUNT_DISABLED: "Account disabled",
+  ACCOUNT_ENABLED: "Account enabled",
+  CONTRACTOR_CREATED: "Contractor created",
+  CONTRACTOR_UPDATED: "Contractor updated",
+  CONTRACTOR_DEACTIVATED: "Contractor deactivated",
+  INVITE_SENT: "Invite sent",
+  PASSWORD_RESET_SENT: "Password reset sent",
+  IMPERSONATION_STARTED: "Impersonation started",
+  IMPERSONATION_STOPPED: "Impersonation stopped",
+  DEMO_RESET: "Demo data reset",
+};
+export function isAuditAction(v: unknown): v is AuditAction {
+  return typeof v === "string" && (AUDIT_ACTIONS as readonly string[]).includes(v);
+}
+
+/** Staff permission flags on StaffProfile. ADMIN implies all of them. */
+export const STAFF_PERMISSIONS = ["canManageUsers", "canManageContractors", "canVerifyResidence", "canViewAnalytics", "canAssignWork"] as const;
+export type StaffPermission = (typeof STAFF_PERMISSIONS)[number];
+export const STAFF_PERMISSION_LABEL: Record<StaffPermission, string> = {
+  canManageUsers: "Manage users",
+  canManageContractors: "Manage contractors",
+  canVerifyResidence: "Verify residences",
+  canViewAnalytics: "View analytics",
+  canAssignWork: "Assign work",
+};
+
+/** Parse a comma-separated list column ("PLUMBING,HVAC"), keeping only valid keys. */
+export function parseKeyList<T extends string>(csv: string | null | undefined, valid: readonly T[]): T[] {
+  if (!csv) return [];
+  const set = new Set(valid as readonly string[]);
+  return [...new Set(csv.split(",").map((s) => s.trim()).filter((s) => set.has(s)))] as T[];
+}
+
+/** Serialize a list of keys for a comma-separated column, rejecting unknown keys. */
+export function formatKeyList<T extends string>(keys: readonly string[], valid: readonly T[]): string {
+  const set = new Set(valid as readonly string[]);
+  const bad = keys.filter((k) => !set.has(k));
+  if (bad.length) throw new Error(`Unknown keys: ${bad.join(", ")}`);
+  return [...new Set(keys)].join(",");
+}
 
 export function isSeverity(v: unknown): v is Severity {
   return typeof v === "string" && (SEVERITIES as readonly string[]).includes(v);

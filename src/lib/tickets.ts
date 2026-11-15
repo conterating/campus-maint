@@ -25,7 +25,8 @@ import { notifyTicket, supervisorIds } from "./notify";
 import { raisedSeverity, responseDueAt, awaitingFirstResponse } from "./sla";
 import { textSimilarity } from "./similarity";
 import { detectSafetyHazards } from "./triage/safety";
-import { canReportAt, canView, isStaff, visibleTickets, type Viewer } from "./visibility";
+import { can, canReportAt, canView, isStaff, visibleTickets, type Viewer } from "./visibility";
+import { assignmentProblems } from "./eligibility";
 
 type Db = PrismaClient;
 
@@ -54,11 +55,13 @@ export async function getTicketDetail(db: Db, viewer: Viewer, id: string) {
       building: true,
       space: true,
       asset: true,
-      reporter: { select: { id: true, name: true } },
+      reporter: { select: { id: true, name: true, firstName: true, preferredName: true } },
       ownerUser: { select: { id: true, name: true } },
-      assignee: { select: { id: true, name: true } },
+      assignee: { select: { id: true, name: true, role: true } },
+      workLogs: { orderBy: { startedAt: "asc" }, include: { contractor: { select: { id: true, name: true } } } },
       events: {
-        where: isStaff(viewer) ? {} : { internal: false },
+        // Contractors only ever load tickets assigned to them, and they need the full picture.
+        where: isStaff(viewer) || viewer.role === "CONTRACTOR" ? {} : { internal: false },
         orderBy: { createdAt: "asc" },
         include: { actor: { select: { id: true, name: true, role: true, department: true } } },
       },
@@ -463,6 +466,46 @@ async function staffTicketOrThrow(db: Db, viewer: Viewer, ticketId: string) {
 
 const RESPONSE_STATUSES: Status[] = ["ASSIGNED", "IN_PROGRESS", "RESOLVED"];
 
+/** Count open tickets assigned to someone, optionally ignoring one ticket. */
+export async function activeJobCount(db: Db | Prisma.TransactionClient, userId: string, exceptTicketId?: string) {
+  return db.ticket.count({
+    where: { assigneeId: userId, status: { in: OPEN_STATUSES }, ...(exceptTicketId ? { id: { not: exceptTicketId } } : {}) },
+  });
+}
+
+/**
+ * Who may be assigned this ticket: an eligible CONTRACTOR (department, trade,
+ * credentials, hall access, availability, capacity), or a STAFF member of the
+ * ticket's department. Throws with every reason when the person isn't eligible.
+ */
+export async function assertAssignable(
+  db: Db,
+  ticket: { id: string; department: string; category: string; scope: string },
+  userId: string,
+  now: Date,
+) {
+  const assignee = await db.user.findUnique({ where: { id: userId }, include: { contractorProfile: true } });
+  if (!assignee || assignee.disabledAt) throw new AppError("Assign the ticket to an active contractor or staff member.");
+  if (assignee.role === "STAFF") {
+    if (assignee.department !== ticket.department) {
+      throw new AppError("Assign it to someone in the ticket's department, or reassign the department first.");
+    }
+    return assignee;
+  }
+  if (assignee.role !== "CONTRACTOR" || !assignee.contractorProfile) {
+    throw new AppError("Assign the ticket to an eligible contractor or to staff in its department.");
+  }
+  const p = assignee.contractorProfile;
+  const problems = assignmentProblems(
+    { ...p, userId: assignee.id, role: assignee.role, disabledAt: assignee.disabledAt },
+    ticket,
+    await activeJobCount(db, assignee.id, ticket.id),
+    now,
+  );
+  if (problems.length) throw new AppError(`${shortName(assignee.name)} can't take this job: ${problems.join("; ")}.`);
+  return assignee;
+}
+
 export async function staffSetStatus(
   db: Db,
   viewer: Viewer,
@@ -477,15 +520,17 @@ export async function staffSetStatus(
 
   let assigneeId = ticket.assigneeId;
   let assigneeName: string | null = null;
+  let assigneeRole: string | null = null;
   if (status === "ASSIGNED" || input.assigneeId) {
-    const target = input.assigneeId ?? viewer.id;
-    const assignee = await db.user.findUnique({ where: { id: target } });
-    if (!assignee || assignee.role === "STUDENT") throw new AppError("Assign the ticket to a staff member.");
-    if (assignee.role === "STAFF" && assignee.department !== ticket.department) {
-      throw new AppError("Assign it to someone in the ticket's department, or reassign the department first.");
+    const target = input.assigneeId ?? (viewer.role === "STAFF" ? viewer.id : null);
+    if (!target) throw new AppError("Choose a contractor or staff member to assign.");
+    if (target !== ticket.assigneeId || status === "ASSIGNED") {
+      if (target !== ticket.assigneeId && !can(viewer, "canAssignWork")) throw new AppError("You don't have permission to assign work.", "FORBIDDEN");
+      const assignee = target === ticket.assigneeId ? await db.user.findUniqueOrThrow({ where: { id: target } }) : await assertAssignable(db, ticket, target, now);
+      assigneeId = assignee.id;
+      assigneeName = shortName(assignee.name);
+      assigneeRole = assignee.role;
     }
-    assigneeId = assignee.id;
-    assigneeName = shortName(assignee.name);
   }
   if (status === ticket.status && assigneeId === ticket.assigneeId) {
     throw new AppError(`It's already ${STATUS_LABEL[status].toLowerCase()}.`, "CONFLICT");
@@ -510,17 +555,32 @@ export async function staffSetStatus(
     await tx.ticketEvent.create({
       data: { ticketId, type: "STATUS", fromStatus: ticket.status, toStatus: status, message, actorId: viewer.id, createdAt: now },
     });
+    const newAssignee = assigneeId && assigneeId !== ticket.assigneeId;
     await notifyTicket(tx, {
       ticket: updated,
       message:
         status === "RESOLVED"
           ? `RR-${updated.number} is resolved. Check it and confirm, or reopen it.`
-          : `RR-${updated.number} is now ${label.toLowerCase()}${assigneeName && status === "ASSIGNED" ? ` (${assigneeName})` : ""}`,
+          : status === "ASSIGNED" && assigneeRole === "CONTRACTOR" && assigneeName
+            ? `A contractor (${assigneeName}) is assigned to RR-${updated.number}`
+            : status === "IN_PROGRESS"
+              ? `Work has started on RR-${updated.number}`
+              : `RR-${updated.number} is now ${label.toLowerCase()}${assigneeName && status === "ASSIGNED" ? ` (${assigneeName})` : ""}`,
       tone: status === "RESOLVED" ? "success" : "info",
       actorId: viewer.id,
       now,
-      extraUserIds: assigneeId && assigneeId !== ticket.assigneeId ? [assigneeId] : [],
     });
+    if (newAssignee) {
+      // Tell the new assignee about the job (the generic message above is for the student).
+      await notifyTicket(tx, {
+        ticket: updated,
+        message: `New job: RR-${updated.number} ${updated.summary}`,
+        actorId: viewer.id,
+        now,
+        includeWatchers: false,
+        extraUserIds: [assigneeId!],
+      });
+    }
     return updated;
   });
 }
@@ -613,6 +673,188 @@ export async function staffAddNote(db: Db, viewer: Viewer, ticketId: string, tex
 }
 
 // ---------------------------------------------------------------------------
+// Contractors: only on tickets assigned to them
+// ---------------------------------------------------------------------------
+
+async function contractorTicketOrThrow(db: Db, viewer: Viewer, ticketId: string) {
+  if (viewer.role !== "CONTRACTOR") throw new AppError("Only the assigned contractor can do that.", "FORBIDDEN");
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
+  // Tickets that aren't theirs look the same as missing ones.
+  if (!ticket || ticket.assigneeId !== viewer.id) throw new AppError("That ticket doesn't exist or isn't assigned to you.", "NOT_FOUND");
+  if (ticket.status === "CONFIRMED") throw new AppError("The reporter already confirmed this fix.", "CONFLICT");
+  return ticket;
+}
+
+/** Start work: opens a WorkLog, sets In progress, and records entering the room for ROOM tickets. */
+export async function contractorStartWork(db: Db, viewer: Viewer, ticketId: string, note: string | null, now: Date) {
+  const ticket = await contractorTicketOrThrow(db, viewer, ticketId);
+  if (!isOpenStatus(ticket.status)) throw new AppError("This job is already resolved. Ask the dispatcher to reopen it.", "CONFLICT");
+  const open = await db.workLog.findFirst({ where: { ticketId, contractorId: viewer.id, endedAt: null } });
+  if (open) throw new AppError("You've already started work on this job. Finish it first.", "CONFLICT");
+  const text = note?.trim();
+  return db.$transaction(async (tx) => {
+    const log = await tx.workLog.create({
+      data: { ticketId, contractorId: viewer.id, startedAt: now, roomEnteredAt: ticket.scope === "ROOM" ? now : null, createdAt: now },
+    });
+    const updated = await tx.ticket.update({
+      where: { id: ticketId },
+      data: { status: "IN_PROGRESS", firstResponseAt: ticket.firstResponseAt ?? now, resolvedAt: null, updatedAt: now },
+    });
+    await tx.contractorProfile.updateMany({ where: { userId: viewer.id }, data: { availability: "ON_JOB" } });
+    if (ticket.status !== "IN_PROGRESS") {
+      await tx.ticketEvent.create({
+        data: {
+          ticketId,
+          type: "STATUS",
+          fromStatus: ticket.status,
+          toStatus: "IN_PROGRESS",
+          message: `Work started${text ? ` — ${text.slice(0, 500)}` : ""}`,
+          actorId: viewer.id,
+          createdAt: now,
+        },
+      });
+    }
+    await notifyTicket(tx, { ticket: updated, message: `Work has started on RR-${updated.number}`, actorId: viewer.id, now, includeDepartment: false });
+    return log;
+  });
+}
+
+export type FinishWorkInput = {
+  materials?: string | null;
+  materialsCost?: number | null;
+  notes?: string | null;
+  completionPhotoUrl?: string | null;
+};
+
+/** Finish: closes the open WorkLog (time, materials, cost, notes, photo) and marks the ticket Resolved. */
+export async function contractorFinishWork(db: Db, viewer: Viewer, ticketId: string, input: FinishWorkInput, now: Date) {
+  const ticket = await contractorTicketOrThrow(db, viewer, ticketId);
+  const open = await db.workLog.findFirst({ where: { ticketId, contractorId: viewer.id, endedAt: null }, orderBy: { startedAt: "desc" } });
+  if (!open) throw new AppError("Start work on this job before finishing it.", "CONFLICT");
+  const profile = await db.contractorProfile.findUnique({ where: { userId: viewer.id } });
+  const minutes = Math.max(1, Math.round((now.getTime() - open.startedAt.getTime()) / 60_000));
+  const laborCost = profile?.hourlyRate != null ? Math.round(((profile.hourlyRate * minutes) / 60) * 100) / 100 : null;
+  const notes = input.notes?.trim() || null;
+  return db.$transaction(async (tx) => {
+    await tx.workLog.update({
+      where: { id: open.id },
+      data: {
+        endedAt: now,
+        minutes,
+        roomExitedAt: open.roomEnteredAt ? now : null,
+        materials: input.materials?.trim() || null,
+        materialsCost: input.materialsCost ?? null,
+        laborCost,
+        notes,
+        completionPhotoUrl: input.completionPhotoUrl ?? null,
+      },
+    });
+    const updated = await tx.ticket.update({
+      where: { id: ticketId },
+      data: { status: "RESOLVED", resolvedAt: now, firstResponseAt: ticket.firstResponseAt ?? now, updatedAt: now },
+    });
+    const stillWorking = await tx.workLog.count({ where: { contractorId: viewer.id, endedAt: null } });
+    if (!stillWorking) await tx.contractorProfile.updateMany({ where: { userId: viewer.id, availability: "ON_JOB" }, data: { availability: "AVAILABLE" } });
+    await tx.ticketEvent.create({
+      data: {
+        ticketId,
+        type: "STATUS",
+        fromStatus: ticket.status,
+        toStatus: "RESOLVED",
+        message: `Resolved${notes ? ` — ${notes.slice(0, 500)}` : ""}`,
+        actorId: viewer.id,
+        createdAt: now,
+      },
+    });
+    await notifyTicket(tx, {
+      ticket: updated,
+      message: `RR-${updated.number} is resolved. Check it and confirm, or reopen it.`,
+      tone: "success",
+      actorId: viewer.id,
+      now,
+      extraUserIds: await supervisorIds(tx, updated.department),
+    });
+    return updated;
+  });
+}
+
+/** Contractors may move their own jobs to In progress or Resolved (without the work log, e.g. a quick fix). */
+export async function contractorSetStatus(db: Db, viewer: Viewer, ticketId: string, status: string, note: string | null, now: Date) {
+  if (status === "IN_PROGRESS") return contractorStartWork(db, viewer, ticketId, note, now);
+  if (status === "RESOLVED") return contractorFinishWork(db, viewer, ticketId, { notes: note }, now);
+  throw new AppError("Contractors can set a job to In progress or Resolved.", "FORBIDDEN");
+}
+
+/** Public note from the contractor (students see it). Contractors can't write internal notes. */
+export async function contractorAddNote(db: Db, viewer: Viewer, ticketId: string, text: string, now: Date) {
+  const ticket = await contractorTicketOrThrow(db, viewer, ticketId);
+  const message = text.trim();
+  if (message.length < 2) throw new AppError("Write a note first.");
+  return db.$transaction(async (tx) => {
+    const updated = await tx.ticket.update({ where: { id: ticketId }, data: { firstResponseAt: ticket.firstResponseAt ?? now, updatedAt: now } });
+    await tx.ticketEvent.create({ data: { ticketId, type: "NOTE", message: message.slice(0, 1000), internal: false, actorId: viewer.id, createdAt: now } });
+    await notifyTicket(tx, { ticket: updated, message: `Update on RR-${updated.number}: ${message.slice(0, 90)}`, actorId: viewer.id, now });
+    return updated;
+  });
+}
+
+export async function contractorSetAvailability(db: Db, viewer: Viewer, availability: string) {
+  if (viewer.role !== "CONTRACTOR") throw new AppError("Only contractors set availability.", "FORBIDDEN");
+  if (!["AVAILABLE", "ON_JOB", "OFF_DUTY"].includes(availability)) throw new AppError("Choose your availability.");
+  await db.contractorProfile.update({ where: { userId: viewer.id }, data: { availability } });
+}
+
+/** A contractor's jobs: open first (queue order is applied by the page), then recently resolved. */
+export async function listContractorJobs(db: Db, viewer: Viewer) {
+  if (viewer.role !== "CONTRACTOR") return [];
+  return db.ticket.findMany({
+    where: { assigneeId: viewer.id },
+    include: { ...listInclude, workLogs: { where: { contractorId: viewer.id }, orderBy: { startedAt: "desc" }, take: 1 } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * People a dispatcher can assign this ticket to: contractors for the department
+ * (with eligibility problems, so the form can explain why someone is greyed
+ * out) and the department's staff.
+ */
+export async function assignmentOptions(db: Db, ticket: { id: string; department: string; category: string; scope: string }, now: Date) {
+  const [contractors, staff] = await Promise.all([
+    db.user.findMany({
+      where: { role: "CONTRACTOR", contractorProfile: { departments: { contains: ticket.department } } },
+      include: { contractorProfile: true },
+      orderBy: { name: "asc" },
+    }),
+    db.user.findMany({ where: { role: "STAFF", department: ticket.department, disabledAt: null }, orderBy: { name: "asc" } }),
+  ]);
+  const counts = await db.ticket.groupBy({
+    by: ["assigneeId"],
+    where: { assigneeId: { in: [...contractors, ...staff].map((u) => u.id) }, status: { in: OPEN_STATUSES }, id: { not: ticket.id } },
+    _count: { _all: true },
+  });
+  const jobs = new Map(counts.map((c) => [c.assigneeId, c._count._all]));
+  return {
+    contractors: contractors
+      .filter((u) => u.contractorProfile)
+      .map((u) => {
+        const p = u.contractorProfile!;
+        const active = jobs.get(u.id) ?? 0;
+        return {
+          id: u.id,
+          name: u.name,
+          company: p.companyName,
+          availability: p.availability,
+          activeJobs: active,
+          maxActiveJobs: p.maxActiveJobs,
+          problems: assignmentProblems({ ...p, userId: u.id, role: u.role, disabledAt: u.disabledAt }, ticket, active, now),
+        };
+      }),
+    staff: staff.map((u) => ({ id: u.id, name: u.name, activeJobs: jobs.get(u.id) ?? 0 })),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Escalation
 // ---------------------------------------------------------------------------
 
@@ -674,6 +916,23 @@ const listInclude = {
   space: { select: { id: true, label: true } },
   asset: { select: { id: true, name: true } },
 } satisfies Prisma.TicketInclude;
+
+export type MyTicketsTab = "reported" | "room" | "following" | "metoo";
+
+/** The student's own lists: what they reported, what's in their room, what they follow, and their "me too"s. */
+export async function listMyTicketsTab(db: Db, viewer: Viewer, tab: MyTicketsTab) {
+  const filter: Prisma.TicketWhereInput =
+    tab === "reported"
+      ? { reporterId: viewer.id }
+      : tab === "room"
+        ? viewer.roomId
+          ? { scope: "ROOM", spaceId: viewer.roomId }
+          : { id: "__none__" }
+        : tab === "following"
+          ? { followers: { some: { userId: viewer.id } } }
+          : { meToos: { some: { userId: viewer.id } } };
+  return db.ticket.findMany({ where: visibleTickets(viewer, filter), include: listInclude, orderBy: [{ updatedAt: "desc" }] });
+}
 
 export async function listMyTickets(db: Db, viewer: Viewer) {
   return db.ticket.findMany({

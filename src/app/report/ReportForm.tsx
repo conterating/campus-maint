@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Building, CheckCircle2, DoorClosed, Loader2, Lock, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Building, CheckCircle2, DoorClosed, Loader2, Lock, Users } from "lucide-react";
 import { analyzeReport, meTooAction, submitReport, type AnalyzeResult } from "@/app/actions";
 import { routeTicket } from "@/config/routing";
 import {
@@ -51,11 +51,11 @@ function targetLabel(h: number) {
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="card p-5 md:p-6">
+    <fieldset className="border-t-2 border-navy pt-4">
       <legend className="sr-only">{title}</legend>
-      <div aria-hidden className="mb-4 flex items-center gap-3">
-        <span className="num grid size-7 place-items-center rounded-full bg-navy text-[0.8125rem] font-bold text-white">{n}</span>
-        <span className="h-section text-[1.0625rem]">{title}</span>
+      <div aria-hidden className="mb-5 flex items-baseline justify-between gap-3">
+        <span className="font-display text-[1.75rem] font-extrabold leading-none text-navy">{title}</span>
+        <span className="text-sm text-ink-3">Step {n} of 2</span>
       </div>
       {children}
     </fieldset>
@@ -195,7 +195,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
         {analyzing ? "Checking your report…" : announce}
       </p>
 
-      <form onSubmit={analyze} noValidate className="space-y-5">
+      <form onSubmit={analyze} noValidate className="space-y-9">
         <Step n={1} title="Where is it?">
           {viewerIsStudent && (myRoom || myHall) && (
             <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Quick locations">
@@ -321,7 +321,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
         </Step>
 
         {error && (
-          <p role="alert" className="rounded-[12px] bg-emergency-bg px-4 py-3 text-sm font-bold text-emergency ring-1 ring-inset ring-emergency/25">
+          <p role="alert" className="rounded-[6px] bg-emergency-bg px-4 py-3 text-sm font-bold text-emergency ring-1 ring-inset ring-emergency/25">
             {error}
           </p>
         )}
@@ -404,16 +404,13 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
                 <h2 id="review-title" ref={resultsHeading} tabIndex={-1} className="text-[1.25rem] font-bold tracking-[-0.015em] text-ink outline-none">
                   Here&apos;s how we&apos;ll route it
                 </h2>
-                <span className="inline-flex items-center gap-1.5 pt-1 text-[0.8125rem] text-ink-3">
-                  <Sparkles aria-hidden className="size-3.5" />
-                  {analysis.triage.source === "claude" ? "Sorted by Claude" : "Sorted by routing rules"}
-                </span>
+                <span className="pt-1 text-[0.8125rem] text-ink-3">{analysis.triage.source === "claude" ? "Suggested by Claude" : "Suggested by the routing rules"}</span>
               </div>
               <p className="mt-1 text-ink-2">Check it over. Change anything that looks wrong.</p>
               {analysis.triage.fallbackReason && <p className="mt-2 text-sm text-urgent">The AI classifier didn&apos;t respond, so the routing rules sorted it instead.</p>}
 
-              <div className="mt-5 flex items-center gap-4 rounded-[14px] bg-navy-50 p-4 ring-1 ring-inset ring-navy-100">
-                <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-navy text-white">
+              <div className="mt-5 flex items-center gap-4 rounded-[6px] bg-navy-50 p-4 ring-1 ring-inset ring-navy-100">
+                <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-[5px] bg-navy text-white">
                   <CatIcon className="size-5" />
                 </span>
                 <dl className="min-w-0">
@@ -462,7 +459,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
                     return (
                       <label
                         key={s}
-                        className={`flex cursor-pointer gap-3 rounded-[12px] p-3.5 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-navy ${
+                        className={`flex cursor-pointer gap-3 rounded-[6px] p-3.5 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-navy ${
                           checked ? "bg-navy-50 ring-2 ring-navy" : "bg-surface ring-1 ring-line-2 hover:bg-surface-2"
                         } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
                       >

@@ -121,7 +121,7 @@ export function StatusPill({ status, size = "md" }: { status: string; size?: "sm
 export function CategoryIcon({ category, size = "md" }: { category: string; size?: "sm" | "md" | "lg" }) {
   const c = (category in CATEGORY_LABEL ? category : "OTHER") as Category;
   const Icon = CATEGORY_ICON[c];
-  const dims = size === "sm" ? "size-8 rounded-lg" : size === "lg" ? "size-12 rounded-xl" : "size-10 rounded-[11px]";
+  const dims = size === "sm" ? "size-8 rounded-[4px]" : size === "lg" ? "size-12 rounded-[6px]" : "size-10 rounded-[5px]";
   return (
     <span aria-hidden className={`${dims} grid shrink-0 place-items-center bg-navy-50 text-navy ring-1 ring-inset ring-navy-100`}>
       <Icon className={size === "lg" ? "size-6" : size === "sm" ? "size-4" : "size-5"} strokeWidth={1.9} />

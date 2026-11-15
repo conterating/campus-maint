@@ -65,7 +65,7 @@ export default async function AdminPage() {
           </h2>
           <p className="mt-2 font-display text-[3.25rem] font-bold leading-none tracking-[-0.03em] text-ink">{pct(sla.overall.share)}</p>
           {sla.overall.total > 0 && (
-            <div aria-hidden className="mt-4 flex h-2 gap-[2px] overflow-hidden rounded-full">
+            <div aria-hidden className="mt-4 flex h-2 gap-[2px] overflow-hidden rounded-[2px]">
               <span className="rounded-l-full" style={{ width: `${(sla.overall.met / sla.overall.total) * 100}%`, background: CHART_BAR }} />
               <span className="flex-1 rounded-r-full bg-[#eef1f5]" />
             </div>
@@ -76,7 +76,7 @@ export default async function AdminPage() {
           </p>
           <p className="mt-1 text-xs text-ink-3">Tickets still inside their response window aren&apos;t counted yet.</p>
         </div>
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] border border-line bg-line shadow-[var(--shadow-xs)] sm:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[6px] border border-line bg-line sm:grid-cols-3">
           {[
             { label: "Tickets", value: String(head.total) },
             { label: "Open now", value: String(head.open) },

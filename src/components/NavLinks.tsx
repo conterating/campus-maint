@@ -13,18 +13,20 @@ export function TopNav({ role }: { role: Role }) {
   const items = navItemsFor(role);
   const report = items.find((i) => i.icon === "plus")!;
   return (
-    <nav aria-label="Main" className="flex items-center justify-between gap-4">
-      <ul className="flex items-center gap-0.5">
+    <nav aria-label="Main" className="flex h-[61px] items-stretch justify-between gap-4">
+      <ul className="flex items-stretch gap-1 self-stretch">
         {items
           .filter((i) => i.icon !== "plus")
           .map((item) => {
             const active = isActive(pathname, item.href);
             return (
-              <li key={item.href}>
+              <li key={item.href} className="flex">
                 <Link
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`block rounded-lg px-3 py-2 text-sm font-bold transition-colors ${active ? "bg-navy-50 text-navy" : "text-ink-2 hover:bg-bg hover:text-ink"}`}
+                  className={`relative flex items-center px-3 text-[0.9375rem] font-bold transition-colors after:absolute after:inset-x-3 after:-bottom-[3px] after:h-[3px] ${
+                    active ? "text-white after:bg-buzz" : "text-white/75 hover:text-white hover:after:bg-white/40"
+                  }`}
                 >
                   {item.label}
                 </Link>
@@ -32,7 +34,7 @@ export function TopNav({ role }: { role: Role }) {
             );
           })}
       </ul>
-      <Link href={report.href} aria-current={isActive(pathname, report.href) ? "page" : undefined} className="btn btn-accent btn-sm">
+      <Link href={report.href} aria-current={isActive(pathname, report.href) ? "page" : undefined} className="btn btn-accent btn-sm self-center">
         <Plus aria-hidden className="size-4" strokeWidth={2.75} />
         Report a problem
       </Link>
@@ -60,7 +62,7 @@ function BottomItem({ item, active, badge }: { item: NavItem; active: boolean; b
     return (
       <li className="flex justify-center">
         <Link href={item.href} aria-current={active ? "page" : undefined} className="flex min-h-16 flex-col items-center justify-center gap-1 text-[0.6875rem] font-bold text-ink">
-          <span className="grid size-10 place-items-center rounded-[12px] bg-buzz text-navy-hover shadow-[0_2px_6px_rgb(181_130_0/0.35)]">
+          <span className="grid size-10 place-items-center rounded-[6px] bg-buzz text-navy-hover">
             <Icon aria-hidden className="size-5" strokeWidth={2.75} />
           </span>
           {item.label}
@@ -73,9 +75,9 @@ function BottomItem({ item, active, badge }: { item: NavItem; active: boolean; b
       <Link
         href={item.href}
         aria-current={active ? "page" : undefined}
-        className={`relative flex min-h-16 flex-col items-center justify-center gap-1 text-[0.6875rem] font-bold ${active ? "text-navy" : "text-ink-3"}`}
+        className={`relative flex min-h-16 flex-col items-center justify-center gap-1 text-[0.6875rem] font-bold before:absolute before:inset-x-4 before:top-0 before:h-[3px] ${active ? "text-navy before:bg-buzz" : "text-ink-3"}`}
       >
-        <span className={`grid h-8 w-12 place-items-center rounded-full transition-colors ${active ? "bg-navy-50" : ""}`}>
+        <span className="grid h-8 w-12 place-items-center">
           <Icon aria-hidden className="size-[1.3rem]" strokeWidth={active ? 2.4 : 2} />
         </span>
         {item.label}

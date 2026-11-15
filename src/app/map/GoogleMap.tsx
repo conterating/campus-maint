@@ -99,7 +99,7 @@ export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isS
                 if (e.key === "Escape") setSelected(null);
               }}
             >
-              <div className="relative rounded-[14px] bg-surface p-4 shadow-[var(--shadow-lg)] ring-1 ring-line">
+              <div className="relative rounded-[6px] bg-surface p-4 shadow-[var(--shadow-lg)] ring-1 ring-line">
                 <button type="button" className="absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-full text-ink-3 hover:bg-bg hover:text-ink" aria-label="Close" onClick={() => setSelected(null)}>
                   <X aria-hidden className="size-4" />
                 </button>

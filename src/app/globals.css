@@ -2,12 +2,14 @@
 
 /* ---------------------------------------------------------------------------
    Ramblin’ Repairs — design tokens
-   One typeface (Atkinson Hyperlegible Next), white surfaces on a cool gray
-   page, GT Navy for ink and primary actions, Buzz Gold only for "report" and
-   focus. Every text pair below meets WCAG AA on both --bg and --surface.
+   An official campus utility, not a startup landing page: a GT Navy header on
+   a Tech Gold rule, white pages divided by hairlines, square-shouldered
+   controls, Big Shoulders (campus signage) for titles, Atkinson Hyperlegible
+   for everything you read. Buzz Gold marks the one primary action.
 --------------------------------------------------------------------------- */
 :root {
-  --bg: #f3f4f6;
+  --bg: #ffffff;
+  --panel: #f5f6f8;
   --surface: #ffffff;
   --surface-2: #f9fafb;
   --ink: #0f1a2a;
@@ -55,6 +57,7 @@
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-panel: var(--panel);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
@@ -79,7 +82,7 @@
   --color-low-bg: var(--sev-low-bg);
   --color-resolved: var(--st-resolved);
 
-  --font-display: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-signage), "Arial Narrow", ui-sans-serif, sans-serif;
   --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-atkinson-mono), ui-monospace, SFMono-Regular, monospace;
 }
@@ -108,7 +111,7 @@ body {
   outline: 2px solid var(--navy);
   outline-offset: 2px;
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--buzz) 55%, transparent);
-  border-radius: 8px;
+  border-radius: 4px;
 }
 
 @layer components {
@@ -117,22 +120,24 @@ body {
     font-family: var(--font-display);
   }
   .h-hero {
+    font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(1.875rem, 1.2rem + 2.6vw, 2.75rem);
-    line-height: 1.08;
-    letter-spacing: -0.03em;
-    color: var(--ink);
+    font-size: clamp(2.75rem, 1.9rem + 3.4vw, 4.25rem);
+    line-height: 0.92;
+    letter-spacing: -0.005em;
+    color: var(--navy);
   }
   .h-page {
+    font-family: var(--font-display);
     font-weight: 800;
-    font-size: 1.75rem;
-    line-height: 1.15;
-    letter-spacing: -0.025em;
-    color: var(--ink);
+    font-size: 2.375rem;
+    line-height: 0.95;
+    letter-spacing: 0;
+    color: var(--navy);
   }
   @media (min-width: 768px) {
     .h-page {
-      font-size: 2rem;
+      font-size: 2.875rem;
     }
   }
   .h-section {
@@ -150,7 +155,6 @@ body {
     color: var(--ink-3);
   }
   .num {
-    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
 
@@ -172,15 +176,13 @@ body {
   /* ---- Surfaces ---- */
   .card {
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
   }
   .list-group {
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
     overflow: hidden;
   }
   .list-group > li + li {
@@ -194,8 +196,8 @@ body {
     justify-content: center;
     gap: 0.5rem;
     min-height: 2.75rem;
-    padding: 0.55rem 1rem;
-    border-radius: 10px;
+    padding: 0.55rem 1.1rem;
+    border-radius: 5px;
     font-weight: 700;
     font-size: 0.9375rem;
     line-height: 1.2;
@@ -207,7 +209,7 @@ body {
     min-height: 2.25rem;
     padding: 0.35rem 0.75rem;
     font-size: 0.875rem;
-    border-radius: 9px;
+    border-radius: 4px;
   }
   .btn:disabled,
   .btn[aria-disabled="true"] {
@@ -217,7 +219,6 @@ body {
   .btn-primary {
     background: var(--navy);
     color: #fff;
-    box-shadow: var(--shadow-xs), inset 0 1px 0 rgb(255 255 255 / 0.08);
   }
   .btn-primary:hover:not(:disabled) {
     background: var(--navy-hover);
@@ -225,7 +226,6 @@ body {
   .btn-accent {
     background: var(--buzz);
     color: var(--navy-hover);
-    box-shadow: var(--shadow-xs), inset 0 -1px 0 rgb(0 0 0 / 0.08);
   }
   .btn-accent:hover:not(:disabled) {
     background: var(--buzz-hover);
@@ -233,17 +233,16 @@ body {
   .btn-secondary {
     background: var(--surface);
     color: var(--ink);
-    border-color: var(--line-2);
-    box-shadow: var(--shadow-xs);
+    border-color: #aeb6c2;
   }
   .btn-secondary:hover:not(:disabled) {
     background: var(--surface-2);
     border-color: #b9c0cb;
   }
   .btn-secondary[aria-pressed="true"] {
-    background: var(--navy-50);
+    background: var(--navy);
     border-color: var(--navy);
-    color: var(--navy);
+    color: #fff;
   }
   .btn-ghost {
     background: transparent;
@@ -273,8 +272,8 @@ body {
     display: inline-flex;
     gap: 2px;
     padding: 3px;
-    border-radius: 11px;
-    background: #eaedf1;
+    border-radius: 6px;
+    background: #e8ebef;
   }
   .seg > * {
     display: inline-flex;
@@ -284,7 +283,7 @@ body {
     gap: 0.4rem;
     min-height: 2.25rem;
     padding: 0.3rem 0.85rem;
-    border-radius: 8px;
+    border-radius: 4px;
     font-size: 0.875rem;
     font-weight: 700;
     color: var(--ink-2);
@@ -296,8 +295,8 @@ body {
   .seg > [aria-current="page"],
   .seg > [aria-pressed="true"] {
     background: var(--surface);
-    color: var(--ink);
-    box-shadow: var(--shadow-sm);
+    color: var(--navy);
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.12);
   }
 
   /* ---- Pills ---- */
@@ -305,8 +304,8 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.125rem 0.55rem 0.125rem 0.5rem;
-    border-radius: 999px;
+    padding: 0.0625rem 0.45rem;
+    border-radius: 3px;
     font-size: 0.8125rem;
     font-weight: 700;
     line-height: 1.4;
@@ -317,12 +316,11 @@ body {
   .field {
     width: 100%;
     min-height: 2.75rem;
-    border: 1px solid var(--line-2);
-    border-radius: 10px;
+    border: 1px solid #aeb6c2;
+    border-radius: 5px;
     background: var(--surface);
     padding: 0.55rem 0.8rem;
     color: var(--ink);
-    box-shadow: var(--shadow-xs);
     transition: border-color 120ms, box-shadow 120ms;
   }
   .field::placeholder {

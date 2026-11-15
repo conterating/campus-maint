@@ -59,7 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </main>
         <SiteFooter signedIn={!!viewer} />
-        {viewer && <BottomNav role={viewer.role} unread={unread} />}
+        <BottomNav role={viewer?.role ?? "GUEST"} unread={unread} />
       </body>
     </html>
   );

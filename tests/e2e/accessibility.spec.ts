@@ -19,10 +19,11 @@ const PAGES: { user: string; paths: string[] }[] = [
 ];
 
 // Signed-out pages.
-for (const path of ["/login", "/login/contractor", "/login/staff", "/signup", "/forgot-password", "/reset-password", "/invite"]) {
+for (const path of ["/", "/map", "/tickets", "/tickets?view=closed", "/login", "/login/contractor", "/login/staff", "/signup", "/forgot-password", "/reset-password", "/invite"]) {
   test(`signed out ${path} has no WCAG A/AA violations`, async ({ page }) => {
     await page.goto(path);
-    await expectAccessible(page);
+    await page.waitForLoadState("networkidle");
+    await expectAccessible(page, { exclude: [".leaflet-tile-pane"], disableRules: path === "/map" ? ["target-size"] : [] });
   });
 }
 

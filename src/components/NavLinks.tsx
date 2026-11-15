@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bell, ClipboardList, Home, ListChecks, Map, Plus, QrCode, UserRound, Wrench } from "lucide-react";
-import type { Role } from "@/lib/domain";
-import { isActive, navItemsFor, type NavItem } from "./navItems";
+import { BarChart3, Bell, ClipboardList, Home, ListChecks, LogIn, Map, Plus, QrCode, UserRound, Wrench } from "lucide-react";
+import { isActive, navItemsFor, type NavItem, type NavRole } from "./navItems";
 
-const ICONS = { home: Home, map: Map, plus: Plus, list: ListChecks, bell: Bell, queue: ClipboardList, chart: BarChart3, qr: QrCode, wrench: Wrench, user: UserRound };
+const ICONS = { home: Home, map: Map, plus: Plus, list: ListChecks, bell: Bell, queue: ClipboardList, chart: BarChart3, qr: QrCode, wrench: Wrench, user: UserRound, login: LogIn };
 
-export function TopNav({ role }: { role: Role }) {
+export function TopNav({ role }: { role: NavRole }) {
   const pathname = usePathname();
   const items = navItemsFor(role);
   const report = items.find((i) => i.icon === "plus");
@@ -44,7 +43,7 @@ export function TopNav({ role }: { role: Role }) {
   );
 }
 
-export function BottomNav({ role, unread }: { role: Role; unread: number }) {
+export function BottomNav({ role, unread }: { role: NavRole; unread: number }) {
   const pathname = usePathname();
   const items = navItemsFor(role);
   return (

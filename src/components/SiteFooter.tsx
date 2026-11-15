@@ -4,7 +4,7 @@ import { LogoMark } from "./LogoMark";
 
 export function SiteFooter({ signedIn }: { signedIn: boolean }) {
   return (
-    <footer className={`no-print border-t border-line bg-surface ${signedIn ? "pb-24 md:pb-0" : ""}`}>
+    <footer className="no-print border-t border-line bg-surface pb-24 md:pb-0">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 text-sm text-ink-3 md:flex-row md:items-center md:justify-between">
         <p className="flex items-center gap-2">
           <LogoMark className="size-5" />

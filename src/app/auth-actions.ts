@@ -102,7 +102,7 @@ export async function signOutAction(): Promise<void> {
   }
   const { cookies } = await import("next/headers");
   (await cookies()).delete("rr_view_as");
-  redirect("/login");
+  redirect("/");
 }
 
 /** Sign out of every device, including this one. */

@@ -131,6 +131,11 @@ export function PinPopup({ p, now, isStudent }: { p: MapPoint; now: string; isSt
           </>
         )}
       </p>
+      {p.guest ? (
+        <Link href={`/login?next=${encodeURIComponent(`/tickets/${p.id}`)}`} className="btn btn-accent btn-sm mt-3 w-full">
+          Sign in to follow or say me too
+        </Link>
+      ) : (
       <div className="mt-3 grid grid-cols-2 gap-2">
         {canMeToo ? (
           <button type="button" className="btn btn-accent btn-sm" disabled={busy !== null} onClick={() => act("metoo")}>
@@ -148,6 +153,7 @@ export function PinPopup({ p, now, isStudent }: { p: MapPoint; now: string; isSt
           </button>
         )}
       </div>
+      )}
       {error && (
         <p role="alert" className="mt-2 text-sm font-bold text-emergency">
           {error}

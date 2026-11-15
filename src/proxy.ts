@@ -5,11 +5,13 @@ import { getSessionCookie } from "better-auth/cookies";
 // session valid, is the account enabled, what may this role see) happens in
 // getViewer() on every page and server action.
 
-const PUBLIC_PREFIXES = ["/login", "/signup", "/forgot-password", "/reset-password", "/invite", "/api/auth"];
+const PUBLIC_PREFIXES = ["/login", "/signup", "/forgot-password", "/reset-password", "/invite", "/api/auth", "/map", "/tickets"];
+// Guests can browse public issues: the home page, the map, and the issue list and pages.
+const PUBLIC_EXACT = ["/"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const isPublic = PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isPublic = PUBLIC_EXACT.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (!isPublic && !getSessionCookie(request, { cookiePrefix: "rr" })) {
     const url = request.nextUrl.clone();

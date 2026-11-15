@@ -140,6 +140,35 @@ export async function getViewer(): Promise<Viewer> {
   return s.viewer;
 }
 
+/**
+ * Signed-out visitors browse as a guest: a student with no hall or room, so the
+ * normal visibility rules show them public issues only. Guests can't act; every
+ * action still calls getViewer(), which sends them to sign in.
+ */
+export const GUEST_VIEWER: Viewer = {
+  id: "guest",
+  name: "Guest",
+  role: "STUDENT",
+  department: null,
+  isSupervisor: false,
+  residenceBuildingId: null,
+  roomId: null,
+};
+
+/** The viewer for pages guests may open (home, map, issues). */
+export async function getViewerOrGuest(): Promise<{ viewer: Viewer; guest: boolean }> {
+  const s = await getSessionState();
+  if (s.status !== "ok") return { viewer: GUEST_VIEWER, guest: true };
+  return { viewer: await getViewer(), guest: false };
+}
+
+/** getContext() for pages guests may open. */
+export async function getContextOrGuest(): Promise<{ viewer: Viewer; now: Date; guest: boolean }> {
+  const [{ viewer, guest }, current] = await Promise.all([getViewerOrGuest(), now()]);
+  await runEscalationSweep(prisma, current);
+  return { viewer, now: current, guest };
+}
+
 /** The real signed-in user behind the viewer (the admin, when impersonating). */
 export async function getActor(): Promise<LoadedUser> {
   await getViewer();

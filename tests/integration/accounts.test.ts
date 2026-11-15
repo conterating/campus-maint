@@ -350,6 +350,26 @@ describe("administration", () => {
   });
 });
 
+describe("signed-out visitors", () => {
+  const guest = { id: "guest", name: "Guest", role: "STUDENT" as const, department: null, isSupervisor: false, residenceBuildingId: null, roomId: null };
+  it("browse public issues only, and only public photos", async () => {
+    const { listVisibleTickets } = await import("@/lib/tickets");
+    const visible = await listVisibleTickets(db, guest);
+    expect(visible.length).toBe(await db.ticket.count({ where: { scope: "PUBLIC" } }));
+    expect(visible.every((t) => t.scope === "PUBLIC")).toBe(true);
+    const file = "0b5e3c1a-3333-4222-8333-944455556666.jpg";
+    const room = await db.ticket.findFirstOrThrow({ where: { scope: "ROOM" } });
+    await db.ticket.update({ where: { id: room.id }, data: { photoUrl: `/uploads/${file}` } });
+    expect(await canSeePhoto(db, guest, file)).toBe(false);
+    const pub = await db.ticket.findFirstOrThrow({ where: { scope: "PUBLIC" } });
+    const pubFile = "0b5e3c1a-4444-4222-8333-944455556666.jpg";
+    await db.ticket.update({ where: { id: pub.id }, data: { photoUrl: `/uploads/${pubFile}` } });
+    expect(await canSeePhoto(db, guest, pubFile)).toBe(true);
+    // Unattached uploads aren't served to guests.
+    expect(await canSeePhoto(db, guest, "0b5e3c1a-5555-4222-8333-944455556666.jpg")).toBe(false);
+  });
+});
+
 describe("upload permissions", () => {
   it("serves a photo only to people who can see its ticket", async () => {
     const file = "0b5e3c1a-1111-4222-8333-944455556666.jpg";

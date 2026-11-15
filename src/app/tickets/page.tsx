@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getContext, requirePageRole } from "@/lib/session";
+import { getContextOrGuest, requirePageRole } from "@/lib/session";
 import { listMyTickets, listVisibleTickets } from "@/lib/tickets";
 import { isStaff } from "@/lib/visibility";
 import { CLOSED_STATUSES, OPEN_STATUSES, isOpenStatus } from "@/lib/domain";
@@ -20,10 +20,11 @@ const TABS = [
 ] as const;
 
 export default async function TicketsPage({ searchParams }: { searchParams: Search }) {
-  const { viewer, now } = await getContext();
+  const { viewer, now, guest } = await getContextOrGuest();
   requirePageRole(viewer, "STUDENT", "STAFF", "ADMIN");
-  const { view = isStaff(viewer) ? "open" : "mine" } = await searchParams;
-  const active = TABS.find((t) => t.key === view)?.key ?? "mine";
+  const { view = isStaff(viewer) || guest ? "open" : "mine" } = await searchParams;
+  const tabs = guest ? TABS.filter((t) => t.key !== "mine") : TABS;
+  const active = tabs.find((t) => t.key === view)?.key ?? tabs[0].key;
 
   const tickets =
     active === "mine"
@@ -35,19 +36,25 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
     <div className="mx-auto max-w-4xl px-4 pt-6 md:pt-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="h-page">{isStaff(viewer) ? "All issues" : "My reports"}</h1>
+          <h1 className="h-page">{isStaff(viewer) ? "All issues" : guest ? "Issues on campus" : "My reports"}</h1>
           <p className="mt-1 text-ink-2">
-            {active === "mine" ? "What you reported, live in, or follow." : isStaff(viewer) ? "Across every department." : "Everything you're able to see on campus."}
+            {active === "mine"
+              ? "What you reported, live in, or follow."
+              : isStaff(viewer)
+                ? "Across every department."
+                : guest
+                  ? "Public issues in classrooms, libraries, dining and recreation. Sign in to see your own hall."
+                  : "Everything you're able to see on campus."}
           </p>
         </div>
-        <Link href="/report" className="btn btn-primary btn-sm">
-          <Plus aria-hidden className="size-4" /> Report a problem
+        <Link href={guest ? "/login?next=%2Freport" : "/report"} className="btn btn-primary btn-sm">
+          <Plus aria-hidden className="size-4" /> {guest ? "Sign in to report" : "Report a problem"}
         </Link>
       </div>
 
       <nav aria-label="Filter issues" className="mt-6">
         <div className="seg w-full sm:w-auto">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <Link key={t.key} href={`/tickets?view=${t.key}`} aria-current={active === t.key ? "page" : undefined}>
               {t.label}
             </Link>
@@ -65,8 +72,8 @@ export default async function TicketsPage({ searchParams }: { searchParams: Sear
         <div className="card px-6 py-12 text-center">
           <p className="font-bold">{active === "mine" ? "You haven't reported or followed anything yet" : "Nothing here right now"}</p>
           <p className="mt-1 text-sm text-ink-3">Report a problem and you can track it here.</p>
-          <Link href="/report" className="btn btn-primary mt-5">
-            Report a problem
+          <Link href={guest ? "/login?next=%2Freport" : "/report"} className="btn btn-primary mt-5">
+            {guest ? "Sign in to report" : "Report a problem"}
           </Link>
         </div>
       )}

@@ -11,8 +11,10 @@ test.beforeEach(async ({ page }) => {
 
 async function signOut(page: Page) {
   await page.getByRole("button", { name: /account menu/ }).click();
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/login$/);
+  await page.getByRole("button", { name: "Log out" }).click();
+  // Back to the public site, with Sign in as a tab.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible();
 }
 
 test("student: sign up, verify from the email link, sign in, report, sign out", async ({ page }, info) => {
@@ -173,6 +175,34 @@ test("forgot password, reset from the email link, then sign in", async ({ page }
   await expect(page).toHaveURL(/\/$/);
 });
 
+test("signed out, the site is browsable with Sign in as a tab; signed in, the profile menu has profile, tickets and log out", async ({ page }, info) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: "Report it once. Watch it get fixed." })).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).first();
+  await expect(nav.getByRole("link", { name: "Sign in" })).toBeVisible();
+  // Public issues only, and no actions without signing in.
+  await page.goto("/tickets");
+  await expect(page.getByRole("heading", { level: 1, name: "Issues on campus" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Residence Hall|Apartments/ })).toHaveCount(0);
+  await page.getByRole("link", { name: /Wi-Fi dropping every few minutes/ }).filter({ visible: true }).first().click();
+  await expect(page.getByRole("heading", { name: "Have this problem too?" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Me too/ })).toHaveCount(0);
+  await nav.getByRole("link", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await expect(nav.getByRole("link", { name: "Sign in" })).toHaveAttribute("aria-current", "page");
+
+  await loginWithForm(page, "mpatel3");
+  await page.getByRole("button", { name: /account menu/ }).click();
+  await expect(page.getByRole("link", { name: "View profile" })).toBeVisible();
+  await page.getByRole("link", { name: "Current tickets" }).click();
+  await expect(page).toHaveURL(/\/my-tickets$/);
+  await page.getByRole("button", { name: /account menu/ }).click();
+  await page.getByRole("link", { name: "View profile" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
+  await signOut(page);
+  void info;
+});
+
 test("a correct login on the wrong tab still signs in by real role", async ({ page }) => {
   await loginWithForm(page, "LOKAFOR3@gatech.edu", { tab: "/login" });
   await expect(page).toHaveURL(/\/staff$/);
@@ -214,8 +244,12 @@ test("the GT SSO button is visible and focusable but does nothing", async ({ pag
     await expect(sso).toHaveAccessibleDescription("Coming soon");
     await sso.focus();
     await expect(sso).toBeFocused();
+    // Let Next.js finish prefetching the nav links first; then any request would come from the button.
+    await page.waitForLoadState("networkidle");
     const requests: string[] = [];
-    page.on("request", (r) => requests.push(r.url()));
+    page.on("request", (r) => {
+      if (!r.headers()["next-router-prefetch"]) requests.push(r.url());
+    });
     const before = page.url();
     // aria-disabled buttons look disabled to Playwright, so force the click a user could still make.
     await sso.click({ force: true });

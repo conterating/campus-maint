@@ -16,5 +16,5 @@ export async function canSeePhoto(db: PrismaClient, viewer: Viewer, file: string
     (await db.ticketEvent.findFirst({ where: { photos: { contains: `"${url}"` } }, include: { ticket: true } }))?.ticket ??
     null;
   if (ticket) return canView(viewer, ticket);
-  return viewer.role !== "CONTRACTOR";
+  return viewer.role !== "CONTRACTOR" && viewer.id !== "guest";
 }

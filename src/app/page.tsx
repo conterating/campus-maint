@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, Phone, QrCode } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { getContextOrGuest } from "@/lib/session";
+import { GuestHome } from "./GuestHome";
 import { listMyTickets, listVisibleTickets, shortName } from "@/lib/tickets";
 import { DEPARTMENT_LABEL, OPEN_STATUSES, formatTicketNumber, isOpenStatus, type Department } from "@/lib/domain";
 import { APP_CONFIG } from "@/config/app";
@@ -16,7 +17,8 @@ function hallShort(name: string) {
 }
 
 export default async function HomePage() {
-  const { viewer, now } = await getContext();
+  const { viewer, now, guest } = await getContextOrGuest();
+  if (guest) return <GuestHome viewer={viewer} now={now} />;
   if (viewer.role === "STAFF") redirect("/staff");
   if (viewer.role === "ADMIN") redirect("/admin");
   if (viewer.role === "CONTRACTOR") redirect("/jobs");

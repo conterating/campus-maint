@@ -3,10 +3,21 @@ import type { Role } from "@/lib/domain";
 export type NavItem = {
   href: string;
   label: string;
-  icon: "home" | "map" | "plus" | "list" | "bell" | "queue" | "chart" | "qr" | "wrench" | "user";
+  icon: "home" | "map" | "plus" | "list" | "bell" | "queue" | "chart" | "qr" | "wrench" | "user" | "login";
 };
 
-export function navItemsFor(role: Role): NavItem[] {
+/** Signed-out visitors: public browsing, with sign-in as its own tab. */
+export type NavRole = Role | "GUEST";
+
+export function navItemsFor(role: NavRole): NavItem[] {
+  if (role === "GUEST") {
+    return [
+      { href: "/", label: "Home", icon: "home" },
+      { href: "/map", label: "Map", icon: "map" },
+      { href: "/tickets", label: "Issues", icon: "list" },
+      { href: "/login", label: "Sign in", icon: "login" },
+    ];
+  }
   if (role === "ADMIN") {
     return [
       { href: "/admin", label: "Insights", icon: "chart" },

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Building2, CheckCircle2, ChevronLeft, Eye, Lock, MapPin, ShieldAlert, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getContext } from "@/lib/session";
+import { getContextOrGuest } from "@/lib/session";
 import { assignmentOptions, getTicketDetail, shortName } from "@/lib/tickets";
 import { isStaff } from "@/lib/visibility";
 import { CATEGORY_LABEL, DEPARTMENT_LABEL, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, parseEventPhotos, type Category, type Department, type Severity } from "@/lib/domain";
@@ -43,7 +43,7 @@ function Prop({ label, children }: { label: string; children: React.ReactNode })
 export default async function TicketPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { id } = await params;
   const flags = await searchParams;
-  const { viewer, now } = await getContext();
+  const { viewer, now, guest } = await getContextOrGuest();
   const t = await getTicketDetail(prisma, viewer, id);
   if (!t) notFound();
 
@@ -117,7 +117,22 @@ export default async function TicketPage({ params, searchParams }: { params: Par
     }));
   const corrected = t.aiCategory !== t.category || t.aiSeverity !== t.severity || t.aiDepartment !== t.department;
 
-  const actions = contractor ? (
+  const signInHref = `/login?next=${encodeURIComponent(`/tickets/${t.id}`)}`;
+  const actions = guest ? (
+    <div className="card p-4">
+      <h2 className="h-section">Have this problem too?</h2>
+      <p className="mt-1 text-sm text-ink-2">Sign in to say “me too”, follow it for updates, or comment.</p>
+      <Link href={signInHref} className="btn btn-primary mt-3 w-full">
+        Sign in
+      </Link>
+      <p className="mt-2 text-center text-sm text-ink-3">
+        New here?{" "}
+        <Link href="/signup" className="font-bold text-navy underline underline-offset-2">
+          Create an account
+        </Link>
+      </p>
+    </div>
+  ) : contractor ? (
     <ContractorPanel ticketId={t.id} status={t.status} working={!!openLog} startedAt={openLog?.startedAt.toISOString() ?? null} roomTicket={t.scope === "ROOM"} />
   ) : canAct && options ? (
     <StaffPanel
@@ -147,8 +162,8 @@ export default async function TicketPage({ params, searchParams }: { params: Par
   return (
     <div className="mx-auto max-w-6xl px-4 pt-5 md:pt-8">
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
-        <Link href={staff ? "/staff" : contractor ? "/jobs" : "/my-tickets"} className="inline-flex items-center gap-1 rounded-md font-bold text-ink-2 hover:text-navy">
-          <ChevronLeft aria-hidden className="size-4" /> {staff ? "Back to queue" : contractor ? "My jobs" : "My tickets"}
+        <Link href={guest ? "/tickets" : staff ? "/staff" : contractor ? "/jobs" : "/my-tickets"} className="inline-flex items-center gap-1 rounded-md font-bold text-ink-2 hover:text-navy">
+          <ChevronLeft aria-hidden className="size-4" /> {guest ? "Issues" : staff ? "Back to queue" : contractor ? "My jobs" : "My tickets"}
         </Link>
         <span aria-hidden className="text-line-2">
           /
@@ -302,7 +317,16 @@ export default async function TicketPage({ params, searchParams }: { params: Par
             <div className="mt-4">
               <Timeline events={events} now={now} />
             </div>
-            <CommentForm ticketId={t.id} audience={commentAudience} />
+            {guest ? (
+              <p className="mt-5 border-t border-line pt-4 text-sm text-ink-2">
+                <Link href={signInHref} className="font-bold text-navy underline underline-offset-2">
+                  Sign in
+                </Link>{" "}
+                to comment.
+              </p>
+            ) : (
+              <CommentForm ticketId={t.id} audience={commentAudience} />
+            )}
           </section>
         </div>
       </div>

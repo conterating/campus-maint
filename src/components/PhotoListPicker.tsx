@@ -73,7 +73,7 @@ export function PhotoListPicker({
       {value.length > 0 && (
         <ul className="mb-2 grid grid-cols-3 gap-2" aria-label="Photos to attach">
           {value.map((p, i) => (
-            <li key={p.preview} className="relative overflow-hidden rounded-[10px] ring-1 ring-line">
+            <li key={p.preview} className="relative overflow-hidden rounded-[4px] ring-1 ring-line">
               {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview */}
               <img src={p.preview} alt={`Photo ${i + 1} to attach`} className="aspect-square w-full bg-bg object-cover" />
               <button

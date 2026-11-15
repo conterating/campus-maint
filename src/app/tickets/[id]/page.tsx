@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Building2, CheckCircle2, ChevronLeft, Eye, Lock, MapPin, ShieldAlert, Sparkles, Users } from "lucide-react";
+import { Building2, CheckCircle2, ChevronLeft, Eye, Lock, MapPin, ShieldAlert, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/session";
 import { getTicketDetail, shortName } from "@/lib/tickets";
@@ -135,7 +135,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
       </nav>
 
       {flags.created && (
-        <p role="status" className="rise mt-4 flex items-center gap-2.5 rounded-[12px] bg-[#ecfdf3] px-4 py-3 text-sm text-ink ring-1 ring-inset ring-resolved/20">
+        <p role="status" className="rise mt-4 flex items-center gap-2.5 rounded-[6px] bg-[#ecfdf3] px-4 py-3 text-sm text-ink ring-1 ring-inset ring-resolved/20">
           <CheckCircle2 aria-hidden className="size-5 shrink-0 text-resolved" />
           <span>
             <span className="font-bold">Filed as {formatTicketNumber(t.number)}</span> and sent to {dept}. You&apos;ll get an alert every time it changes.
@@ -143,7 +143,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
         </p>
       )}
       {flags.metoo && (
-        <p role="status" className="rise mt-4 flex items-center gap-2.5 rounded-[12px] bg-navy-50 px-4 py-3 text-sm text-ink ring-1 ring-inset ring-navy-100">
+        <p role="status" className="rise mt-4 flex items-center gap-2.5 rounded-[6px] bg-navy-50 px-4 py-3 text-sm text-ink ring-1 ring-inset ring-navy-100">
           <Users aria-hidden className="size-5 shrink-0 text-navy" />
           <span>
             <span className="font-bold">You&apos;re counted.</span> {t.meTooCount + 1} people now report this, and you&apos;re following it for updates.
@@ -171,7 +171,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
                 </span>
               )}
             </div>
-            <h1 className="mt-3 text-[1.625rem] font-extrabold leading-[1.15] tracking-[-0.025em] text-ink md:text-[2.125rem]">{t.summary}</h1>
+            <h1 className="mt-3 font-display text-[2.125rem] font-extrabold leading-[0.98] text-navy md:text-[2.75rem]">{t.summary}</h1>
             <p className="mt-2 flex items-start gap-1.5 text-ink-2">
               <MapPin aria-hidden className="mt-1 size-4 shrink-0 text-ink-3" />
               {where}
@@ -252,7 +252,6 @@ export default async function TicketPage({ params, searchParams }: { params: Par
               </h2>
               <p className="mt-2 whitespace-pre-line text-[1.0625rem] leading-relaxed text-ink">{t.description}</p>
               <div className="mt-5 flex gap-2.5 border-t border-line pt-4 text-sm text-ink-3">
-                <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0" />
                 <p>
                   {t.aiSource === "claude" ? "Claude" : "The routing rules"} sorted this as <strong className="text-ink-2">{CATEGORY_LABEL[t.aiCategory as Category]}</strong>,{" "}
                   <strong className="text-ink-2">{SEVERITY_LABEL[t.aiSeverity as Severity]}</strong>, for <strong className="text-ink-2">{DEPARTMENT_LABEL[t.aiDepartment as Department]}</strong>.

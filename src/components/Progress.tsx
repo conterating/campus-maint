@@ -88,7 +88,7 @@ export function Progress({ status, stamps = [] }: { status: string; stamps?: Sta
               </span>
               {i < STAGES.length - 1 && (
                 <span
-                  className="mx-1.5 h-[3px] flex-1 rounded-full"
+                  className="mx-1.5 h-[3px] flex-1"
                   style={{ background: i < current ? accent : "repeating-linear-gradient(90deg, var(--line-2) 0 5px, transparent 5px 9px)" }}
                 />
               )}
@@ -116,7 +116,7 @@ export function ProgressBar({ status }: { status: string }) {
   return (
     <span aria-hidden className="grid w-full grid-cols-4 gap-1">
       {STAGES.map((s, i) => (
-        <span key={s} className="h-1.5 rounded-full" style={{ background: i <= current ? color : "var(--line)" }} />
+        <span key={s} className="h-1.5 rounded-[1px]" style={{ background: i <= current ? color : "var(--line)" }} />
       ))}
     </span>
   );

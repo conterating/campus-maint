@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Atkinson_Hyperlegible_Next, Atkinson_Hyperlegible_Mono } from "next/font/google";
 import "./globals.css";
-import { AppHeader, LogoMark } from "@/components/AppHeader";
+import { AppHeader } from "@/components/AppHeader";
+import { PublicHeader } from "@/components/PublicHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 import { BottomNav } from "@/components/NavLinks";
 import { ImpersonationBanner, ResidenceBanner } from "@/components/SessionBanners";
 import { demoModeEnabled, getSessionState } from "@/lib/session";
@@ -50,20 +52,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {viewer.role === "STUDENT" && viewer.residenceVerified === false && signedIn.user.residenceBuildingId && <ResidenceBanner />}
           </>
         ) : (
-          <header className="no-print border-b border-line bg-surface">
-            <div className="mx-auto flex h-16 max-w-6xl items-center px-4">
-              <span className="flex items-center gap-2.5">
-                <LogoMark />
-                <span className="text-[1.125rem] font-extrabold tracking-[-0.03em] text-navy">
-                  Ramblin’<span className="ml-1 text-gold-ink">Repairs</span>
-                </span>
-              </span>
-            </div>
-          </header>
+          <PublicHeader />
         )}
-        <main id="main" tabIndex={-1} className={`flex-1 w-full outline-none ${viewer ? "pb-28 md:pb-12" : "pb-12"}`}>
+        <main id="main" tabIndex={-1} className="flex-1 w-full pb-12 outline-none">
           {children}
         </main>
+        <SiteFooter signedIn={!!viewer} />
         {viewer && <BottomNav role={viewer.role} unread={unread} />}
       </body>
     </html>

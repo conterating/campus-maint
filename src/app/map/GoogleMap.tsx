@@ -74,7 +74,7 @@ export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isS
             [...points]
               .sort((a, b) => a.lat - b.lat || a.meTooCount - b.meTooCount)
               .reverse()
-              .map((p) => (
+              .map((p, i) => (
                 <button
                   key={p.id}
                   type="button"
@@ -90,7 +90,7 @@ export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isS
                     setSelected(selected === p.id ? null : p.id);
                   }}
                 >
-                  <Pin p={p} selected={selected === p.id} />
+                  <Pin p={p} selected={selected === p.id} delay={Math.min(i * 30, 600)} />
                 </button>
               ))}
           {selectedPoint && (

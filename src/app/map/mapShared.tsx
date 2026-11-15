@@ -12,6 +12,7 @@ import { CATEGORY_ICON } from "@/components/badges";
 import { StatusText } from "@/components/TicketTag";
 import { relativeTime } from "@/lib/format";
 import type { MapPoint } from "./MapClient";
+import { cleanWhere } from "@/components/WorkOrder";
 
 export const GT_CENTER = { lat: 33.7752, lng: -84.3985 };
 
@@ -45,14 +46,14 @@ export const heatWeight = (p: MapPoint) => Math.min(1, (SEVERITY_WEIGHT[p.severi
 export const HEAT_GRADIENT: Record<number, string> = { 0.25: "#7c9cc4", 0.5: "#eaaa00", 0.78: "#e06c00", 1: "#b42318" };
 
 /** The pin: a teardrop in the severity color with the category's icon inside. */
-export function Pin({ p, selected = false }: { p: MapPoint; selected?: boolean }) {
+export function Pin({ p, selected = false, delay }: { p: MapPoint; selected?: boolean; /** Stagger for the drop-in, ms. */ delay?: number }) {
   const color = pinColor(p);
   const fixed = !isOpenStatus(p.status);
   const Icon = fixed ? Check : CATEGORY_ICON[(p.category in CATEGORY_LABEL ? p.category : "OTHER") as Category];
   const size = selected ? 44 : Math.min(40, 32 + p.meTooCount);
   const emergency = p.severity === "EMERGENCY" && !fixed;
   return (
-    <span aria-hidden style={{ position: "relative", display: "block", width: size, height: size * 1.22 }}>
+    <span aria-hidden className={delay !== undefined ? "anim-pin" : undefined} style={{ position: "relative", display: "block", width: size, height: size * 1.22, animationDelay: delay !== undefined ? `${delay}ms` : undefined }}>
       {emergency && (
         <span
           style={{ position: "absolute", left: "50%", top: size * 0.47, width: size * 1.5, height: size * 1.5, transform: "translate(-50%,-50%)", borderRadius: 999, background: "rgb(180 35 24 / .18)", boxShadow: "0 0 0 2px rgb(180 35 24 / .35)" }}
@@ -95,66 +96,77 @@ export function PinPopup({ p, now, isStudent }: { p: MapPoint; now: string; isSt
   const router = useRouter();
   const [busy, setBusy] = useState<"metoo" | "follow" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Optimistic "me too": count it on tap, undo if the server says no.
+  const [pressed, setPressed] = useState(false);
   const canMeToo = isStudent && isOpenStatus(p.status) && !p.isReporter && !p.meToo && p.scope !== "ROOM";
+  const affected = p.meTooCount + 1 + (pressed && !p.meToo ? 1 : 0);
 
   async function act(kind: "metoo" | "follow") {
     setBusy(kind);
     setError(null);
+    if (kind === "metoo") setPressed(true);
     const res = kind === "metoo" ? await meTooAction(p.id) : await followAction(p.id, !p.following);
     setBusy(null);
-    if (!res.ok) setError(res.error);
-    else router.refresh();
+    if (!res.ok) {
+      setError(res.error);
+      if (kind === "metoo") setPressed(false);
+    } else router.refresh();
   }
 
-  const note = p.isReporter ? "You reported this" : p.meToo ? "You said me too" : isOpenStatus(p.status) ? "Private room issue" : "Already fixed";
+  const note = p.isReporter ? "You reported this" : p.meToo || pressed ? "You said me too" : isOpenStatus(p.status) ? "Private room issue" : "Already fixed";
 
   return (
-    <div className="w-[17rem] font-sans text-[0.9375rem]">
-      <div className="flex items-center justify-between gap-2 text-[0.8125rem]">
+    <div className="w-[17.5rem] font-sans text-[0.9375rem]">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="num text-[1.375rem] leading-none text-navy">{formatTicketNumber(p.number)}</span>
         <StatusText status={p.status} />
-        <span className="num text-xs text-ink-3">{formatTicketNumber(p.number)}</span>
       </div>
-      <p className="mt-1.5 font-bold leading-snug text-ink">{p.summary}</p>
-      <p className="mt-0.5 text-[0.8125rem] leading-snug text-ink-3">{p.where}</p>
-      <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[0.8125rem] text-ink-3">
-        <span className="font-bold" style={{ color: pinColor({ status: "TRIAGED", severity: p.severity }) }}>
-          {SEVERITY_LABEL[p.severity as Severity]}
-        </span>
-        <span aria-hidden>·</span>
-        <span>{relativeTime(p.createdAt, now)}</span>
-        {p.meTooCount > 0 && (
-          <>
-            <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-1 font-bold text-ink-2">
-              <Users aria-hidden className="size-3.5" /> {p.meTooCount + 1} affected
+      <div className="mt-2 font-bold leading-snug text-ink">{p.summary}</div>
+      <div className="mt-0.5 text-[0.875rem] leading-snug text-ink-3">{cleanWhere(p.where)}</div>
+      <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-2.5 text-[0.8125rem]">
+        <div>
+          <dt className="wo-label !text-[0.6875rem]">Priority</dt>
+          <dd className="font-bold" style={{ color: pinColor({ status: "TRIAGED", severity: p.severity }) }}>
+            {SEVERITY_LABEL[p.severity as Severity]}
+          </dd>
+        </div>
+        <div>
+          <dt className="wo-label !text-[0.6875rem]">Affected</dt>
+          <dd className="overflow-hidden">
+            <span key={affected} className="anim-tick num text-[1.0625rem] text-ink">
+              {affected}
             </span>
-          </>
-        )}
-      </p>
+          </dd>
+        </div>
+        <div>
+          <dt className="wo-label !text-[0.6875rem]">Reported</dt>
+          <dd className="num text-[0.9375rem] text-ink-2">{relativeTime(p.createdAt, now)}</dd>
+        </div>
+      </dl>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        {canMeToo ? (
+        {canMeToo && !pressed ? (
           <button type="button" className="btn btn-accent btn-sm" disabled={busy !== null} onClick={() => act("metoo")}>
-            {busy === "metoo" ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Users aria-hidden className="size-4" />} Me too
+            <Users aria-hidden className="size-4" /> Me too
           </button>
         ) : (
-          <span className="grid place-items-center rounded-[6px] bg-surface-2 px-2 text-center text-xs font-bold text-ink-3 ring-1 ring-inset ring-line">{note}</span>
+          <span className="anim-press grid place-items-center border-l-[3px] border-navy px-2 text-center text-[0.8125rem] font-bold text-navy">{note}</span>
         )}
         {p.isOwner ? (
-          <span className="grid place-items-center rounded-[6px] bg-surface-2 px-2 text-center text-xs font-bold text-ink-3 ring-1 ring-inset ring-line">Your ticket</span>
+          <span className="grid place-items-center px-2 text-center text-[0.8125rem] font-bold text-ink-3">Your ticket</span>
         ) : (
-          <button type="button" className="btn btn-secondary btn-sm" aria-pressed={p.following} disabled={busy !== null} onClick={() => act("follow")}>
+          <button type="button" className="btn btn-secondary btn-sm" disabled={busy !== null} onClick={() => act("follow")}>
             {busy === "follow" ? <Loader2 aria-hidden className="size-4 animate-spin" /> : p.following ? <BellOff aria-hidden className="size-4" /> : <Bell aria-hidden className="size-4" />}
-            {p.following ? "Following" : "Follow"}
+            {p.following ? "Unfollow" : "Follow"}
           </button>
         )}
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-sm font-bold text-emergency">
+        <div role="alert" className="mt-2 text-sm font-bold text-emergency">
           {error}
-        </p>
+        </div>
       )}
-      <Link href={`/tickets/${p.id}`} className="mt-3 flex items-center justify-center gap-1 rounded-lg py-1 text-sm font-bold text-navy hover:underline">
-        Open full ticket <ArrowRight aria-hidden className="size-3.5" />
+      <Link href={`/tickets/${p.id}`} className="link-action mt-3 flex items-center justify-center gap-1 py-1 text-[0.9375rem]">
+        Open the work order <ArrowRight aria-hidden className="size-3.5" />
       </Link>
     </div>
   );

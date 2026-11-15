@@ -3,11 +3,13 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useId, useMemo, useState } from "react";
-import { ChevronRight, Flame, List, MapPin, SlidersHorizontal, X } from "lucide-react";
+import { Flame, List, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABEL, SEVERITIES, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, type Category, type Severity } from "@/lib/domain";
 import { StatusText } from "@/components/TicketTag";
 import { relativeTime } from "@/lib/format";
 import { PIN_COLOR } from "./mapShared";
+import { EmptyState } from "@/components/EmptyState";
+import { cleanWhere } from "@/components/WorkOrder";
 
 export type MapPoint = {
   id: string;
@@ -42,8 +44,10 @@ function toggle<T>(set: T[], v: T): T[] {
   return set.includes(v) ? set.filter((x) => x !== v) : [...set, v];
 }
 
+/** A toggle on the navy control surface: outlined when off, solid white when on. */
 const chip =
-  "flex cursor-pointer items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-[0.8125rem] font-bold text-ink-2 ring-1 ring-inset ring-line-2 transition-colors hover:bg-surface-2 has-[:checked]:bg-navy has-[:checked]:text-white has-[:checked]:ring-navy has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy";
+  "flex cursor-pointer select-none items-center gap-2 rounded-[4px] border-2 border-white/30 px-3 py-1.5 text-[0.9375rem] font-bold text-white transition-[background-color,color,border-color,transform] duration-150 hover:border-white/70 active:scale-[0.97] has-[:checked]:border-white has-[:checked]:bg-white has-[:checked]:text-navy has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-buzz";
+const legend = "mb-2 font-display text-[0.9375rem] font-bold uppercase tracking-[0.08em] text-white/75";
 
 export function MapClient({ points, now, isStudent, googleKey }: { points: MapPoint[]; now: string; isStudent: boolean; googleKey: string | null }) {
   const [show, setShow] = useState<Show[]>(["open"]);
@@ -78,36 +82,33 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
             <p className="sr-only">The map is also available as a list. Use the List button to browse the same issues.</p>
           </div>
         ) : (
-          <div className="h-full overflow-y-auto bg-bg pb-6 pt-44 md:pl-[24rem] md:pr-6 md:pt-4">
-            <ul className="list-group mx-3 md:mx-0 md:max-w-3xl">
-              {filtered.length === 0 && <li className="px-6 py-10 text-center text-ink-3">No issues match these filters.</li>}
+          <div className="h-full overflow-y-auto bg-bg pb-6 pt-48 md:pl-[25rem] md:pr-8 md:pt-6">
+            {filtered.length === 0 && (
+              <EmptyState art="pin" title="Nothing matches">
+                No issues fit these filters. Try turning a few back on.
+              </EmptyState>
+            )}
+            <ul className="mx-4 divide-y divide-line md:mx-0 md:max-w-3xl">
               {filtered
                 .slice()
                 .sort((a, b) => b.meTooCount - a.meTooCount)
                 .map((p) => (
                   <li key={p.id}>
-                    <Link href={`/tickets/${p.id}`} className="group flex items-center gap-3.5 px-4 py-3.5 hover:bg-surface-2">
-                      <span aria-hidden className="mt-1 size-2.5 shrink-0 self-start rounded-full" style={{ background: isOpenStatus(p.status) ? PIN_COLOR[p.severity as Severity] : PIN_COLOR.FIXED }} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-bold leading-snug text-ink group-hover:text-navy">{p.summary}</span>
-                        <span className="mt-0.5 block truncate text-sm text-ink-3">{p.where}</span>
-                        <span className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[0.8125rem] text-ink-3">
-                          <StatusText status={p.status} />
-                          <span aria-hidden>·</span>
-                          <span>{SEVERITY_LABEL[p.severity as Severity]}</span>
-                          <span aria-hidden>·</span>
-                          <span>{relativeTime(p.createdAt, now)}</span>
-                          {p.meTooCount > 0 && (
-                            <>
-                              <span aria-hidden>·</span>
-                              <span className="font-bold text-ink-2">{p.meTooCount + 1} affected</span>
-                            </>
-                          )}
-                          <span aria-hidden>·</span>
-                          <span className="num">{formatTicketNumber(p.number)}</span>
+                    <Link href={`/tickets/${p.id}`} className="group grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1.5 py-4 hover:bg-surface-2 sm:px-2">
+                      <span className="min-w-0">
+                        <span className="flex items-start gap-2.5">
+                          <span aria-hidden className="mt-1.5 size-3 shrink-0 rounded-[2px]" style={{ background: isOpenStatus(p.status) ? PIN_COLOR[p.severity as Severity] : PIN_COLOR.FIXED }} />
+                          <span className="font-bold leading-snug text-ink group-hover:underline group-hover:decoration-2 group-hover:underline-offset-4">{p.summary}</span>
                         </span>
+                        <span className="mt-0.5 block pl-[1.375rem] text-[0.9375rem] text-ink-3">{cleanWhere(p.where)}</span>
                       </span>
-                      <ChevronRight aria-hidden className="size-4 shrink-0 text-line-2" />
+                      <span className="num text-right text-[1.125rem] text-navy">{formatTicketNumber(p.number)}</span>
+                      <span className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[1.375rem] text-[0.9375rem]">
+                        <StatusText status={p.status} />
+                        <span className="text-ink-2">{SEVERITY_LABEL[p.severity as Severity]}</span>
+                        {p.meTooCount > 0 && <span className="num text-ink-2">{p.meTooCount + 1} affected</span>}
+                        <span className="num text-ink-3">{relativeTime(p.createdAt, now)}</span>
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -116,36 +117,52 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
         )}
       </section>
 
-      <aside aria-label="Map filters" className="pointer-events-none absolute inset-x-3 top-3 z-[500] flex md:bottom-4 md:left-4 md:right-auto md:top-4 md:w-[22rem]">
-        <div className="pointer-events-auto w-full self-start rounded-[12px] bg-surface/95 p-4 shadow-[var(--shadow-lg)] ring-1 ring-line backdrop-blur-md md:max-h-full md:overflow-y-auto md:p-5">
+      <aside aria-label="Map filters" className="pointer-events-none absolute inset-x-3 top-3 z-[500] flex md:bottom-5 md:left-5 md:right-auto md:top-5 md:w-[23rem]">
+        <div className="pointer-events-auto w-full self-start rounded-[6px] border-t-4 border-buzz bg-navy p-4 text-white shadow-[var(--shadow-lg)] md:max-h-full md:overflow-y-auto md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-[1.375rem] font-extrabold tracking-[-0.025em] text-ink">Campus map</h1>
-              <p className="text-sm text-ink-3" aria-live="polite">
-                Showing <strong className="text-ink">{filtered.length}</strong> of {points.length} issues{isStudent ? " you can see" : ""}.
+              <h1 className="font-display text-[1.75rem] font-extrabold uppercase leading-none">Campus map</h1>
+              <p className="mt-1.5 text-[0.9375rem] text-white/80" aria-live="polite">
+                Showing{" "}
+                <strong key={filtered.length} className="anim-tick font-display text-[1.625rem] font-extrabold leading-none text-buzz">
+                  {filtered.length}
+                </strong>{" "}
+                of <span className="num">{points.length}</span> issues{isStudent ? " you can see" : ""}.
               </p>
             </div>
             <div className="md:hidden">
-              <button type="button" className="btn btn-secondary btn-sm" aria-expanded={filtersOpen} aria-controls="map-filters" onClick={() => setFiltersOpen(!filtersOpen)}>
+              <button
+                type="button"
+                className="btn btn-sm border-white/40 text-white hover:bg-white/10"
+                aria-expanded={filtersOpen}
+                aria-controls="map-filters"
+                onClick={() => setFiltersOpen(!filtersOpen)}
+              >
                 {filtersOpen ? <X aria-hidden className="size-4" /> : <SlidersHorizontal aria-hidden className="size-4" />}
                 Filters
-                {activeFilters > 0 && <span className="grid size-5 place-items-center rounded-full bg-navy text-[0.6875rem] text-white">{activeFilters}</span>}
+                {activeFilters > 0 && <span className="num grid size-5 place-items-center rounded-full bg-buzz text-[0.8125rem] text-navy">{activeFilters}</span>}
               </button>
             </div>
           </div>
 
-          <div role="group" aria-label="View" className="seg mt-3 w-full">
-            <button type="button" aria-pressed={view === "map"} onClick={() => setView("map")}>
-              <MapPin aria-hidden className="size-4" /> Map
-            </button>
-            <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")}>
-              <List aria-hidden className="size-4" /> List
-            </button>
+          <div role="group" aria-label="View" className="mt-4 grid grid-cols-2 gap-1 rounded-[5px] bg-white/10 p-1">
+            {(["map", "list"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+                className={`flex min-h-10 items-center justify-center gap-2 rounded-[3px] text-[0.9375rem] font-bold transition-colors duration-150 ${view === v ? "bg-buzz text-navy" : "text-white/80 hover:text-white"}`}
+              >
+                {v === "map" ? <MapPin aria-hidden className="size-4" /> : <List aria-hidden className="size-4" />}
+                {v === "map" ? "Map" : "List"}
+              </button>
+            ))}
           </div>
 
-          <div id="map-filters" className={`${filtersOpen ? "block" : "hidden"} mt-4 max-h-[50dvh] space-y-5 overflow-y-auto border-t border-line pt-4 md:block md:max-h-none md:overflow-visible`}>
+          <div id="map-filters" className={`${filtersOpen ? "block" : "hidden"} mt-5 max-h-[50dvh] space-y-5 overflow-y-auto border-t border-white/15 pt-4 md:block md:max-h-none md:overflow-visible`}>
             <fieldset>
-              <legend className="label">Show</legend>
+              <legend className={legend}>Show</legend>
               <div className="flex flex-wrap gap-1.5">
                 <label className={chip}>
                   <input type="checkbox" className="sr-only" checked={show.includes("open")} onChange={() => setShow(toggle(show, "open"))} />
@@ -158,19 +175,19 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
               </div>
             </fieldset>
             <fieldset>
-              <legend className="label">How serious</legend>
-              <div className="flex flex-wrap gap-1.5">
+              <legend className={legend}>How serious</legend>
+              <div className="grid grid-cols-2 gap-1.5">
                 {SEVERITIES.map((s) => (
                   <label key={s} className={chip}>
                     <input type="checkbox" className="sr-only" checked={severities.includes(s)} onChange={() => setSeverities(toggle(severities, s))} />
-                    <span aria-hidden className="size-2.5 rounded-full ring-[1.5px] ring-white" style={{ background: PIN_COLOR[s] }} />
+                    <span aria-hidden className="size-3.5 rounded-[2px] ring-2 ring-white" style={{ background: PIN_COLOR[s] }} />
                     {SEVERITY_LABEL[s]}
                   </label>
                 ))}
               </div>
             </fieldset>
             <div>
-              <label htmlFor={catId} className="label">
+              <label htmlFor={catId} className={`${legend} block`}>
                 Category
               </label>
               <select id={catId} className="field" value={category} onChange={(e) => setCategory(e.target.value as Category | "ALL")}>
@@ -183,7 +200,7 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
               </select>
             </div>
             <fieldset>
-              <legend className="label">Layers</legend>
+              <legend className={legend}>Layers</legend>
               <div className="flex flex-wrap gap-1.5">
                 <label className={chip}>
                   <input type="checkbox" className="sr-only" checked={showPins} onChange={(e) => setShowPins(e.target.checked)} />
@@ -198,7 +215,7 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
             {activeFilters > 0 && (
               <button
                 type="button"
-                className="text-sm font-bold text-navy hover:underline"
+                className="text-[0.9375rem] font-bold text-buzz underline decoration-2 underline-offset-4"
                 onClick={() => {
                   setShow(["open"]);
                   setSeverities([...SEVERITIES]);
@@ -208,7 +225,7 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
                 Reset filters
               </button>
             )}
-            <p className="hidden border-t border-line pt-4 text-[0.8125rem] leading-relaxed text-ink-3 md:block">
+            <p className="hidden border-t border-white/15 pt-4 text-[0.875rem] leading-relaxed text-white/75 md:block">
               Pin color shows how serious an issue is; green means fixed. The number on a pin is how many people reported it. Heat shows where problems cluster.
             </p>
           </div>

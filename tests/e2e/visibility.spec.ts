@@ -55,7 +55,7 @@ test("a resident sees their own hall's shared-area issues on the map, but not ot
   const list = page.getByRole("region", { name: "List of issues" });
   await expect(list.getByText("Glenn elevator grinding and shaking between floors 2–3")).toBeVisible();
   await expect(list.getByText(/Towers Residence Hall/)).toHaveCount(0);
-  await expect(list.getByText(/Glenn Residence Hall · Room 214/)).toHaveCount(0); // Maya's room
+  await expect(list.getByText(/Glenn Residence Hall, Room 214/)).toHaveCount(0); // Maya's room
 });
 
 test("a QR code for someone else's hall explains why it can't be used", async ({ page, context }) => {

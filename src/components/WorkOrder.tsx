@@ -87,3 +87,10 @@ export function IdText({ text }: { text: string }) {
     </>
   );
 }
+
+/** "Klaus · Room 1443 · Room 1443 projector" → "Klaus, Room 1443 projector". */
+export function cleanWhere(where: string): string {
+  const parts = where.split(" · ").map((p) => p.trim()).filter(Boolean);
+  const kept = parts.filter((p, i) => !parts.slice(i + 1).some((later) => later.toLowerCase().includes(p.toLowerCase())));
+  return kept.join(", ");
+}

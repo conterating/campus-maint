@@ -9,10 +9,10 @@ import { MapContainer, Marker, Popup, TileLayer, ZoomControl, useMap } from "rea
 import type { MapPoint } from "./MapClient";
 import { HEAT_GRADIENT, Pin, PinPopup, heatWeight, initialView, pinLabel } from "./mapShared";
 
-function pinIcon(p: MapPoint): L.DivIcon {
+function pinIcon(p: MapPoint, i = 0): L.DivIcon {
   const size = Math.min(40, 32 + p.meTooCount);
   const h = size * 1.22;
-  return L.divIcon({ html: renderToStaticMarkup(<Pin p={p} />), className: "fx-pin", iconSize: [size, h], iconAnchor: [size / 2, h], popupAnchor: [0, -h * 0.9] });
+  return L.divIcon({ html: renderToStaticMarkup(<Pin p={p} delay={Math.min(i * 30, 600)} />), className: "fx-pin", iconSize: [size, h], iconAnchor: [size / 2, h], popupAnchor: [0, -h * 0.9] });
 }
 
 function Heat({ points }: { points: MapPoint[] }) {
@@ -35,7 +35,7 @@ function Heat({ points }: { points: MapPoint[] }) {
 }
 
 export default function LeafletMap({ points, showPins, showHeat, now, isStudent }: { points: MapPoint[]; showPins: boolean; showHeat: boolean; now: string; isStudent: boolean }) {
-  const icons = useMemo(() => new Map(points.map((p) => [p.id, pinIcon(p)])), [points]);
+  const icons = useMemo(() => new Map(points.map((p, i) => [p.id, pinIcon(p, i)])), [points]);
   // Draw emergencies and popular issues on top.
   const ordered = useMemo(() => [...points].sort((a, b) => a.meTooCount - b.meTooCount), [points]);
 

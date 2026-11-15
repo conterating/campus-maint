@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Phone } from "lucide-react";
+import { ArrowRight, QrCode } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { demoModeEnabled, getContextOrGuest } from "@/lib/session";
 import { GuestHome } from "./GuestHome";
 import { listMyTickets, listVisibleTickets, shortName } from "@/lib/tickets";
-import { DEPARTMENT_LABEL, OPEN_STATUSES, isOpenStatus, type Department } from "@/lib/domain";
+import { DEPARTMENT_LABEL, OPEN_STATUSES, formatTicketNumber, isOpenStatus, type Department } from "@/lib/domain";
+import { relativeTime } from "@/lib/format";
 import { compareQueue } from "@/lib/sla";
-import { APP_CONFIG } from "@/config/app";
-import { TicketRow } from "@/components/TicketTag";
+import { stageCaption } from "@/components/Progress";
+import { StatusPill, SeverityText } from "@/components/badges";
+import { TicketThumb } from "@/components/TicketTag";
+import { placeText } from "@/components/WorkOrder";
 import { EmptyState } from "@/components/EmptyState";
 import { HomeComposer } from "./HomeComposer";
 
@@ -63,50 +66,19 @@ export default async function HomePage() {
     { value: "campus", label: "Somewhere on campus", detail: "Classrooms, library, dining, gym" },
   ].filter(Boolean) as { value: string; label: string; detail: string }[];
 
-  const police = APP_CONFIG.campusPolice;
-
   return (
     <div className="mx-auto max-w-6xl px-4 pb-12 pt-8 md:px-6 md:pt-16">
-      {/* Hero row: the headline and composer, with a sidebar lined up to the headline. */}
-      <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <section aria-labelledby="hero-title" className="min-w-0">
-          <p className="wo-label">
-            {viewer.name.split(" ")[0]}
-            {hall ? `, ${hall.name}${room ? ` ${room.label}` : ""}` : ", off campus"}
-          </p>
-          <h1 id="hero-title" className="h-hero mt-3 max-w-[11ch] md:text-[6rem] md:leading-[0.86]">
-            What needs fixing?
-          </h1>
-          <HomeComposer places={places} />
-        </section>
-
-        <aside className="space-y-8 lg:pt-8" aria-label="Before you report">
-          <section aria-labelledby="sos-title" className="overflow-hidden rounded-[6px] border-2 border-emergency">
-            <div aria-hidden className="hazard h-2" />
-            <div className="p-4">
-              <h2 id="sos-title" className="font-display text-[1.375rem] font-extrabold uppercase leading-none text-emergency">
-                Danger right now?
-              </h2>
-              <p className="mt-2 text-[0.9375rem] text-ink-2">Gas smell, flooding, sparks, or someone stuck: leave the area and call first. Report after.</p>
-              <a href={`tel:${police.tel}`} className="btn btn-danger mt-3 w-full">
-                <Phone aria-hidden className="size-4" />
-                <span className="num text-[1.125rem]">{police.phone}</span>
-              </a>
-              <p className="mt-1.5 text-center text-sm text-ink-3">{police.label}</p>
-            </div>
-          </section>
-
-          <section aria-labelledby="qr-title" className="flex gap-4">
-            <QrSticker />
-            <div>
-              <h2 id="qr-title" className="font-display text-[1.25rem] font-bold uppercase leading-none text-navy">
-                See a sticker?
-              </h2>
-              <p className="mt-1.5 text-[0.9375rem] text-ink-2">Doors and machines with a Ramblin’ Repairs QR sticker open this form with the location filled in.</p>
-            </div>
-          </section>
-        </aside>
-      </div>
+      <section aria-labelledby="hero-title" className="max-w-3xl">
+        <p className="wo-label">
+          {viewer.name.split(" ")[0]}
+          {hall ? `, ${hall.name}${room ? ` ${room.label}` : ""}` : ", off campus"}
+        </p>
+        <h1 id="hero-title" className="h-hero mt-3 max-w-[11ch] md:text-[6rem] md:leading-[0.86]">
+          What needs fixing?
+        </h1>
+        <HomeComposer places={places} />
+        <p className="mt-4 flex items-center gap-2 text-[0.9375rem] text-ink-3"><QrCode aria-hidden className="size-4 shrink-0" />Spotted a Ramblin’ Repairs sticker on a door or machine? Scan it to skip straight to the form.</p>
+      </section>
 
       <div className="mt-20 grid gap-x-16 gap-y-14 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <section aria-labelledby="mine-title" className="min-w-0">
@@ -125,23 +97,33 @@ export default async function HomePage() {
                 const needsYou = t.status === "RESOLVED" && t.reporterId === viewer.id;
                 return (
                   <li key={t.id}>
-                    <TicketRow
-                      ticket={t}
-                      now={now}
-                      time={t.updatedAt}
-                      timeLabel="Updated"
-                      statusText={needsYou ? <span className="font-bold text-st-fixed">Fixed? Confirm it</span> : undefined}
-                      note={
-                        update && (
-                          <p className="mt-2 border-l-[3px] border-navy pl-3 text-[0.9375rem] text-ink-2">
-                            “{update.text}”{" "}
-                            <span className="whitespace-nowrap text-ink-3">
-                              {update.who ? `${shortName(update.who.name)}, ${DEPARTMENT_LABEL[update.who.department as Department] ?? "Staff"}` : "Ramblin’ Repairs"}
-                            </span>
+                    <Link href={`/tickets/${t.id}`} className="group flex items-start gap-3.5 px-4 py-4 transition-colors hover:bg-surface-2 md:px-5">
+                      <TicketThumb ticket={t} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="font-semibold leading-snug text-ink group-hover:text-navy">{t.summary}</h3>
+                          <span className="shrink-0 pt-0.5 text-xs text-ink-3">{relativeTime(t.updatedAt, now)}</span>
+                        </div>
+                        <p className="mt-0.5 truncate text-sm text-ink-3">
+                          <span className="num">{formatTicketNumber(t.number)}</span> · {placeText(t.building.name, t.space?.label, t.asset?.name)}
+                        </p>
+                        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.8125rem]">
+                          <StatusPill status={t.status} size="sm" />
+                          <SeverityText severity={t.severity} />
+                          <span className={needsYou ? "font-semibold text-resolved" : t.status === "REOPENED" ? "text-[var(--st-reopened)]" : "text-ink-3"}>
+                            {needsYou ? "Fixed? Tap to confirm" : stageCaption(t.status)}
+                          </span>
+                        </p>
+                        {update && (
+                          <p className="mt-2.5 border-l-2 border-line-2 pl-3 text-sm text-ink-2">
+                            <span className="font-semibold text-ink">
+                              {update.who ? `${shortName(update.who.name)}, ${DEPARTMENT_LABEL[update.who.department as Department] ?? "Staff"}` : "Ramblin’ Repairs"}:
+                            </span>{" "}
+                            “{update.text}”
                           </p>
-                        )
-                      }
-                    />
+                        )}
+                      </div>
+                    </Link>
                   </li>
                 );
               })}
@@ -156,7 +138,7 @@ export default async function HomePage() {
         <section aria-labelledby="trending-title">
           <div className="rule-head">
             <h2 id="trending-title" className="h-section text-[1.625rem]">
-              Near you
+              Most reported near you
             </h2>
           </div>
           <p className="mt-3 text-[0.9375rem] text-ink-3">Most-reported open issues. Same problem? Add a “me too” instead of a new report.</p>
@@ -196,28 +178,5 @@ export default async function HomePage() {
         </p>
       )}
     </div>
-  );
-}
-
-/** A tiny drawn QR sticker on a door tag. */
-function QrSticker() {
-  return (
-    <svg aria-hidden viewBox="0 0 56 56" className="size-14 shrink-0">
-      <rect x="3" y="3" width="50" height="50" rx="5" fill="#f3ebcf" stroke="#003057" strokeWidth="2.5" />
-      <g fill="#003057">
-        <rect x="11" y="11" width="12" height="12" rx="1.5" />
-        <rect x="33" y="11" width="12" height="12" rx="1.5" />
-        <rect x="11" y="33" width="12" height="12" rx="1.5" />
-        <rect x="33" y="33" width="5" height="5" />
-        <rect x="40" y="40" width="5" height="5" />
-        <rect x="33" y="40" width="3" height="3" />
-        <rect x="27" y="27" width="3" height="3" />
-      </g>
-      <g fill="#f3ebcf">
-        <rect x="14" y="14" width="6" height="6" />
-        <rect x="36" y="14" width="6" height="6" />
-        <rect x="14" y="36" width="6" height="6" />
-      </g>
-    </svg>
   );
 }

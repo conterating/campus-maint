@@ -76,7 +76,7 @@ export default async function AdminPage() {
           </p>
           <p className="mt-1 text-xs text-ink-3">Tickets still inside their response window aren&apos;t counted yet.</p>
         </div>
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] border border-line bg-line shadow-[var(--shadow-xs)] sm:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[10px] border border-line bg-line shadow-[var(--shadow-xs)] sm:grid-cols-3">
           {[
             { label: "Tickets", value: String(head.total) },
             { label: "Open now", value: String(head.open) },

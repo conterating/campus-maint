@@ -6,7 +6,7 @@ export function ActionMessage({ message }: { message: { tone: "ok" | "error"; te
     <div aria-live="polite" role="status">
       {message && (
         <p
-          className={`mt-3 flex items-start gap-2 rounded-[10px] px-3 py-2.5 text-sm font-bold ring-1 ring-inset ${
+          className={`mt-3 flex items-start gap-2 rounded-[8px] px-3 py-2.5 text-sm font-bold ring-1 ring-inset ${
             message.tone === "ok" ? "bg-[#ecfdf3] text-resolved ring-resolved/20" : "bg-emergency-bg text-emergency ring-emergency/20"
           }`}
         >

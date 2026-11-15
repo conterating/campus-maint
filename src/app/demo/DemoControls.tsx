@@ -96,7 +96,7 @@ export function UserButton({ id, name, hue, detail, current }: { id: string; nam
       aria-pressed={current}
       disabled={pending}
       onClick={() => run(() => switchViewer(id), undefined, (d) => router.push(d.home))}
-      className={`flex w-full items-center gap-3 rounded-[12px] bg-surface p-3 text-left shadow-[var(--shadow-xs)] ring-inset transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-[8px] bg-surface p-3 text-left shadow-[var(--shadow-xs)] ring-inset transition-colors ${
         current ? "ring-2 ring-navy" : "ring-1 ring-line hover:bg-surface-2 hover:ring-line-2"
       }`}
     >

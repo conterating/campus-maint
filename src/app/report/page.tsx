@@ -50,8 +50,8 @@ export default async function ReportPage({ searchParams }: { searchParams: Searc
       <p className="mt-1.5 text-ink-2">Tell us where and what. We&apos;ll send it to the right team and check if someone beat you to it.</p>
 
       {scannedLabel && fromQr && !blocked && (
-        <p className="mt-5 flex items-center gap-3 rounded-[12px] bg-surface px-4 py-3 text-sm shadow-[var(--shadow-xs)] ring-1 ring-inset ring-line">
-          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-[9px] bg-navy-50 text-navy">
+        <p className="mt-5 flex items-center gap-3 rounded-[8px] bg-surface px-4 py-3 text-sm shadow-[var(--shadow-xs)] ring-1 ring-inset ring-line">
+          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-[6px] bg-navy-50 text-navy">
             <QrCode className="size-5" />
           </span>
           <span className="text-ink-2">
@@ -60,7 +60,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Searc
         </p>
       )}
       {blocked && (
-        <p role="alert" className="mt-5 flex items-start gap-3 rounded-[12px] bg-urgent-bg px-4 py-3 text-sm text-ink ring-1 ring-inset ring-urgent/25">
+        <p role="alert" className="mt-5 flex items-start gap-3 rounded-[8px] bg-urgent-bg px-4 py-3 text-sm text-ink ring-1 ring-inset ring-urgent/25">
           <TriangleAlert aria-hidden className="mt-0.5 size-5 shrink-0 text-urgent" />
           <span>
             <span className="font-bold">This QR code is for {scannedLabel}.</span> {blocked}

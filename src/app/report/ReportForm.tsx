@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Building, CheckCircle2, DoorClosed, Loader2, Lock, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Building, CheckCircle2, DoorClosed, Loader2, Lock, Users } from "lucide-react";
 import { analyzeReport, meTooAction, submitReport, type AnalyzeResult } from "@/app/actions";
 import { routeTicket } from "@/config/routing";
 import {
@@ -321,7 +321,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
         </Step>
 
         {error && (
-          <p role="alert" className="rounded-[12px] bg-emergency-bg px-4 py-3 text-sm font-bold text-emergency ring-1 ring-inset ring-emergency/25">
+          <p role="alert" className="rounded-[8px] bg-emergency-bg px-4 py-3 text-sm font-bold text-emergency ring-1 ring-inset ring-emergency/25">
             {error}
           </p>
         )}
@@ -404,15 +404,14 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
                 <h2 id="review-title" ref={resultsHeading} tabIndex={-1} className="text-[1.25rem] font-bold tracking-[-0.015em] text-ink outline-none">
                   Here&apos;s how we&apos;ll route it
                 </h2>
-                <span className="inline-flex items-center gap-1.5 pt-1 text-[0.8125rem] text-ink-3">
-                  <Sparkles aria-hidden className="size-3.5" />
+                <span className="pt-1 text-[0.8125rem] text-ink-3">
                   {analysis.triage.source === "claude" ? "Sorted by Claude" : "Sorted by routing rules"}
                 </span>
               </div>
               <p className="mt-1 text-ink-2">Check it over. Change anything that looks wrong.</p>
               {analysis.triage.fallbackReason && <p className="mt-2 text-sm text-urgent">The AI classifier didn&apos;t respond, so the routing rules sorted it instead.</p>}
 
-              <div className="mt-5 flex items-center gap-4 rounded-[14px] bg-navy-50 p-4 ring-1 ring-inset ring-navy-100">
+              <div className="mt-5 flex items-center gap-4 rounded-[10px] bg-navy-50 p-4 ring-1 ring-inset ring-navy-100">
                 <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-navy text-white">
                   <CatIcon className="size-5" />
                 </span>
@@ -462,7 +461,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
                     return (
                       <label
                         key={s}
-                        className={`flex cursor-pointer gap-3 rounded-[12px] p-3.5 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-navy ${
+                        className={`flex cursor-pointer gap-3 rounded-[8px] p-3.5 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-navy ${
                           checked ? "bg-navy-50 ring-2 ring-navy" : "bg-surface ring-1 ring-line-2 hover:bg-surface-2"
                         } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
                       >

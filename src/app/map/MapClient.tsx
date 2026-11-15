@@ -117,7 +117,7 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
       </section>
 
       <aside aria-label="Map filters" className="pointer-events-none absolute inset-x-3 top-3 z-[500] flex md:bottom-4 md:left-4 md:right-auto md:top-4 md:w-[22rem]">
-        <div className="pointer-events-auto w-full self-start rounded-[18px] bg-surface/95 p-4 shadow-[var(--shadow-lg)] ring-1 ring-line backdrop-blur-md md:max-h-full md:overflow-y-auto md:p-5">
+        <div className="pointer-events-auto w-full self-start rounded-[12px] bg-surface/95 p-4 shadow-[var(--shadow-lg)] ring-1 ring-line backdrop-blur-md md:max-h-full md:overflow-y-auto md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="text-[1.375rem] font-extrabold tracking-[-0.025em] text-ink">Campus map</h1>

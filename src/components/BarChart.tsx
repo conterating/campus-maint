@@ -32,7 +32,7 @@ export function BarChart({ title, description, rows, max, unit, limit }: { title
               <span className="whitespace-nowrap text-right text-sm font-bold tabular-nums text-ink">{r.valueLabel}</span>
               <span
                 role="tooltip"
-                className="pointer-events-none absolute left-1/3 top-full z-10 mt-0.5 hidden w-max max-w-64 rounded-[10px] bg-ink px-3 py-2 text-xs text-white shadow-[var(--shadow-lg)] group-hover:block"
+                className="pointer-events-none absolute left-1/3 top-full z-10 mt-0.5 hidden w-max max-w-64 rounded-[8px] bg-ink px-3 py-2 text-xs text-white shadow-[var(--shadow-lg)] group-hover:block"
               >
                 <span className="block font-bold">{r.label}</span>
                 {r.detail}

@@ -61,7 +61,7 @@ export function PhotoPicker({ value, onChange, disabled }: { value: File | null;
         aria-describedby={`${id}-hint`}
       />
       {value && preview ? (
-        <div className="overflow-hidden rounded-[12px] ring-1 ring-line">
+        <div className="overflow-hidden rounded-[8px] ring-1 ring-line">
           {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview */}
           <img src={preview} alt="Your photo of the problem" className="max-h-72 w-full bg-bg object-cover" />
           <div className="flex items-center justify-between gap-2 bg-surface px-3 py-2">
@@ -79,9 +79,9 @@ export function PhotoPicker({ value, onChange, disabled }: { value: File | null;
       ) : (
         <label
           htmlFor={id}
-          className="flex cursor-pointer items-center gap-4 rounded-[12px] border border-dashed border-line-2 bg-surface-2 px-4 py-4 transition-colors hover:border-navy hover:bg-navy-50/50 has-[:focus-visible]:border-navy has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-buzz/45"
+          className="flex cursor-pointer items-center gap-4 rounded-[8px] border border-dashed border-line-2 bg-surface-2 px-4 py-4 transition-colors hover:border-navy hover:bg-navy-50/50 has-[:focus-visible]:border-navy has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-buzz/45"
         >
-          <span className="grid size-11 shrink-0 place-items-center rounded-[10px] bg-surface text-navy shadow-[var(--shadow-xs)] ring-1 ring-line">
+          <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-surface text-navy shadow-[var(--shadow-xs)] ring-1 ring-line">
             {busy ? <Loader2 aria-hidden className="size-5 animate-spin" /> : <ImagePlus aria-hidden className="size-5" />}
           </span>
           <span>

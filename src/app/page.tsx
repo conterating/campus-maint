@@ -9,13 +9,6 @@ import { relativeTime } from "@/lib/format";
 import { compareQueue } from "@/lib/sla";
 import { ProgressBar, stageCaption } from "@/components/Progress";
 
-function greeting(now: Date): string {
-  const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "America/New_York" }).format(now));
-  if (hour < 5 || hour >= 18) return "Good evening";
-  if (hour < 12) return "Good morning";
-  return "Good afternoon";
-}
-
 /** Short hall name for chips: "Glenn Residence Hall" → "Glenn". */
 function hallShort(name: string) {
   return name.replace(/ (Residence Hall|Apartments|Houses)$/, "");
@@ -57,7 +50,6 @@ export default async function HomePage() {
     .sort((a, b) => b.meTooCount - a.meTooCount || compareQueue(a, b, now))
     .slice(0, 5);
 
-  const first = viewer.name.split(" ")[0];
   const hall = user?.residenceBuilding;
   const room = user?.room;
   const places = [
@@ -69,14 +61,15 @@ export default async function HomePage() {
   return (
     <div className="mx-auto max-w-5xl px-4 pt-8 md:pt-14">
       <section aria-labelledby="hero-title" className="max-w-3xl">
-        <p className="text-ink-2">
-          {greeting(now)}, {first}.
+        <p className="text-sm text-ink-3">
+          <span className="font-semibold text-ink-2">{viewer.name}</span>
+          {hall ? ` · ${hall.name}${room ? `, ${room.label}` : ""}` : " · Lives off campus"}
         </p>
         <h1 id="hero-title" className="h-hero mt-1">
           What needs fixing?
         </h1>
 
-        <form action="/report" method="get" className="mt-6 rounded-[20px] border border-line-2 bg-surface shadow-[var(--shadow-sm)] transition-shadow focus-within:border-navy focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--buzz)_40%,transparent)]">
+        <form action="/report" method="get" className="mt-6 rounded-[8px] border border-[#b9c1cc] bg-surface transition-colors focus-within:border-navy focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--navy)_15%,transparent)]">
           <label htmlFor="home-desc" className="sr-only">
             Describe the problem
           </label>
@@ -86,7 +79,7 @@ export default async function HomePage() {
             rows={3}
             maxLength={2000}
             placeholder="The shower in the 2nd floor bathroom has no hot water…"
-            className="block w-full resize-none rounded-t-[20px] bg-transparent px-5 pb-2 pt-4 text-[1.0625rem] leading-relaxed text-ink outline-none placeholder:text-[#737f8f] focus-visible:shadow-none"
+            className="block w-full resize-none rounded-t-[12px] bg-transparent px-5 pb-2 pt-4 text-[1.0625rem] leading-relaxed text-ink outline-none placeholder:text-[#737f8f] focus-visible:shadow-none"
           />
           <div className="flex flex-col gap-3 border-t border-line px-3 py-3 sm:flex-row sm:items-center">
             <fieldset className="min-w-0 flex-1">
@@ -132,7 +125,7 @@ export default async function HomePage() {
                 const needsYou = t.status === "RESOLVED" && t.reporterId === viewer.id;
                 return (
                   <li key={t.id}>
-                    <Link href={`/tickets/${t.id}`} className="card group block p-4 transition-shadow hover:shadow-[var(--shadow-sm)] md:p-5">
+                    <Link href={`/tickets/${t.id}`} className="card group block p-4 transition-colors hover:border-line-2 hover:shadow-[var(--shadow-sm)] md:p-5">
                       <div className="flex items-start justify-between gap-4">
                         <h3 className="font-bold leading-snug text-ink group-hover:text-navy">{t.summary}</h3>
                         <span className="num shrink-0 pt-0.5 text-xs text-ink-3">{formatTicketNumber(t.number)}</span>
@@ -161,7 +154,7 @@ export default async function HomePage() {
               })}
             </ul>
           ) : (
-            <div className="rounded-[16px] border border-dashed border-line-2 px-6 py-10 text-center">
+            <div className="rounded-[10px] border border-dashed border-line-2 px-6 py-10 text-center">
               <p className="font-bold text-ink">Nothing in progress</p>
               <p className="mt-1 text-sm text-ink-3">Problems you report or follow show up here, with every update.</p>
             </div>
@@ -178,7 +171,7 @@ export default async function HomePage() {
               {trending.map((t) => (
                 <li key={t.id}>
                   <Link href={`/tickets/${t.id}`} className="group flex gap-3.5 py-3">
-                    <span className="flex w-11 shrink-0 flex-col items-center rounded-[10px] bg-surface py-1.5 ring-1 ring-inset ring-line">
+                    <span className="flex w-11 shrink-0 flex-col items-center rounded-[8px] bg-surface py-1.5 ring-1 ring-inset ring-line">
                       <span className="text-[1.0625rem] font-bold leading-tight text-ink">{t.meTooCount + 1}</span>
                       <span className="text-[0.6875rem] leading-tight text-ink-3">people</span>
                     </span>

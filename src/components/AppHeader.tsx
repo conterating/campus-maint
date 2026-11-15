@@ -24,7 +24,7 @@ export function LogoMark({ className = "size-8" }: { className?: string }) {
 
 export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; unread: number; clockOffsetMs: number }) {
   return (
-    <header className="no-print sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur-md supports-[backdrop-filter]:bg-surface/80">
+    <header className="no-print sticky top-0 z-40 border-b border-line bg-surface">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 md:gap-4">
         <Link href="/" className="flex items-center gap-2.5 rounded-lg pr-1">
           <LogoMark />

@@ -91,7 +91,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
                 <Link
                   href={deptLink(d)}
                   aria-current={d === dept ? "page" : undefined}
-                  className={`block whitespace-nowrap rounded-[4px] px-3 py-1.5 text-sm font-bold ring-1 ring-inset ${d === dept ? "bg-navy text-white ring-navy" : "bg-surface text-ink-2 ring-line-2 hover:text-ink"}`}
+                  className={`block whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold ring-1 ring-inset ${d === dept ? "bg-navy text-white ring-navy" : "bg-surface text-ink-2 ring-line-2 hover:text-ink"}`}
                 >
                   {DEPARTMENT_LABEL[d]}
                 </Link>
@@ -101,7 +101,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
         </nav>
       )}
 
-      <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[6px] border border-line bg-line sm:grid-cols-4">
+      <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[10px] border border-line bg-line shadow-[var(--shadow-xs)] sm:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="bg-surface px-4 py-3.5">
             <dt className="text-[0.8125rem] text-ink-3">{s.label}</dt>
@@ -111,7 +111,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
       </dl>
 
       {escalatedToMe.length > 0 && (
-        <section aria-labelledby="esc-title" className="mt-5 rounded-[6px] border border-emergency/30 bg-emergency-bg p-4">
+        <section aria-labelledby="esc-title" className="mt-5 rounded-[10px] border border-emergency/30 bg-emergency-bg p-4">
           <h2 id="esc-title" className="flex items-center gap-2 font-bold text-emergency">
             <ShieldAlert aria-hidden className="size-5" /> Escalated to you
           </h2>
@@ -119,7 +119,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
           <ul className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
             {escalatedToMe.map((t) => (
               <li key={t.id}>
-                <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 rounded-[5px] bg-surface px-3 py-2.5 text-sm ring-1 ring-emergency/20 hover:ring-emergency/50">
+                <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 rounded-[8px] bg-surface px-3 py-2.5 text-sm shadow-[var(--shadow-xs)] ring-1 ring-emergency/20 hover:ring-emergency/50">
                   <span className="num text-xs text-ink-3">{formatTicketNumber(t.number)}</span>
                   <span className="min-w-0 flex-1 truncate font-bold text-ink">{t.summary}</span>
                   <ArrowRight aria-hidden className="size-4 text-ink-3" />
@@ -131,7 +131,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
       )}
 
       {emergencies.length > 0 && view === "open" && (
-        <section aria-labelledby="emerg-title" className="mt-5 overflow-hidden rounded-[6px] border border-emergency/40 bg-surface">
+        <section aria-labelledby="emerg-title" className="mt-5 overflow-hidden rounded-[10px] border border-emergency/40 bg-surface shadow-[var(--shadow-sm)]">
           <div aria-hidden className="hazard h-1.5" />
           <div className="flex items-center gap-2 border-b border-line px-4 py-3">
             <Siren aria-hidden className="size-5 text-emergency" />

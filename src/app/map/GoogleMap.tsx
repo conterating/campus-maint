@@ -11,7 +11,12 @@ import { X } from "lucide-react";
 import type { MapPoint } from "./MapClient";
 import { Pin, PinPopup, heatWeight, initialView, paintHeat, pinLabel } from "./mapShared";
 
-/** A quiet base map: no businesses or transit clutter, softer roads, campus green kept. */
+/**
+ * The map shows satellite imagery with street and place labels on top
+ * (mapTypeId "hybrid"). These styles only affect the labels there: they hide
+ * business and transit clutter. The colour rules apply if the map type is ever
+ * switched back to "roadmap".
+ */
 const MAP_STYLE: google.maps.MapTypeStyle[] = [
   { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
   { featureType: "poi.school", elementType: "labels.text", stylers: [{ visibility: "on" }] },
@@ -53,6 +58,7 @@ export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isS
         defaultZoom={view.zoom}
         minZoom={14}
         maxZoom={20}
+        mapTypeId="hybrid"
         gestureHandling="greedy"
         disableDefaultUI
         zoomControl
@@ -99,7 +105,7 @@ export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isS
                 if (e.key === "Escape") setSelected(null);
               }}
             >
-              <div className="relative rounded-[6px] bg-surface p-4 shadow-[var(--shadow-lg)] ring-1 ring-line">
+              <div className="relative rounded-[10px] bg-surface p-4 shadow-[var(--shadow-lg)] ring-1 ring-line">
                 <button type="button" className="absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-full text-ink-3 hover:bg-bg hover:text-ink" aria-label="Close" onClick={() => setSelected(null)}>
                   <X aria-hidden className="size-4" />
                 </button>

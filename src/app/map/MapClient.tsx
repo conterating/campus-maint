@@ -45,7 +45,7 @@ function toggle<T>(set: T[], v: T): T[] {
 }
 
 const chip =
-  "flex cursor-pointer items-center gap-2 rounded-[4px] bg-surface px-3 py-1.5 text-[0.8125rem] font-bold text-ink-2 ring-1 ring-inset ring-line-2 transition-colors hover:bg-surface-2 has-[:checked]:bg-navy has-[:checked]:text-white has-[:checked]:ring-navy has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy";
+  "flex cursor-pointer items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-[0.8125rem] font-bold text-ink-2 ring-1 ring-inset ring-line-2 transition-colors hover:bg-surface-2 has-[:checked]:bg-navy has-[:checked]:text-white has-[:checked]:ring-navy has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy";
 
 export function MapClient({ points, now, isStudent, googleKey }: { points: MapPoint[]; now: string; isStudent: boolean; googleKey: string | null }) {
   const [show, setShow] = useState<Show[]>(["open"]);
@@ -119,10 +119,10 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
       </section>
 
       <aside aria-label="Map filters" className="pointer-events-none absolute inset-x-3 top-3 z-[500] flex md:bottom-4 md:left-4 md:right-auto md:top-4 md:w-[22rem]">
-        <div className="pointer-events-auto w-full self-start rounded-[8px] bg-surface/95 p-4 shadow-[var(--shadow-lg)] ring-1 ring-line backdrop-blur-md md:max-h-full md:overflow-y-auto md:p-5">
+        <div className="pointer-events-auto w-full self-start rounded-[12px] bg-surface/95 p-4 shadow-[var(--shadow-lg)] ring-1 ring-line backdrop-blur-md md:max-h-full md:overflow-y-auto md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="font-display text-[2rem] font-extrabold leading-none text-navy">Campus map</h1>
+              <h1 className="text-[1.375rem] font-extrabold tracking-[-0.025em] text-ink">Campus map</h1>
               <p className="text-sm text-ink-3" aria-live="polite">
                 Showing <strong className="text-ink">{filtered.length}</strong> of {points.length} issues{isStudent ? " you can see" : ""}.
               </p>

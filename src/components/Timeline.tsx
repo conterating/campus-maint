@@ -20,7 +20,7 @@ function CommentPhotos({ photos }: { photos: string[] }) {
     <ul className={`mt-2 grid gap-2 ${photos.length === 1 ? "grid-cols-1 sm:max-w-xs" : "grid-cols-3"}`}>
       {photos.map((src, i) => (
         <li key={src}>
-          <a href={src} target="_blank" rel="noopener" className="block overflow-hidden rounded-[4px] ring-1 ring-line hover:ring-navy">
+          <a href={src} target="_blank" rel="noopener" className="block overflow-hidden rounded-[8px] ring-1 ring-line hover:ring-navy">
             {/* eslint-disable-next-line @next/next/no-img-element -- user upload served by our route */}
             <img
               src={src}
@@ -63,44 +63,36 @@ function iconFor(e: Event) {
 
 export function Timeline({ events, now }: { events: Event[]; now: Date }) {
   return (
-    <ol className="divide-y divide-line">
-      {events.map((e) => {
+    <ol>
+      {events.map((e, i) => {
         const { color } = iconFor(e);
+        const last = i === events.length - 1;
         const note = e.type === "NOTE" || e.type === "COMMENT";
-        const status = e.type === "STATUS" && e.toStatus ? STATUS_LABEL[e.toStatus as Status] : null;
         return (
-          <li key={e.id} className="grid grid-cols-1 gap-x-5 gap-y-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
-            <p className="text-[0.8125rem] tabular-nums text-ink-3 sm:pt-0.5">
-              <time dateTime={e.createdAt.toISOString()} title={relativeTime(e.createdAt, now)}>
-                {formatDateTime(e.createdAt)}
-              </time>
-            </p>
-            <div className="min-w-0">
+          <li key={e.id} className="relative flex gap-3 pb-5 last:pb-0">
+            {!last && <span aria-hidden className="absolute bottom-0 left-[4px] top-4 w-px bg-line" />}
+            <span aria-hidden className="relative z-10 mt-[0.45rem] size-[9px] shrink-0 rounded-full ring-2 ring-surface" style={{ background: color }} />
+            <div className="min-w-0 flex-1">
               {note ? (
-                <div
-                  className={
-                    e.internal
-                      ? "border-l-[3px] border-tech-gold bg-buzz-50 px-3 py-2"
-                      : e.type === "COMMENT"
-                        ? "border-l-[3px] border-line-2 bg-panel px-3 py-2"
-                        : "border-l-[3px] border-navy bg-panel px-3 py-2"
-                  }
-                >
-                  {e.internal && <p className="mb-0.5 text-xs font-bold text-gold-ink">Internal note · hidden from students</p>}
+                <div className={`rounded-[6px] px-3 py-2 ${e.internal ? "border border-dashed border-tech-gold bg-buzz-50" : "border border-line bg-surface-2"}`}>
+                  {e.internal && <p className="eyebrow mb-0.5 !text-gold-ink">Internal note</p>}
                   {e.message && <p className="whitespace-pre-line leading-snug text-ink">{e.message}</p>}
                   {e.photos && e.photos.length > 0 && <CommentPhotos photos={e.photos} />}
                 </div>
               ) : (
                 <p className="leading-snug text-ink-2">
-                  {status && (
-                    <span className="mr-1.5 font-bold" style={{ color }}>
-                      {status}
-                    </span>
-                  )}
-                  <span className={e.type === "ESCALATED" ? "font-bold text-emergency" : ""}>{status ? e.message.replace(new RegExp(`^${status} — `), "") : e.message}</span>
+                  {e.type === "STATUS" && e.toStatus && <span className="font-bold text-ink">{STATUS_LABEL[e.toStatus as Status]}: </span>}
+                  <span className={e.type === "ESCALATED" ? "font-bold text-emergency" : ""}>
+                    {e.type === "STATUS" && e.toStatus ? e.message.replace(new RegExp(`^${STATUS_LABEL[e.toStatus as Status]} — `), "") : e.message}
+                  </span>
                 </p>
               )}
-              {e.actorLabel && <p className="mt-1 text-[0.8125rem] text-ink-3">{e.actorLabel}</p>}
+              <p className="mt-1 text-[0.8125rem] text-ink-3">
+                {e.actorLabel && <>{e.actorLabel} · </>}
+                <time dateTime={e.createdAt.toISOString()} title={formatDateTime(e.createdAt)}>
+                  {relativeTime(e.createdAt, now)}
+                </time>
+              </p>
             </div>
           </li>
         );

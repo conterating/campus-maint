@@ -48,12 +48,12 @@ export function AppHeader({
   realRole: string;
 }) {
   return (
-    <header className="no-print sticky top-0 z-40 border-b-[3px] border-tech-gold bg-navy text-white">
-      <div className="mx-auto flex h-[61px] max-w-6xl items-center gap-2 px-4 md:gap-4">
-        <Link href="/" className="flex items-center gap-2.5 pr-1">
-          <LogoMark onNavy className="size-7" />
-          <span className="font-display text-[1.625rem] font-extrabold uppercase leading-none tracking-[0.01em] text-white">
-            Ramblin’<span className="ml-1.5 text-tech-gold">Repairs</span>
+    <header className="no-print sticky top-0 z-40 border-b border-line bg-surface">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 md:gap-4">
+        <Link href="/" className="flex items-center gap-2.5 rounded-lg pr-1">
+          <LogoMark />
+          <span className="font-display text-[1.125rem] font-extrabold tracking-[-0.015em] text-navy">
+            Ramblin’<span className="ml-1 text-gold-ink">Repairs</span>
           </span>
           <span className="sr-only"> home</span>
         </Link>
@@ -66,7 +66,7 @@ export function AppHeader({
         {clockOffsetMs > 0 && demoMode && (
           <Link
             href="/demo"
-            className="hidden items-center gap-1.5 rounded-[3px] bg-buzz px-2 py-1 text-xs font-bold text-navy sm:flex"
+            className="hidden items-center gap-1.5 rounded-full bg-buzz-50 px-2.5 py-1 text-xs font-bold text-gold-ink ring-1 ring-buzz/50 sm:flex"
             title="The demo clock is running ahead of real time"
           >
             <Clock aria-hidden className="size-3.5" />
@@ -79,19 +79,18 @@ export function AppHeader({
 
         <Link
           href="/notifications"
-          className="relative grid size-10 place-items-center rounded-[5px] text-white/85 hover:bg-white/10 hover:text-white"
+          className="relative grid size-10 place-items-center rounded-full text-ink-2 hover:bg-bg hover:text-ink"
         >
           <Bell aria-hidden className="size-[1.2rem]" />
           <span className="sr-only">{unread ? `Alerts, ${unread} unread` : "Alerts"}</span>
           {unread > 0 && (
-            <span aria-hidden className="num absolute right-0.5 top-0.5 grid min-w-[1.15rem] place-items-center rounded-full bg-emergency px-1 text-[0.65rem] font-bold leading-[1.15rem] text-white ring-2 ring-navy">
+            <span aria-hidden className="num absolute right-0.5 top-0.5 grid min-w-[1.15rem] place-items-center rounded-full bg-emergency px-1 text-[0.65rem] font-bold leading-[1.15rem] text-white ring-2 ring-surface">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
         </Link>
 
         <AccountMenu
-          onNavy
           name={displayName}
           hue={hueFor(viewer.id)}
           roleLabel={ROLE_LABEL[viewer.role]}

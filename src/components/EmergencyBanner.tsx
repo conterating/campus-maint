@@ -10,7 +10,7 @@ export function EmergencyBanner({
   compact?: boolean;
 }) {
   return (
-    <section role="alert" aria-labelledby="emergency-title" className="overflow-hidden rounded-[6px] border border-emergency/40 bg-emergency-bg">
+    <section role="alert" aria-labelledby="emergency-title" className="overflow-hidden rounded-[10px] border border-emergency/40 bg-emergency-bg shadow-[var(--shadow-sm)]">
       <div aria-hidden className="hazard h-1.5" />
       <div className={`flex flex-col gap-4 sm:flex-row sm:items-center ${compact ? "p-4" : "p-5"}`}>
         <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-emergency text-white">

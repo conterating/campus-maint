@@ -25,7 +25,7 @@ export function StudentActions(props: {
   return (
     <div className="card p-4">
       {props.status === "RESOLVED" && canCloseOut && !reopening && (
-        <div className="mb-4 rounded-[6px] bg-[#ecfdf3] p-3.5 ring-1 ring-inset ring-resolved/20">
+        <div className="mb-4 rounded-[8px] bg-[#ecfdf3] p-3.5 ring-1 ring-inset ring-resolved/20">
           <p className="font-bold text-ink">Staff marked this fixed. Is it?</p>
           <p className="mt-0.5 text-sm text-ink-2">Confirming closes the ticket. If it&apos;s still broken, reopen it and tell them what&apos;s wrong.</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -74,7 +74,7 @@ export function StudentActions(props: {
       {props.canMeToo && (
         <div className="mb-3">
           {props.meToo ? (
-            <p className="flex items-center gap-2 rounded-[5px] bg-navy-50 px-3 py-2.5 text-sm font-bold text-navy">
+            <p className="flex items-center gap-2 rounded-[8px] bg-navy-50 px-3 py-2.5 text-sm font-bold text-navy">
               <Users aria-hidden className="size-4" /> You said “me too” on this.
             </p>
           ) : (

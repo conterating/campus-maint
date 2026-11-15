@@ -67,9 +67,13 @@ Locally the app keeps its data in a SQLite file and photos in `uploads/`. Vercel
    - `ANTHROPIC_API_KEY` (optional): turns on Claude triage.
    - `GOOGLE_MAPS_API_KEY` (optional): restrict it to your `*.vercel.app` domain in Google Cloud.
    - `PUBLIC_BASE_URL`: your site's address, so printed QR codes point at it.
+   - `BETTER_AUTH_SECRET`: **required.** Signs sessions and encrypts two-factor secrets (`openssl rand -base64 32`). Use the same value when you run `npm run db:hosted:reset` below, so the demo admin's authenticator works.
+   - `BETTER_AUTH_URL`: **required.** Your site's address (e.g. `https://your-app.vercel.app`). Email links point here and it's the trusted origin for sign-in.
+   - `RESEND_API_KEY` and `EMAIL_FROM` (optional): send sign-up, reset and invite emails through Resend from a verified domain. Without them, emails only appear in the function logs.
+   - `DEMO_MODE`: `true` to keep the Demo page for administrators.
 5. **Load the schema and demo data once**, from your laptop. Copy the two Turso values from the Vercel project's environment variables (don't put them in your local `.env`):
    ```bash
-   TURSO_DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... npm run db:hosted:reset
+   TURSO_DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... BETTER_AUTH_SECRET=... npm run db:hosted:reset
    ```
    It drops every table, recreates the schema from `prisma/schema.prisma` and loads the sample data. Run it again after any schema change.
 6. **Deploy** (or redeploy, so the new variables apply).
@@ -214,7 +218,7 @@ The first Playwright run needs a browser: `npx playwright install chromium`.
 ## Accessibility
 
 - Text and controls meet WCAG AA contrast; status and severity are never color-only (labels, bar glyphs, icons).
-- Typeface: Atkinson Hyperlegible Next, designed for low-vision readers.
+- Typefaces: Parkinsans (round, friendly) for headings, numbers, and the wordmark; Funnel Sans for body text.
 - Visible focus ring on every control, skip link, landmarks, labeled forms, and live regions that announce triage results and action outcomes.
 - After analysis, focus moves to the results. The map has an equivalent **List** view, and pins are keyboard-focusable with descriptive titles.
 - Respects `prefers-reduced-motion`. Charts have a table view.

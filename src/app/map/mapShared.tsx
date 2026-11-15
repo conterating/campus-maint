@@ -142,10 +142,10 @@ export function PinPopup({ p, now, isStudent }: { p: MapPoint; now: string; isSt
             {busy === "metoo" ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Users aria-hidden className="size-4" />} Me too
           </button>
         ) : (
-          <span className="grid place-items-center rounded-[4px] bg-surface-2 px-2 text-center text-xs font-bold text-ink-3 ring-1 ring-inset ring-line">{note}</span>
+          <span className="grid place-items-center rounded-[6px] bg-surface-2 px-2 text-center text-xs font-bold text-ink-3 ring-1 ring-inset ring-line">{note}</span>
         )}
         {p.isOwner ? (
-          <span className="grid place-items-center rounded-[4px] bg-surface-2 px-2 text-center text-xs font-bold text-ink-3 ring-1 ring-inset ring-line">Your ticket</span>
+          <span className="grid place-items-center rounded-[6px] bg-surface-2 px-2 text-center text-xs font-bold text-ink-3 ring-1 ring-inset ring-line">Your ticket</span>
         ) : (
           <button type="button" className="btn btn-secondary btn-sm" aria-pressed={p.following} disabled={busy !== null} onClick={() => act("follow")}>
             {busy === "follow" ? <Loader2 aria-hidden className="size-4 animate-spin" /> : p.following ? <BellOff aria-hidden className="size-4" /> : <Bell aria-hidden className="size-4" />}

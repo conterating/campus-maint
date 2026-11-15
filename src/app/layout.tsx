@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible_Next, Atkinson_Hyperlegible_Mono, Big_Shoulders } from "next/font/google";
+import { Funnel_Sans, Parkinsans } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { PublicHeader } from "@/components/PublicHeader";
@@ -11,9 +11,9 @@ import { prisma } from "@/lib/db";
 import { getClockOffsetMs } from "@/lib/clock";
 import { ROLE_LABEL } from "@/lib/domain";
 
-const atkinson = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--font-atkinson", display: "swap", adjustFontFallback: false });
-const signage = Big_Shoulders({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-signage", display: "swap" });
-const atkinsonMono = Atkinson_Hyperlegible_Mono({ subsets: ["latin"], variable: "--font-atkinson-mono", display: "swap", adjustFontFallback: false });
+// Parkinsans: round, friendly headings, numbers, and the wordmark. Funnel Sans: clean text.
+const parkinsans = Parkinsans({ subsets: ["latin"], variable: "--font-parkinsans", display: "swap" });
+const funnel = Funnel_Sans({ subsets: ["latin"], variable: "--font-funnel", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Ramblin’ Repairs", template: "%s · Ramblin’ Repairs" },
@@ -41,7 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const displayName = shown ? (shown.firstName || shown.preferredName ? `${shown.preferredName || shown.firstName} ${shown.lastName}`.trim() : shown.name) : "";
 
   return (
-    <html lang="en" className={`${atkinson.variable} ${atkinsonMono.variable} ${signage.variable}`}>
+    <html lang="en" className={`${parkinsans.variable} ${funnel.variable}`}>
       <body className="min-h-dvh flex flex-col antialiased">
         <a href="#main" className="skip-link">
           Skip to main content

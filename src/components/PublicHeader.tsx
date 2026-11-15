@@ -4,17 +4,17 @@ import { LogoMark } from "./LogoMark";
 import { TopNav } from "./NavLinks";
 
 /**
- * The site header for visitors who aren't signed in: the same navy bar as the
- * app, with public tabs (Home, Map, Issues) and Sign in as its own tab.
+ * The site header for visitors who aren't signed in: the same bar as the app,
+ * with public tabs (Home, Map, Issues) and Sign in as its own tab.
  */
 export function PublicHeader() {
   return (
-    <header className="no-print sticky top-0 z-40 border-b-[3px] border-tech-gold bg-navy text-white">
-      <div className="mx-auto flex h-[61px] max-w-6xl items-center gap-2 px-4 md:gap-4">
-        <Link href="/" className="flex items-center gap-2.5 pr-1">
-          <LogoMark onNavy className="size-7" />
-          <span className="font-display text-[1.625rem] font-extrabold uppercase leading-none tracking-[0.01em] text-white">
-            Ramblin’<span className="ml-1.5 text-tech-gold">Repairs</span>
+    <header className="no-print sticky top-0 z-40 border-b border-line bg-surface">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 md:gap-4">
+        <Link href="/" className="flex items-center gap-2.5 rounded-lg pr-1">
+          <LogoMark />
+          <span className="font-display text-[1.125rem] font-extrabold tracking-[-0.015em] text-navy">
+            Ramblin’<span className="ml-1 text-gold-ink">Repairs</span>
           </span>
           <span className="sr-only"> home</span>
         </Link>

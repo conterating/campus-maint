@@ -82,10 +82,10 @@ export function TicketRow({
   return (
     <Link
       href={`/tickets/${ticket.id}`}
-      className="group grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 py-4 transition-colors hover:bg-surface-2 sm:grid-cols-[6.5rem_minmax(0,1fr)_12rem] sm:items-start sm:px-2"
+      className="group grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 py-4 transition-colors hover:bg-surface-2 @xl:grid-cols-[6.5rem_minmax(0,1fr)_12rem] @xl:items-start @xl:px-2"
     >
-      <span className="num order-2 text-right text-[1.25rem] leading-tight text-navy sm:order-1 sm:text-left">{formatTicketNumber(ticket.number)}</span>
-      <div className="order-1 min-w-0 sm:order-2">
+      <span className="num order-2 text-right text-[1.25rem] leading-tight text-navy @xl:order-1 @xl:text-left">{formatTicketNumber(ticket.number)}</span>
+      <div className="order-1 min-w-0 @xl:order-2">
         <H className="text-[1.0625rem] font-bold leading-snug text-ink group-hover:underline group-hover:decoration-2 group-hover:underline-offset-4">{ticket.summary}</H>
         <p className="mt-0.5 text-[0.9375rem] leading-snug text-ink-3">
           {place.building}
@@ -93,7 +93,7 @@ export function TicketRow({
         </p>
         {note}
       </div>
-      <div className="order-3 col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 sm:col-span-1 sm:flex-col sm:items-end sm:gap-1 sm:text-right">
+      <div className="order-3 col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 @xl:col-span-1 @xl:flex-col @xl:items-end @xl:gap-1 @xl:text-right">
         {statusText ?? <StatusText status={ticket.status} />}
         <span className="flex items-center gap-3 text-[0.9375rem] text-ink-3">
           {loud && <SeverityText severity={ticket.severity} />}
@@ -115,7 +115,7 @@ export function TicketRow({
 /** A list of ticket rows in one grouped container. */
 export function TicketList({ tickets, now, headingLevel = 3, bare = false, showDue = false }: { tickets: TagTicket[]; now: Date; headingLevel?: 2 | 3; bare?: boolean; showDue?: boolean }) {
   return (
-    <ul className={`stagger ${bare ? "divide-y divide-line" : "list-group"}`}>
+    <ul className={`@container stagger ${bare ? "divide-y divide-line" : "list-group"}`}>
       {tickets.map((t) => (
         <li key={t.id}>
           <TicketRow ticket={t} now={now} headingLevel={headingLevel} showDue={showDue} />

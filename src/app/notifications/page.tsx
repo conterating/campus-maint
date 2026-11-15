@@ -61,7 +61,7 @@ export default async function NotificationsPage() {
               <div className="rule-head">
                 <h2 className="h-section">{d.label}</h2>
               </div>
-              <ul className="divide-y divide-line">
+              <ul className="stagger divide-y divide-line">
                 {d.items.map((n) => (
                   <li key={n.id}>
                     <Link

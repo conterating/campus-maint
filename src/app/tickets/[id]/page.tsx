@@ -151,7 +151,7 @@ export default async function TicketPage({ params, searchParams }: { params: Par
           <header>
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
               {/* Just filed? The tag above already stamped the number; don't say it twice. */}
-              {!flags.created && <Stamp number={number} className="-rotate-2" />}
+              {!flags.created && <Stamp number={number} className="anim-ink -rotate-2" />}
               <div className="flex flex-wrap items-center gap-2 pb-1 sm:justify-end">
                 {!flags.created && (
                   <span className="font-display text-[1.25rem] font-bold uppercase leading-none tracking-[0.03em] text-ink-2">{CATEGORY_LABEL[t.category as Category]}</span>

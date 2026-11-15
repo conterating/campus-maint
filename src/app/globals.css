@@ -2,7 +2,7 @@
 
 /* ---------------------------------------------------------------------------
    Ramblin’ Repairs — design tokens
-   Concept: the maintenance work order. White paper, navy ink, ruled lines,
+   Concept: the maintenance work order. Off-white paper, navy ink, ruled lines,
    stamped numbers. Boxes are rare and mean something (the emergency callout,
    the manila work-order tag). Big Shoulders for display, stamps, IDs, and
    times (its plain zero reads cleanly); Atkinson Hyperlegible for reading.
@@ -15,10 +15,10 @@
    Every text color below meets WCAG AA on white.
 --------------------------------------------------------------------------- */
 :root {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f6f7f9;
-  --panel: #f3f5f8;
+  --bg: #f8f7f3; /* off-white paper */
+  --surface: #ffffff; /* inputs and raised things stay bright */
+  --surface-2: #f1f0eb; /* row hover on paper */
+  --panel: #ecebe5;
   --ink: #0d1b2e;
   --ink-2: #3c4859; /* 9.6:1 */
   --ink-3: #5b6880; /* 5.6:1 — meta */
@@ -157,6 +157,10 @@ body {
     font-variant-numeric: tabular-nums;
     text-transform: uppercase;
   }
+  .h-hero,
+  .h-page {
+    animation: title-rise 560ms var(--ease-out) both;
+  }
   .h-hero {
     font-family: var(--font-display);
     font-weight: 800;
@@ -185,12 +189,23 @@ body {
     color: var(--navy);
   }
   .rule-head {
+    position: relative;
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid var(--navy);
+    padding-bottom: 0.625rem;
+  }
+  /* The 2px navy rule draws left to right once, like a pen stroke. */
+  .rule-head::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--navy);
+    transform-origin: left;
+    animation: track-fill 650ms var(--ease-out) 120ms both;
   }
   /* Field labels on the work order. */
   .eyebrow,
@@ -707,6 +722,67 @@ body {
 }
 .anim-pin {
   animation: pin-drop 380ms var(--ease-out) both;
+}
+
+/* Page titles: a short rise from just below the line. */
+@keyframes title-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.18em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Lists: rows fade up in a short cascade (capped so long lists don't wait). */
+.stagger > * {
+  animation: rise 380ms var(--ease-out) both;
+}
+.stagger > :nth-child(1) { animation-delay: 60ms; }
+.stagger > :nth-child(2) { animation-delay: 100ms; }
+.stagger > :nth-child(3) { animation-delay: 140ms; }
+.stagger > :nth-child(4) { animation-delay: 180ms; }
+.stagger > :nth-child(5) { animation-delay: 220ms; }
+.stagger > :nth-child(6) { animation-delay: 260ms; }
+.stagger > :nth-child(n + 7) { animation-delay: 300ms; }
+
+/* The ticket stamp settles like fresh ink. */
+@keyframes ink-settle {
+  from {
+    transform: scale(1.06) rotate(-3.5deg);
+  }
+  to {
+    transform: scale(1) rotate(-2deg);
+  }
+}
+.anim-ink {
+  animation: ink-settle 420ms var(--ease-out) 80ms both;
+}
+
+/* The logo tag swings on its hole when you point at it. */
+@keyframes swing {
+  0% { transform: rotate(0); }
+  30% { transform: rotate(-10deg); }
+  60% { transform: rotate(5deg); }
+  80% { transform: rotate(-2deg); }
+  100% { transform: rotate(0); }
+}
+.logo-swing svg {
+  transform-origin: 28% 50%;
+}
+.logo-swing:hover svg {
+  animation: swing 650ms var(--ease-out);
+}
+
+/* Arrows lean forward on hover. */
+.lucide-arrow-right {
+  transition: transform 160ms var(--ease-out);
+}
+a:hover .lucide-arrow-right,
+button:hover:not(:disabled) .lucide-arrow-right {
+  transform: translateX(3px);
 }
 
 @media (prefers-reduced-motion: reduce) {

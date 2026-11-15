@@ -84,7 +84,7 @@ function cleanMessage(e: Event, label: string): string {
  */
 export function Timeline({ events, now }: { events: Event[]; now: Date }) {
   return (
-    <ol className="divide-y divide-line">
+    <ol className="stagger divide-y divide-line">
       {events.map((e) => {
         const { label, color } = labelFor(e);
         const note = e.type === "NOTE" || e.type === "COMMENT";

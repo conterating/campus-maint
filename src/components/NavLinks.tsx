@@ -46,7 +46,7 @@ export function BottomNav({ role, unread }: { role: Role; unread: number }) {
   const pathname = usePathname();
   const items = navItemsFor(role);
   return (
-    <nav aria-label="Main" className="no-print fixed inset-x-0 bottom-0 z-40 border-t-2 border-navy bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav aria-label="Main" className="no-print fixed inset-x-0 bottom-0 z-40 border-t-2 border-navy bg-bg pb-[env(safe-area-inset-bottom)] md:hidden">
       <ul className="grid grid-cols-5">
         {items.map((item) => (
           <BottomItem key={item.href} item={item} active={isActive(pathname, item.href)} badge={item.icon === "bell" ? unread : 0} />
@@ -82,7 +82,7 @@ function BottomItem({ item, active, badge }: { item: NavItem; active: boolean; b
         </span>
         {item.label}
         {badge > 0 && (
-          <span className="num absolute left-1/2 top-1.5 ml-2 grid min-w-[1.2rem] place-items-center rounded-full bg-navy px-1 text-[0.75rem] leading-[1.2rem] text-buzz ring-2 ring-surface">
+          <span className="num absolute left-1/2 top-1.5 ml-2 grid min-w-[1.2rem] place-items-center rounded-full bg-navy px-1 text-[0.75rem] leading-[1.2rem] text-buzz ring-2 ring-bg">
             {badge > 9 ? "9+" : badge}
             <span className="sr-only"> unread</span>
           </span>

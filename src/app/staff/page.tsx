@@ -165,7 +165,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
                   <th scope="col" className="py-2.5 pl-3 pr-4 font-bold">Assignee</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line">
+              <tbody className="stagger divide-y divide-line">
                 {rows.map((t) => {
                   const late = isOverdue(t, now);
                   return (

@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 /**
  * The main event on the home page: describe it, pick where, Continue.
  * It's a plain GET form to /report (works without JS). As you type, the
- * ruled underline goes navy and Continue wakes up from its quiet state.
+ * box border goes navy and Continue wakes up from its quiet state.
  */
 export function HomeComposer({ places }: { places: { value: string; label: string; detail: string }[] }) {
   const [text, setText] = useState("");
@@ -16,7 +16,7 @@ export function HomeComposer({ places }: { places: { value: string; label: strin
       <label htmlFor="home-desc" className="sr-only">
         Describe the problem
       </label>
-      <div className="group relative">
+      <div className="rounded-[6px] border-[1.5px] border-line-2 bg-surface px-4 pb-2 pt-3 transition-[border-color,box-shadow] duration-200 hover:border-[#aab3c0] focus-within:border-navy focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--buzz)_45%,transparent)] md:px-5">
         <textarea
           id="home-desc"
           name="desc"
@@ -25,10 +25,8 @@ export function HomeComposer({ places }: { places: { value: string; label: strin
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="The shower in the 2nd floor bathroom has no hot water…"
-          className="block w-full resize-none border-0 border-b-2 border-line-2 bg-transparent px-0 pb-4 pt-1 text-[1.375rem] leading-[1.45] text-ink outline-none transition-colors placeholder:text-[#6c788c] hover:border-[#aab3c0] focus-visible:shadow-none md:text-[1.625rem]"
+          className="block w-full resize-none border-0 bg-transparent p-0 text-[1.375rem] leading-[1.45] text-ink outline-none placeholder:text-[#6c788c] focus-visible:shadow-none md:text-[1.625rem]"
         />
-        {/* The underline that draws across on focus. */}
-        <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] origin-left scale-x-0 bg-navy transition-transform duration-300 ease-out group-focus-within:scale-x-100" />
       </div>
 
       <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

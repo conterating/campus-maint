@@ -116,7 +116,7 @@ export default async function HomePage() {
             </Link>
           </div>
           {active.length ? (
-            <ul className="divide-y divide-line">
+            <ul className="stagger divide-y divide-line">
               {active.map((t) => {
                 const update = latestFor(t.id);
                 const needsYou = t.status === "RESOLVED" && t.reporterId === viewer.id;
@@ -158,7 +158,7 @@ export default async function HomePage() {
           </div>
           <p className="mt-3 text-[0.9375rem] text-ink-3">Most-reported open issues. Same problem? Add a “me too” instead of a new report.</p>
           {trending.length ? (
-            <ol className="mt-2 divide-y divide-line">
+            <ol className="stagger mt-2 divide-y divide-line">
               {trending.map((t) => (
                 <li key={t.id}>
                   <Link href={`/tickets/${t.id}`} className="group grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-3 py-3.5">

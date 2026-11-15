@@ -115,7 +115,7 @@ export function TicketRow({
 /** A list of ticket rows in one grouped container. */
 export function TicketList({ tickets, now, headingLevel = 3, bare = false, showDue = false }: { tickets: TagTicket[]; now: Date; headingLevel?: 2 | 3; bare?: boolean; showDue?: boolean }) {
   return (
-    <ul className={bare ? "divide-y divide-line" : "list-group"}>
+    <ul className={`stagger ${bare ? "divide-y divide-line" : "list-group"}`}>
       {tickets.map((t) => (
         <li key={t.id}>
           <TicketRow ticket={t} now={now} headingLevel={headingLevel} showDue={showDue} />

@@ -88,7 +88,7 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
                 No issues fit these filters. Try turning a few back on.
               </EmptyState>
             )}
-            <ul className="mx-4 divide-y divide-line md:mx-0 md:max-w-3xl">
+            <ul className="stagger mx-4 divide-y divide-line md:mx-0 md:max-w-3xl">
               {filtered
                 .slice()
                 .sort((a, b) => b.meTooCount - a.meTooCount)

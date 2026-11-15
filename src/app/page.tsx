@@ -7,7 +7,9 @@ import { listMyTickets, listVisibleTickets, shortName } from "@/lib/tickets";
 import { DEPARTMENT_LABEL, OPEN_STATUSES, formatTicketNumber, isOpenStatus, type Department } from "@/lib/domain";
 import { relativeTime } from "@/lib/format";
 import { compareQueue } from "@/lib/sla";
-import { ProgressBar, stageCaption } from "@/components/Progress";
+import { stageCaption } from "@/components/Progress";
+import { StatusPill, SeverityText } from "@/components/badges";
+import { TicketThumb } from "@/components/TicketTag";
 
 /** Short hall name for chips: "Glenn Residence Hall" → "Glenn". */
 function hallShort(name: string) {
@@ -119,35 +121,38 @@ export default async function HomePage() {
             </Link>
           </div>
           {active.length ? (
-            <ul className="grid grid-cols-[minmax(0,1fr)] gap-3">
+            <ul className="list-group">
               {active.map((t) => {
                 const update = latestFor(t.id);
                 const needsYou = t.status === "RESOLVED" && t.reporterId === viewer.id;
                 return (
                   <li key={t.id}>
-                    <Link href={`/tickets/${t.id}`} className="card group block p-4 transition-colors hover:border-line-2 hover:shadow-[var(--shadow-sm)] md:p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <h3 className="font-bold leading-snug text-ink group-hover:text-navy">{t.summary}</h3>
-                        <span className="num shrink-0 pt-0.5 text-xs text-ink-3">{formatTicketNumber(t.number)}</span>
-                      </div>
-                      <p className="mt-0.5 truncate text-sm text-ink-3">{[t.building.name, t.space?.label, t.asset?.name].filter(Boolean).join(" · ")}</p>
-                      <div className="mt-4">
-                        <ProgressBar status={t.status} />
-                      </div>
-                      <p className="mt-2.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
-                        <span className={`font-bold ${needsYou ? "text-resolved" : t.status === "REOPENED" ? "text-[var(--st-reopened)]" : "text-ink"}`}>
-                          {needsYou ? "Fixed? Tap to confirm" : stageCaption(t.status)}
-                        </span>
-                        <span className="text-ink-3">Updated {relativeTime(t.updatedAt, now)}</span>
-                      </p>
-                      {update && (
-                        <p className="mt-3 border-t border-line pt-3 text-sm text-ink-2">
-                          <span className="font-bold text-ink">
-                            {update.who ? `${shortName(update.who.name)}, ${DEPARTMENT_LABEL[update.who.department as Department] ?? "Staff"}` : "Ramblin’ Repairs"}:
-                          </span>{" "}
-                          “{update.text}”
+                    <Link href={`/tickets/${t.id}`} className="group flex items-start gap-3.5 px-4 py-4 transition-colors hover:bg-surface-2 md:px-5">
+                      <TicketThumb ticket={t} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="font-semibold leading-snug text-ink group-hover:text-navy">{t.summary}</h3>
+                          <span className="shrink-0 pt-0.5 text-xs text-ink-3">{relativeTime(t.updatedAt, now)}</span>
+                        </div>
+                        <p className="mt-0.5 truncate text-sm text-ink-3">
+                          <span className="num">{formatTicketNumber(t.number)}</span> · {[t.building.name, t.space?.label, t.asset?.name].filter(Boolean).join(" · ")}
                         </p>
-                      )}
+                        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.8125rem]">
+                          <StatusPill status={t.status} size="sm" />
+                          <SeverityText severity={t.severity} />
+                          <span className={needsYou ? "font-semibold text-resolved" : t.status === "REOPENED" ? "text-[var(--st-reopened)]" : "text-ink-3"}>
+                            {needsYou ? "Fixed? Tap to confirm" : stageCaption(t.status)}
+                          </span>
+                        </p>
+                        {update && (
+                          <p className="mt-2.5 border-l-2 border-line-2 pl-3 text-sm text-ink-2">
+                            <span className="font-semibold text-ink">
+                              {update.who ? `${shortName(update.who.name)}, ${DEPARTMENT_LABEL[update.who.department as Department] ?? "Staff"}` : "Ramblin’ Repairs"}:
+                            </span>{" "}
+                            “{update.text}”
+                          </p>
+                        )}
+                      </div>
                     </Link>
                   </li>
                 );
@@ -170,14 +175,13 @@ export default async function HomePage() {
             <ol className="mt-3 divide-y divide-line border-y border-line">
               {trending.map((t) => (
                 <li key={t.id}>
-                  <Link href={`/tickets/${t.id}`} className="group flex gap-3.5 py-3">
-                    <span className="flex w-11 shrink-0 flex-col items-center rounded-[8px] bg-surface py-1.5 ring-1 ring-inset ring-line">
-                      <span className="text-[1.0625rem] font-bold leading-tight text-ink">{t.meTooCount + 1}</span>
-                      <span className="text-[0.6875rem] leading-tight text-ink-3">people</span>
-                    </span>
+                  <Link href={`/tickets/${t.id}`} className="group flex items-start gap-3 py-3">
+                    <span className="w-6 shrink-0 pt-px text-right font-display text-[1.0625rem] font-bold leading-snug text-navy">{t.meTooCount + 1}</span>
                     <span className="min-w-0">
-                      <span className="block font-bold leading-snug text-ink group-hover:text-navy">{t.summary}</span>
-                      <span className="mt-0.5 block truncate text-sm text-ink-3">{t.building.name}</span>
+                      <span className="block font-semibold leading-snug text-ink group-hover:text-navy">{t.summary}</span>
+                      <span className="mt-0.5 block truncate text-sm text-ink-3">
+                        {t.meTooCount + 1} reports · {t.building.name}
+                      </span>
                     </span>
                   </Link>
                 </li>

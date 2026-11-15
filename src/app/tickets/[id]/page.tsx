@@ -9,7 +9,7 @@ import { isStaff } from "@/lib/visibility";
 import { CATEGORY_LABEL, DEPARTMENT_LABEL, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, parseEventPhotos, type Category, type Department, type Severity } from "@/lib/domain";
 import { APP_CONFIG } from "@/config/app";
 import { formatDateTime } from "@/lib/format";
-import { CategoryChip, SeverityBadge, StatusPill } from "@/components/badges";
+import { CategoryChip, SeverityText, StatusPill } from "@/components/badges";
 import { Countdown } from "@/components/Countdown";
 import { EmergencyBanner } from "@/components/EmergencyBanner";
 import { Timeline } from "@/components/Timeline";
@@ -31,9 +31,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 function Prop({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[6.5rem_1fr] items-start gap-3 py-2.5">
-      <dt className="text-[0.8125rem] text-ink-3">{label}</dt>
-      <dd className="min-w-0 text-sm text-ink">{children}</dd>
+    <div className="flex items-start justify-between gap-4 py-2.5">
+      <dt className="shrink-0 text-[0.8125rem] text-ink-3">{label}</dt>
+      <dd className="flex min-w-0 flex-col items-end text-right text-sm text-ink">{children}</dd>
     </div>
   );
 }
@@ -126,12 +126,6 @@ export default async function TicketPage({ params, searchParams }: { params: Par
         <Link href={staff ? "/staff" : "/tickets"} className="inline-flex items-center gap-1 rounded-md font-bold text-ink-2 hover:text-navy">
           <ChevronLeft aria-hidden className="size-4" /> {staff ? "Back to queue" : "My reports"}
         </Link>
-        <span aria-hidden className="text-line-2">
-          /
-        </span>
-        <span className="num text-ink-3" aria-current="page">
-          {formatTicketNumber(t.number)}
-        </span>
       </nav>
 
       {flags.created && (
@@ -161,8 +155,8 @@ export default async function TicketPage({ params, searchParams }: { params: Par
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:grid-rows-[auto_1fr] lg:gap-x-8">
         <div className="min-w-0 space-y-5 lg:col-start-1 lg:row-start-1">
           <header>
-            <div className="flex flex-wrap items-center gap-2">
-              <SeverityBadge severity={t.severity} />
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="num text-sm font-semibold text-ink-3">{formatTicketNumber(t.number)}</span>
               <CategoryChip category={t.category} />
               {t.escalatedAt && open && (
                 <span className="pill bg-emergency text-white">
@@ -171,12 +165,14 @@ export default async function TicketPage({ params, searchParams }: { params: Par
                 </span>
               )}
             </div>
-            <h1 className="mt-3 text-[1.625rem] font-bold leading-[1.18] tracking-[-0.01em] text-ink md:text-[2.125rem]">{t.summary}</h1>
+            <h1 className="mt-2 text-[1.625rem] font-bold leading-[1.18] tracking-[-0.01em] text-ink md:text-[2.125rem]">{t.summary}</h1>
             <p className="mt-2 flex items-start gap-1.5 text-ink-2">
               <MapPin aria-hidden className="mt-1 size-4 shrink-0 text-ink-3" />
               {where}
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+              <StatusPill status={t.status} />
+              <SeverityText severity={t.severity} />
               <Countdown dueAt={t.responseDueAt.toISOString()} serverNow={now.toISOString()} respondedAt={t.firstResponseAt?.toISOString() ?? null} closed={!open} escalated={!!t.escalatedAt} />
               {t.meTooCount > 0 && (
                 <span className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-2">
@@ -210,10 +206,16 @@ export default async function TicketPage({ params, searchParams }: { params: Par
               <Prop label="Status">
                 <StatusPill status={t.status} size="sm" />
               </Prop>
+              <Prop label="Priority">
+                <SeverityText severity={t.severity} />
+              </Prop>
+              <Prop label="Category">
+                <CategoryChip category={t.category} />
+              </Prop>
               <Prop label="Handled by">
                 <span className="font-bold">{dept}</span>
                 {t.assignee && (
-                  <span className="mt-1 flex items-center gap-1.5 text-ink-2">
+                  <span className="mt-1 flex items-center justify-end gap-1.5 text-ink-2">
                     <Avatar name={t.assignee.name} hue={hueFor(t.assignee.id)} size="xs" /> {shortName(t.assignee.name)}
                   </span>
                 )}
@@ -231,8 +233,8 @@ export default async function TicketPage({ params, searchParams }: { params: Par
                 {formatDateTime(t.responseDueAt)}
               </Prop>
               <Prop label="Visibility">
-                <span className="flex items-start gap-1.5 text-ink-2">
-                  <scopeNote.Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-3" />
+                <span className="text-ink-2">
+                  <scopeNote.Icon aria-hidden className="mr-1.5 inline size-4 align-[-3px] text-ink-3" />
                   {scopeNote.text}
                 </span>
               </Prop>

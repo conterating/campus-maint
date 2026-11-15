@@ -1,6 +1,13 @@
 import {
   AirVent,
   AlertTriangle,
+  Check,
+  CheckCheck,
+  CircleDashed,
+  Inbox,
+  RefreshCw,
+  RotateCcw,
+  UserCheck,
   ArrowUpDown,
   Armchair,
   Bug,
@@ -93,26 +100,38 @@ export function SeverityBadge({ severity, size = "md" }: { severity: string; siz
   );
 }
 
-/** Quiet inline severity for dense rows: glyph + label in the severity color, no fill. */
+/** Priority as MaintainX-style dot + label: color plus words, never color alone. */
 export function SeverityText({ severity }: { severity: string }) {
   const s = asSeverity(severity);
   return (
-    <span className={`inline-flex items-center gap-1.5 font-bold ${SEVERITY_STYLE[s].fg}`}>
-      <SeverityGlyph severity={s} />
+    <span className={`inline-flex items-center gap-1.5 ${s === "EMERGENCY" ? "font-semibold text-emergency" : "text-ink-2"}`}>
+      <span aria-hidden className="size-2 rounded-full" style={{ background: SEVERITY_STYLE[s].bar }} />
       {SEVERITY_LABEL[s]}
     </span>
   );
 }
 
+export const STATUS_ICON: Record<Status, LucideIcon> = {
+  SUBMITTED: CircleDashed,
+  TRIAGED: Inbox,
+  ASSIGNED: UserCheck,
+  IN_PROGRESS: RefreshCw,
+  REOPENED: RotateCcw,
+  RESOLVED: Check,
+  CONFIRMED: CheckCheck,
+};
+
+/** Status chip: icon + label on white with a hairline border, like a work-order app. */
 export function StatusPill({ status, size = "md" }: { status: string; size?: "sm" | "md" }) {
   const s = asStatus(status);
   const color = STATUS_COLOR[s];
+  const Icon = STATUS_ICON[s];
   return (
     <span
-      className={`pill ${size === "sm" ? "!text-xs" : ""}`}
-      style={{ color, background: `color-mix(in srgb, ${color} 9%, white)`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 22%, white)` }}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-[6px] border border-line-2 bg-surface font-semibold ${size === "sm" ? "px-1.5 py-px text-xs" : "px-2 py-0.5 text-[0.8125rem]"}`}
+      style={{ color }}
     >
-      <span aria-hidden className="size-1.5 rounded-full" style={{ background: color }} />
+      <Icon aria-hidden className={size === "sm" ? "size-3" : "size-3.5"} strokeWidth={2.4} />
       {STATUS_LABEL[s]}
     </span>
   );

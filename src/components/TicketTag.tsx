@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { STATUS_LABEL, formatTicketNumber, isOpenStatus, type Status } from "@/lib/domain";
-import { STATUS_COLOR, SeverityText } from "./badges";
+import { formatTicketNumber, isOpenStatus } from "@/lib/domain";
+import { CategoryIcon, StatusPill, SeverityText } from "./badges";
 import { Countdown } from "./Countdown";
 import { relativeTime } from "@/lib/format";
 
@@ -20,17 +20,21 @@ export type TagTicket = {
   building: { name: string };
   space?: { label: string } | null;
   asset?: { name: string } | null;
+  photoUrl?: string | null;
 };
 
-/** Status as a colored dot and label: quiet enough for dense lists. */
+/** Left-hand thumbnail: the reporter's photo when there is one, otherwise the category icon. */
+export function TicketThumb({ ticket }: { ticket: Pick<TagTicket, "category" | "photoUrl"> }) {
+  if (ticket.photoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element -- user upload served by our route
+    return <img src={ticket.photoUrl} alt="" className="size-10 shrink-0 rounded-[7px] object-cover ring-1 ring-line" />;
+  }
+  return <CategoryIcon category={ticket.category} />;
+}
+
+/** Status for dense lists: the same chip used everywhere. */
 export function StatusText({ status }: { status: string }) {
-  const s = (status in STATUS_LABEL ? status : "SUBMITTED") as Status;
-  return (
-    <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: STATUS_COLOR[s] }}>
-      <span aria-hidden className="size-2 rounded-full" style={{ background: STATUS_COLOR[s] }} />
-      {STATUS_LABEL[s]}
-    </span>
-  );
+  return <StatusPill status={status} size="sm" />;
 }
 
 /**
@@ -54,33 +58,23 @@ export function TicketRow({ ticket, now, headingLevel = 3, showDue = false }: { 
     />
   );
   return (
-    <Link href={`/tickets/${ticket.id}`} className="group flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-surface-2 md:px-5">
+    <Link href={`/tickets/${ticket.id}`} className="group flex items-start gap-3.5 px-4 py-3.5 transition-colors hover:bg-surface-2 md:px-5">
+      <TicketThumb ticket={ticket} />
       <div className="min-w-0 flex-1">
-        <H className="font-bold leading-snug text-ink group-hover:text-navy">{ticket.summary}</H>
-        <p className="mt-0.5 truncate text-sm text-ink-3">{where}</p>
-        <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[0.8125rem] text-ink-3">
+        <H className="font-semibold leading-snug text-ink group-hover:text-navy">{ticket.summary}</H>
+        <p className="mt-0.5 truncate text-sm text-ink-3">
+          <span className="num">{formatTicketNumber(ticket.number)}</span> · {where}
+        </p>
+        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.8125rem] text-ink-3">
           <StatusText status={ticket.status} />
-          {loud && (
-            <>
-              <span aria-hidden>·</span>
-              <SeverityText severity={ticket.severity} />
-            </>
-          )}
-          <span aria-hidden>·</span>
+          {(loud || showDue) && <SeverityText severity={ticket.severity} />}
+          {ticket.meTooCount > 0 && <span className="text-ink-2">{ticket.meTooCount + 1} affected</span>}
           <span>{relativeTime(ticket.createdAt, now)}</span>
-          {ticket.meTooCount > 0 && (
-            <>
-              <span aria-hidden>·</span>
-              <span className="font-bold text-ink-2">{ticket.meTooCount + 1} affected</span>
-            </>
-          )}
-          <span aria-hidden>·</span>
-          <span className="num">{formatTicketNumber(ticket.number)}</span>
           {countdown && <span className="sm:hidden">{countdown}</span>}
         </p>
       </div>
-      {countdown && <div className="hidden shrink-0 sm:block">{countdown}</div>}
-      <ChevronRight aria-hidden className="size-4 shrink-0 text-line-2 transition-transform group-hover:translate-x-0.5 group-hover:text-ink-3" />
+      {countdown && <div className="hidden shrink-0 self-center sm:block">{countdown}</div>}
+      <ChevronRight aria-hidden className="size-4 shrink-0 self-center text-line-2 transition-transform group-hover:translate-x-0.5 group-hover:text-ink-3" />
     </Link>
   );
 }

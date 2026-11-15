@@ -1,5 +1,6 @@
 // The repair tracker: four plain-language stages a student actually cares about,
-// drawn like a delivery tracker. Staff still see the precise status elsewhere.
+// drawn as work-order status tiles. Staff still see the precise status elsewhere.
+import { Check, CircleDashed, RefreshCw, RotateCcw, UserCheck } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 
 export const STAGES = ["Reported", "Assigned", "In progress", "Fixed"] as const;
@@ -52,53 +53,39 @@ export function stageStamps(createdAt: Date, events: { type: string; toStatus: s
   return [createdAt, last("ASSIGNED"), last("IN_PROGRESS", "REOPENED"), last("RESOLVED", "CONFIRMED")];
 }
 
+const STAGE_ICONS = [CircleDashed, UserCheck, RefreshCw, Check] as const;
+
+/** Four status tiles, work-order style: done ones tinted, the current one solid. */
 export function Progress({ status, stamps = [] }: { status: string; stamps?: Stamp[] }) {
   const current = stageIndex(status);
   const complete = status === "CONFIRMED";
   const reopened = status === "REOPENED";
-  const accent = reopened ? "var(--st-reopened)" : "var(--navy)";
   return (
-    <ol className="grid grid-cols-4" aria-label="Repair progress">
+    <ol className="grid grid-cols-4 gap-2" aria-label="Repair progress">
       {STAGES.map((label, i) => {
         const done = i < current || (i === current && complete);
         const isCurrent = i === current;
         const reached = i <= current;
         const stamp = reached ? stamps[i] : null;
         const name = i === 2 && reopened ? "Reopened" : label;
+        const Icon = i === 2 && reopened ? RotateCcw : STAGE_ICONS[i];
+        const tone =
+          isCurrent && !complete
+            ? reopened
+              ? "border-[var(--st-reopened)] bg-[var(--st-reopened)] text-white"
+              : "border-navy bg-navy text-white"
+            : reached
+              ? "border-navy-100 bg-navy-50 text-navy"
+              : "border-line bg-surface text-ink-3";
         return (
-          <li key={label} className="relative min-w-0 pr-2" aria-current={isCurrent ? "step" : undefined}>
-            <div className="flex items-center" aria-hidden>
-              <span
-                className="relative z-10 grid size-[1.375rem] shrink-0 place-items-center rounded-full"
-                style={{
-                  background: reached ? accent : "var(--surface)",
-                  boxShadow: reached
-                    ? isCurrent && !complete
-                      ? `0 0 0 4px color-mix(in srgb, ${accent} 16%, transparent)`
-                      : "none"
-                    : "inset 0 0 0 2px var(--line-2)",
-                }}
-              >
-                {done && (
-                  <svg viewBox="0 0 16 16" className="size-3" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3.5 8.5l3 3 6-7" />
-                  </svg>
-                )}
-                {isCurrent && !done && <span className="size-2 rounded-full bg-white" />}
-              </span>
-              {i < STAGES.length - 1 && (
-                <span
-                  className="mx-1.5 h-[3px] flex-1 rounded-full"
-                  style={{ background: i < current ? accent : "repeating-linear-gradient(90deg, var(--line-2) 0 5px, transparent 5px 9px)" }}
-                />
-              )}
-            </div>
-            <p className={`mt-2 text-[0.8125rem] leading-tight sm:text-sm ${isCurrent ? "font-bold text-ink" : reached ? "text-ink-2" : "text-ink-3"}`} style={isCurrent && reopened ? { color: accent } : undefined}>
+          <li key={label} className={`min-w-0 rounded-[8px] border px-1.5 py-2.5 text-center ${tone}`} aria-current={isCurrent ? "step" : undefined}>
+            <Icon aria-hidden className="mx-auto size-[1.125rem]" strokeWidth={2.2} />
+            <p className="mt-1 truncate text-[0.8125rem] font-semibold leading-tight">
               {name}
               <span className="sr-only">{isCurrent ? " (current)" : done || reached ? " (done)" : " (not yet)"}</span>
             </p>
             {stamp && (
-              <p className="mt-0.5 hidden text-xs text-ink-3 sm:block">
+              <p className={`mt-0.5 hidden truncate text-[0.6875rem] sm:block ${isCurrent && !complete ? "text-white/80" : "text-ink-3"}`}>
                 <time dateTime={stamp.toISOString()}>{formatDateTime(stamp)}</time>
               </p>
             )}

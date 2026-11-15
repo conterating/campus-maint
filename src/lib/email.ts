@@ -20,14 +20,15 @@ export async function sendEmail(mail: OutgoingEmail): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   if (key) {
     resend ??= new Resend(key);
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || "Ramblin' Repairs <onboarding@resend.dev>",
       to: mail.to,
       subject: mail.subject,
       text: mail.text,
     });
-    // Log the failure, not the message: it carries a single-use link.
-    if (error) console.error(`[email] Resend rejected a "${mail.kind}" email: ${error.name}`);
+    // Log the outcome, never the message: it carries a single-use link.
+    if (error) console.error(`[email] Resend rejected a "${mail.kind}" email: ${error.name}: ${error.message}`);
+    else console.info(`[email] sent a "${mail.kind}" email through Resend (id ${data?.id})`);
     return;
   }
 

@@ -153,7 +153,11 @@ export async function resetPasswordAction(input: { token: string; password: stri
 
   try {
     await auth.api.resetPassword({ body: { token, newPassword: password }, headers: await headers() });
-    if (user) await prisma.loginAttempt.deleteMany({ where: { username: user.username ?? "", success: false } });
+    if (user) {
+      await prisma.loginAttempt.deleteMany({ where: { username: user.username ?? "", success: false } });
+      // The reset link went to this address, so using it proves the email works.
+      if (!user.emailVerified) await prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } });
+    }
     return { ok: true, data: undefined };
   } catch (err) {
     const code = errorCode(err);

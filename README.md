@@ -94,6 +94,7 @@ Bonus beats if you have time: type `There is smoke coming out of the outlet` as 
 | Duplicate check with "Me too"; me-toos raise priority | `findDuplicates` and `addMeToo` in `src/lib/tickets.ts` |
 | Ownership: student owns dorm-room tickets; departments own the rest; reporter auto-follows | `createTicket` in `src/lib/tickets.ts` |
 | Timeline, in-app notifications on every change | `/tickets/[id]`, `/notifications`, `src/lib/notify.ts` |
+| Comments with up to 3 photos from anyone who can see the ticket; commenting follows it, and watchers and the department are alerted | `addComment` in `src/lib/tickets.ts`, `src/app/tickets/[id]/CommentForm.tsx` |
 | Response countdowns, overdue flag, escalation to supervisor, demo clock | `src/lib/sla.ts`, `runEscalationSweep`, `src/lib/clock.ts` |
 | Safety: Emergency for gas, flooding, wiring, smoke, stuck elevators, and more | `src/lib/triage/safety.ts` |
 | Campus map (Google Maps, or OpenStreetMap without a key) with severity pins, heat layer, filters, list view | `/map`, `src/app/map/` |
@@ -114,8 +115,8 @@ Students can also only *file* reports in public buildings, their own hall's shar
 ## Testing
 
 ```bash
-npm test             # unit + integration (Vitest): 171 tests, ~25 s
-npm run test:e2e     # browser tests (Playwright): 32 scenarios × phone and desktop
+npm test             # unit + integration (Vitest): 180 tests, ~25 s
+npm run test:e2e     # browser tests (Playwright): 34 scenarios × phone and desktop
 npm run test:all     # typecheck, lint, Vitest, Playwright
 ```
 

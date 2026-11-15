@@ -12,12 +12,14 @@ import { classifyByKeywords } from "@/lib/triage/keywords";
 import { hashDescription, signVerdict, verifyVerdict } from "@/lib/triage/token";
 import { PHOTO_URL_PATTERN, savePhoto } from "@/lib/uploads";
 import { routeTicket } from "@/config/routing";
-import { locationTypeFor } from "@/lib/domain";
+import { MAX_COMMENT_PHOTOS, locationTypeFor } from "@/lib/domain";
 import {
+  addComment,
   addMeToo,
   confirmResolution,
   createTicket,
   findDuplicates,
+  getVisibleTicketOrThrow,
   locationLabel,
   reopenTicket,
   resolveLocation,
@@ -310,6 +312,29 @@ export async function staffOverrideAction(
 ): Promise<ActionResult> {
   try {
     await staffOverride(prisma, await staffViewer(), ticketId, input, await now());
+    refreshAll();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Comments (anyone who can see the ticket)
+// ---------------------------------------------------------------------------
+
+export async function commentAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const viewer = await getViewer();
+    const ticketId = str(formData, "ticketId");
+    if (!ticketId) throw new AppError("That ticket doesn't exist or isn't visible to you.", "NOT_FOUND");
+    const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+    if (files.length > MAX_COMMENT_PHOTOS) throw new AppError(`Add up to ${MAX_COMMENT_PHOTOS} photos per comment.`);
+    // Check visibility before writing any files for this request.
+    await getVisibleTicketOrThrow(prisma, viewer, ticketId);
+    const photoUrls: string[] = [];
+    for (const f of files) photoUrls.push((await savePhoto(f)).url);
+    await addComment(prisma, viewer, ticketId, { text: str(formData, "text") ?? "", photoUrls }, await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {

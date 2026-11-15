@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canReportAt, canView, ticketVisibilityWhere, type Viewer } from "@/lib/visibility";
-import { formatTicketNumber, isOpenStatus, locationTypeFor, ticketScopeFor } from "@/lib/domain";
+import { formatTicketNumber, isOpenStatus, locationTypeFor, parseEventPhotos, ticketScopeFor } from "@/lib/domain";
 
 const student = (over: Partial<Viewer> = {}): Viewer => ({
   id: "s1",
@@ -113,5 +113,21 @@ describe("canReportAt", () => {
   it("lets staff report anywhere", () => {
     const staff = student({ role: "STAFF", department: "HOUSING", residenceBuildingId: null, roomId: null });
     expect(canReportAt(staff, loc("RESIDENCE", "b-towers", "DORM_ROOM", "s-twr-305")).ok).toBe(true);
+  });
+});
+
+describe("parseEventPhotos", () => {
+  const url = "/uploads/00000000-0000-4000-8000-000000000001.jpg";
+  it("reads the stored JSON list", () => {
+    expect(parseEventPhotos(JSON.stringify([url]))).toEqual([url]);
+  });
+  it("treats missing or damaged data as no photos", () => {
+    expect(parseEventPhotos(null)).toEqual([]);
+    expect(parseEventPhotos("")).toEqual([]);
+    expect(parseEventPhotos("not json")).toEqual([]);
+    expect(parseEventPhotos(JSON.stringify({ url }))).toEqual([]);
+  });
+  it("drops anything that isn't one of our uploads", () => {
+    expect(parseEventPhotos(JSON.stringify([url, "https://evil.example/x.jpg", 42]))).toEqual([url]);
   });
 });

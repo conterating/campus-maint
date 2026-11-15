@@ -121,17 +121,13 @@ export const STATUS_ICON: Record<Status, LucideIcon> = {
   CONFIRMED: CheckCheck,
 };
 
-/** Status chip: icon + label on white with a hairline border, like a work-order app. */
+/** Status as a word in its color with its icon: progress is the navy scale, Fixed is green, nothing red. */
 export function StatusPill({ status, size = "md" }: { status: string; size?: "sm" | "md" }) {
   const s = asStatus(status);
-  const color = STATUS_COLOR[s];
   const Icon = STATUS_ICON[s];
   return (
-    <span
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-[6px] border border-line-2 bg-surface font-semibold ${size === "sm" ? "px-1.5 py-px text-xs" : "px-2 py-0.5 text-[0.8125rem]"}`}
-      style={{ color }}
-    >
-      <Icon aria-hidden className={size === "sm" ? "size-3" : "size-3.5"} strokeWidth={2.4} />
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap font-bold ${size === "sm" ? "text-[0.875rem]" : "text-[0.9375rem]"}`} style={{ color: STATUS_COLOR[s] }}>
+      <Icon aria-hidden className={size === "sm" ? "size-3.5" : "size-4"} strokeWidth={2.5} />
       {STATUS_LABEL[s]}
     </span>
   );

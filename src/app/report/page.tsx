@@ -45,12 +45,12 @@ export default async function ReportPage({ searchParams }: { searchParams: Searc
   const myRoom = home?.spaces.find((s) => s.id === viewer.roomId);
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-6 md:pt-10">
+    <div className="mx-auto max-w-2xl px-4 pb-10 pt-6 md:pt-12">
       <h1 className="h-page">Report a problem</h1>
-      <p className="mt-1.5 text-ink-2">Tell us where and what. We&apos;ll send it to the right team and check if someone beat you to it.</p>
+      <p className="mt-3 max-w-xl text-[1.125rem] text-ink-2">Where and what. We&apos;ll send it to the right crew and check whether someone beat you to it.</p>
 
       {scannedLabel && fromQr && !blocked && (
-        <p className="mt-5 flex items-center gap-3 rounded-[8px] bg-surface px-4 py-3 text-sm shadow-[var(--shadow-xs)] ring-1 ring-inset ring-line">
+        <p className="mt-6 flex items-center gap-3 border-l-4 border-navy pl-4 text-[0.9375rem]">
           <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-[6px] bg-navy-50 text-navy">
             <QrCode className="size-5" />
           </span>
@@ -60,7 +60,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Searc
         </p>
       )}
       {blocked && (
-        <p role="alert" className="mt-5 flex items-start gap-3 rounded-[8px] bg-urgent-bg px-4 py-3 text-sm text-ink ring-1 ring-inset ring-urgent/25">
+        <p role="alert" className="mt-6 flex items-start gap-3 border-l-4 border-urgent pl-4 text-[0.9375rem] text-ink">
           <TriangleAlert aria-hidden className="mt-0.5 size-5 shrink-0 text-urgent" />
           <span>
             <span className="font-bold">This QR code is for {scannedLabel}.</span> {blocked}

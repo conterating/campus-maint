@@ -51,11 +51,11 @@ function targetLabel(h: number) {
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="card p-5 md:p-6">
+    <fieldset>
       <legend className="sr-only">{title}</legend>
-      <div aria-hidden className="mb-4 flex items-center gap-3">
-        <span className="num grid size-7 place-items-center rounded-full bg-navy text-[0.8125rem] font-bold text-white">{n}</span>
-        <span className="h-section text-[1.0625rem]">{title}</span>
+      <div aria-hidden className="rule-head mb-5">
+        <span className="h-section text-[1.625rem]">{title}</span>
+        <span className="num text-[1.0625rem] text-ink-3">Step {n} of 2</span>
       </div>
       {children}
     </fieldset>
@@ -190,12 +190,12 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
   const CatIcon = CATEGORY_ICON[category];
 
   return (
-    <div className="mt-6 space-y-5">
+    <div className="mt-10 space-y-12">
       <p aria-live="polite" className="sr-only">
         {analyzing ? "Checking your report…" : announce}
       </p>
 
-      <form onSubmit={analyze} noValidate className="space-y-5">
+      <form onSubmit={analyze} noValidate className="space-y-12">
         <Step n={1} title="Where is it?">
           {viewerIsStudent && (myRoom || myHall) && (
             <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Quick locations">
@@ -282,8 +282,8 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
             </div>
           </div>
           {locType && (
-            <p className="mt-4 flex items-start gap-2 text-sm text-ink-3">
-              <Lock aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+            <p className="mt-4 flex items-start gap-2 text-[0.9375rem] text-ink-3">
+              <Lock aria-hidden className="mt-1 size-3.5 shrink-0" />
               {locType === "DORM_ROOM"
                 ? "Inside your room: only you, your roommates, and staff can see this report. You'll own the ticket."
                 : locType === "DORM_SHARED"
@@ -300,7 +300,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
             </label>
             <textarea
               id={ids.desc}
-              className="field min-h-28 resize-y"
+              className="field min-h-32 resize-y text-[1.0625rem]"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={2000}
@@ -321,15 +321,15 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
         </Step>
 
         {error && (
-          <p role="alert" className="rounded-[8px] bg-emergency-bg px-4 py-3 text-sm font-bold text-emergency ring-1 ring-inset ring-emergency/25">
+          <p role="alert" className="border-l-4 border-emergency pl-4 font-bold text-emergency">
             {error}
           </p>
         )}
 
         {(!analysis || isStale) && (
           <div>
-            {isStale && <p className="mb-2 text-sm font-bold text-urgent">You changed the details. Check the report again before submitting.</p>}
-            <button type="submit" className="btn btn-primary w-full !min-h-12 text-base" disabled={analyzing}>
+            {isStale && <p className="mb-3 border-l-4 border-urgent pl-3 font-bold text-urgent">You changed the details. Check it again before submitting.</p>}
+            <button type="submit" className="btn btn-accent w-full !min-h-14 text-[1.125rem]" disabled={analyzing}>
               {analyzing ? (
                 <>
                   <Loader2 aria-hidden className="size-5 animate-spin" /> Reading your report…
@@ -340,7 +340,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
                 </>
               )}
             </button>
-            <p className="hint mt-2 text-center">
+            <p className="hint mt-2.5 text-center">
               {aiEnabled ? "Claude reads it and suggests a team in a few seconds." : "Sorted instantly by the routing rules."} Nothing is filed until you confirm.
             </p>
           </div>
@@ -349,31 +349,31 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
 
       {/* ---- Review ---- */}
       {analysis && !isStale && (
-        <div className="rise space-y-5">
+        <div className="rise space-y-10">
           {showEmergency && <EmergencyBanner police={police} hazards={hazards} />}
 
           {analysis.duplicates.length > 0 && (
-            <section aria-labelledby="dup-title" className="card overflow-hidden">
-              <div className="border-b border-line bg-buzz-50 px-5 py-4">
-                <h2 id="dup-title" className="flex items-center gap-2 text-[1.0625rem] font-bold text-ink">
-                  <Users aria-hidden className="size-5 text-gold-ink" /> Already reported?
-                </h2>
-                <p className="mt-0.5 text-sm text-ink-2">These open issues look like yours. A “me too” raises their priority and keeps you updated, without a duplicate.</p>
-              </div>
-              <ul className="divide-y divide-line">
+            <section aria-labelledby="dup-title" className="border-l-4 border-buzz pl-5">
+              <h2 id="dup-title" className="h-section text-[1.625rem]">
+                Already reported?
+              </h2>
+              <p className="mt-1 text-ink-2">These open issues look like yours. A “me too” raises their priority and keeps you posted, with no duplicate.</p>
+              <ul className="mt-3 divide-y divide-line border-y border-line">
                 {analysis.duplicates.map((d) => (
-                  <li key={d.id} className="px-5 py-4">
+                  <li key={d.id} className="py-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-bold leading-snug text-ink">{d.summary}</p>
-                        <p className="mt-0.5 text-sm text-ink-3">
-                          <span className="num">{formatTicketNumber(d.number)}</span> · {d.locationLabel}
-                        </p>
+                        <p className="mt-0.5 text-[0.9375rem] text-ink-3">{d.locationLabel}</p>
                       </div>
-                      <StatusPill status={d.status} size="sm" />
+                      <span className="num shrink-0 text-[1.125rem] text-navy">{formatTicketNumber(d.number)}</span>
                     </div>
-                    <p className="mt-2 text-[0.8125rem] text-ink-3">
-                      {d.reasons.join(" · ")} · <span className="font-bold text-ink-2">{d.meTooCount} me too</span>
+                    <p className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[0.9375rem]">
+                      <StatusPill status={d.status} size="sm" />
+                      <span className="font-bold text-ink-2">
+                        <span className="num">{d.meTooCount}</span> me too
+                      </span>
+                      <span className="text-ink-3">{d.reasons.join(", ")}</span>
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       {d.reportedByViewer ? (
@@ -385,7 +385,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
                       ) : viewerIsStudent ? (
                         <button type="button" className="btn btn-accent btn-sm" onClick={() => meToo(d.id)} disabled={meTooBusy !== null}>
                           {meTooBusy === d.id ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Users aria-hidden className="size-4" />}
-                          Me too — this is my problem
+                          Me too, same problem
                         </button>
                       ) : null}
                       <Link href={`/tickets/${d.id}`} className="btn btn-ghost btn-sm">
@@ -398,34 +398,38 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
             </section>
           )}
 
-          <section aria-labelledby="review-title" className="card overflow-hidden">
-            <div className="p-5 md:p-6">
-              <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-                <h2 id="review-title" ref={resultsHeading} tabIndex={-1} className="text-[1.25rem] font-bold tracking-[-0.015em] text-ink outline-none">
-                  Here&apos;s how we&apos;ll route it
-                </h2>
-                <span className="pt-1 text-[0.8125rem] text-ink-3">
-                  {analysis.triage.source === "claude" ? "Sorted by Claude" : "Sorted by routing rules"}
-                </span>
-              </div>
-              <p className="mt-1 text-ink-2">Check it over. Change anything that looks wrong.</p>
-              {analysis.triage.fallbackReason && <p className="mt-2 text-sm text-urgent">The AI classifier didn&apos;t respond, so the routing rules sorted it instead.</p>}
+          <section aria-labelledby="review-title">
+            <div className="rule-head">
+              <h2 id="review-title" ref={resultsHeading} tabIndex={-1} className="h-section text-[1.625rem] outline-none">
+                Here&apos;s how we&apos;ll route it
+              </h2>
+              <span className="text-[0.9375rem] text-ink-3">{analysis.triage.source === "claude" ? "Sorted automatically" : "Sorted by routing rules"}</span>
+            </div>
+            <p className="mt-3 text-ink-2">Check it over. Change anything that looks wrong; nothing is filed until you submit.</p>
+            {analysis.triage.fallbackReason && <p className="mt-2 text-[0.9375rem] text-urgent">The automatic sorter didn&apos;t respond, so the routing rules sorted it instead.</p>}
 
-              <div className="mt-5 flex items-center gap-4 rounded-[10px] bg-navy-50 p-4 ring-1 ring-inset ring-navy-100">
-                <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-navy text-white">
-                  <CatIcon className="size-5" />
+            {/* The draft work order: it gets its number stamped once you submit. */}
+            <div className="wo-tag mt-6 max-w-xl px-6 pb-5 pt-12 sm:pl-16 sm:pt-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-display text-sm font-bold uppercase tracking-[0.14em] text-tag-ink/80">Work order · Draft</p>
+                  <dl>
+                    <dt className="sr-only">Goes to</dt>
+                    <dd className="mt-1 font-display text-[2rem] font-extrabold uppercase leading-[0.95] text-tag-ink">{route ? DEPARTMENT_LABEL[route.department] : "Not sure yet"}</dd>
+                    <dt className="sr-only">Category and response target</dt>
+                    <dd className="mt-2 text-[0.9375rem] text-tag-ink">
+                      {CATEGORY_LABEL[category]}. <span>First response within <span className="num text-[1.0625rem]">{targetLabel(targets[severity])}</span></span>
+                    </dd>
+                  </dl>
+                </div>
+                <span aria-hidden className="grid size-14 shrink-0 place-items-center rounded-full border-2 border-dashed border-tag-ink/40 text-tag-ink/70">
+                  <CatIcon className="size-6" />
                 </span>
-                <dl className="min-w-0">
-                  <dt className="text-sm text-ink-2">Goes to</dt>
-                  <dd className="text-[1.25rem] font-bold leading-tight text-navy">{route ? DEPARTMENT_LABEL[route.department] : "—"}</dd>
-                  <dd className="mt-0.5 text-sm text-ink-2">
-                    {CATEGORY_LABEL[category]} · first response within <span className="font-bold text-ink">{targetLabel(targets[severity])}</span>
-                  </dd>
-                </dl>
               </div>
+              <p className="wo-perf mt-4 pt-3 font-display text-sm font-bold uppercase tracking-[0.14em] text-tag-ink/80">Number stamped on submit</p>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 border-t border-line p-5 md:p-6">
+            <div className="mt-8 grid grid-cols-1 gap-6">
               <div>
                 <label htmlFor={ids.summary} className="label">
                   One-line summary
@@ -454,15 +458,15 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
                     <Lock aria-hidden className="size-4" /> Safety reports stay at Emergency. Staff can adjust it after checking.
                   </p>
                 )}
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 border-t border-line sm:grid-cols-2 sm:gap-x-6">
                   {SEVERITIES.map((s) => {
                     const checked = severity === s;
                     const disabled = lockedEmergency && s !== "EMERGENCY";
                     return (
                       <label
                         key={s}
-                        className={`flex cursor-pointer gap-3 rounded-[8px] p-3.5 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-navy ${
-                          checked ? "bg-navy-50 ring-2 ring-navy" : "bg-surface ring-1 ring-line-2 hover:bg-surface-2"
+                        className={`relative flex cursor-pointer gap-3 border-b border-line py-3.5 pl-4 pr-2 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-navy before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:transition-colors ${
+                          checked ? "bg-navy-50/60 before:bg-navy" : "hover:bg-surface-2 before:bg-transparent"
                         } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
                       >
                         <input type="radio" name="severity" value={s} checked={checked} disabled={disabled} onChange={() => setSeverity(s)} className="mt-1 size-4 accent-[var(--navy)]" />
@@ -472,10 +476,10 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
                               <SeverityGlyph severity={s} />
                             </span>
                             {SEVERITY_LABEL[s]}
-                            {s === analysis.triage.severity && <span className="text-xs font-normal text-ink-3">· suggested</span>}
+                            {s === analysis.triage.severity && <span className="text-xs font-normal text-ink-3">suggested</span>}
                           </span>
-                          <span className="mt-0.5 block text-sm text-ink-2">{SEVERITY_HINT[s]}</span>
-                          <span className="mt-0.5 block text-xs text-ink-3">Response within {targetLabel(targets[s])}</span>
+                          <span className="mt-0.5 block text-[0.9375rem] text-ink-2">{SEVERITY_HINT[s]}</span>
+                          <span className="mt-0.5 block text-sm text-ink-3">Response within <span className="num">{targetLabel(targets[s])}</span></span>
                         </span>
                       </label>
                     );
@@ -484,7 +488,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
               </fieldset>
 
               {analysis.triage.rationale && (
-                <p className="text-sm text-ink-3">
+                <p className="text-[0.9375rem] text-ink-3">
                   <span className="font-bold text-ink-2">Why: </span>
                   {analysis.triage.rationale}
                 </p>
@@ -495,7 +499,7 @@ export function ReportForm({ locations, prefill, initialDescription = "", myRoom
           <button
             type="button"
             onClick={submit}
-            className={`btn w-full !min-h-12 text-base ${severity === "EMERGENCY" ? "btn-danger" : "btn-primary"}`}
+            className={`btn w-full !min-h-14 text-[1.125rem] ${severity === "EMERGENCY" ? "btn-danger" : "btn-primary"}`}
             disabled={submitting || summary.trim().length < 3}
           >
             {submitting ? <Loader2 aria-hidden className="size-5 animate-spin" /> : <CheckCircle2 aria-hidden className="size-5" />}

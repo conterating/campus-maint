@@ -7,7 +7,7 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
     <footer className="no-print mt-8 border-t-2 border-navy bg-bg pb-24 md:pb-0">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 text-[0.9375rem] text-ink-3 md:flex-row md:items-center md:justify-between md:px-6">
         <p className="flex items-center gap-2">
-          <LogoMark className="size-5" />
+          <LogoMark className="h-8" />
           <span>
             <span className="font-display text-[1.0625rem] font-extrabold uppercase text-navy">Ramblin’ Repairs</span>, campus maintenance for {APP_CONFIG.campusName}
           </span>

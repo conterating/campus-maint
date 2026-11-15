@@ -1,23 +1,32 @@
-/** The mark: a work-order tag with a check on it, i.e. "reported, and getting fixed". */
-export function LogoMark({ className = "size-8", onNavy = false }: { className?: string; onNavy?: boolean }) {
-  const body = onNavy ? "#eaaa00" : "#003057";
-  const ink = onNavy ? "#003057" : "#eaaa00";
+import Image from "next/image";
+
+/**
+ * The mark: Buzz in a hard hat with a wrench on a gold hexagon (from the
+ * "Campus Maintenance Logo" sheet). On navy we use the borderless "reversed"
+ * hexagon; on light surfaces, the one with the navy border. Decorative: the
+ * wordmark or surrounding text names the app. Size it by height, e.g. "h-10".
+ */
+export function LogoMark({ className = "h-8", onNavy = false }: { className?: string; onNavy?: boolean }) {
   return (
-    <svg aria-hidden viewBox="0 0 32 32" className={`${className} shrink-0`}>
-      <path d="M11 4h17a2.5 2.5 0 0 1 2.5 2.5v19A2.5 2.5 0 0 1 28 28H11L2.5 16z" fill={body} />
-      <circle cx="9" cy="16" r="2.2" fill={onNavy ? "#003057" : "#fff"} />
-      <path d="M14.5 16.5l3.6 3.6L26 11.5" fill="none" stroke={ink} strokeWidth="3.2" strokeLinecap="square" />
-    </svg>
+    <Image
+      src={onNavy ? "/brand/logo-hex.png" : "/brand/logo-hex-bordered.png"}
+      alt=""
+      aria-hidden
+      width={222}
+      height={256}
+      className={`${className} w-auto shrink-0`}
+    />
   );
 }
 
-/** The wordmark lockup used in both headers: tag + "RAMBLIN' REPAIRS" on navy. */
+/** The header lockup: hexagon + "RAMBLIN' REPAIRS", scaled down on narrow phones. */
 export function Wordmark() {
   return (
     <>
-      <LogoMark onNavy className="size-8" />
-      <span className="font-display text-[1.5rem] font-extrabold uppercase leading-none tracking-[0.01em] text-white">
-        Ramblin’<span className="ml-1.5 text-buzz">Repairs</span>
+      <LogoMark onNavy className="h-9 sm:h-11" />
+      {/* Under 375px there isn't room beside the bell and menu: show just the badge (the name stays for screen readers). */}
+      <span className="font-display text-[1.25rem] font-extrabold uppercase leading-none tracking-[0.01em] text-white max-[374px]:sr-only min-[400px]:text-[1.375rem] sm:text-[1.5rem]">
+        Ramblin’<span className="ml-1 text-buzz sm:ml-1.5">Repairs</span>
       </span>
       <span className="sr-only"> home</span>
     </>

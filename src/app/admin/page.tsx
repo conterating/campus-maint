@@ -194,16 +194,20 @@ export default async function AdminPage() {
           )}
         </section>
       </div>
-      <section aria-labelledby="contractors-title" className="card mt-5 p-4 md:p-5">
-        <h2 id="contractors-title" className="h-section">
-          Contractor work
-        </h2>
-        <p className="mt-0.5 text-sm text-ink-3">From contractors&apos; work logs: finished jobs and average time on the job{showCosts ? ", with materials and labor cost" : ""}.</p>
+      <section aria-labelledby="contractors-title" className="mt-16">
+        <div className="rule-head">
+          <h2 id="contractors-title" className="h-section">
+            Contractor work
+          </h2>
+        </div>
+        <p className="mt-2 text-[0.9375rem] text-ink-3">From contractors&apos; work logs: finished jobs and average time on the job{showCosts ? ", with materials and labor cost" : ""}.</p>
         {perContractor.length ? (
-          <div className="mt-4 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-            <table className="w-full text-left text-sm">
+          <div className="mt-4 grid min-w-0 gap-8 lg:grid-cols-[1.4fr_1fr] lg:gap-14">
+            {/* Tables scroll sideways on narrow phones instead of pushing the page wider. */}
+            <div className="min-w-0 overflow-x-auto">
+            <table className="w-full min-w-[17rem] text-left text-[0.9375rem]">
               <caption className="sr-only">Jobs completed by contractor</caption>
-              <thead className="text-xs text-ink-3">
+              <thead className="wo-label">
                 <tr>
                   <th scope="col" className="pb-2 font-bold">Contractor</th>
                   <th scope="col" className="pb-2 pl-4 text-right font-bold">Jobs done</th>
@@ -222,10 +226,12 @@ export default async function AdminPage() {
                 ))}
               </tbody>
             </table>
+            </div>
             {showCosts && (
-              <table className="w-full text-left text-sm">
-                <caption className="mb-2 text-left text-xs font-bold text-ink-3">Total cost by department</caption>
-                <thead className="text-xs text-ink-3">
+              <div className="min-w-0 overflow-x-auto">
+              <table className="w-full min-w-[17rem] text-left text-[0.9375rem]">
+                <caption className="wo-label mb-2 text-left">Total cost by department</caption>
+                <thead className="wo-label">
                   <tr>
                     <th scope="col" className="pb-2 font-bold">Department</th>
                     <th scope="col" className="pb-2 pl-4 text-right font-bold">Materials</th>
@@ -244,6 +250,7 @@ export default async function AdminPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         ) : (

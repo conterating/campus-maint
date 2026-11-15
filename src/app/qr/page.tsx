@@ -94,7 +94,7 @@ export default async function QrPage({ searchParams }: { searchParams: Search })
         {labels.map((l) => (
           <li key={l.key} className="break-inside-avoid overflow-hidden rounded-[6px] border-2 border-navy bg-surface">
             <div className="flex items-center gap-2 bg-navy px-3 py-2 text-white">
-              <LogoMark onNavy className="size-5" />
+              <LogoMark onNavy className="h-7" />
               <span className="font-display text-[1.0625rem] font-extrabold uppercase leading-none">
                 Ramblin’ <span className="text-buzz">Repairs</span>
               </span>

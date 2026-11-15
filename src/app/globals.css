@@ -151,7 +151,7 @@ body {
   .t-stamp {
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(4rem, 2.6rem + 5.4vw, 6.5rem);
+    font-size: clamp(3.25rem, 1.6rem + 8vw, 6.5rem); /* ~52px on a 320 phone, 104px on laptops */
     line-height: 0.85;
     letter-spacing: 0.005em;
     font-variant-numeric: tabular-nums;
@@ -763,7 +763,7 @@ body {
   animation: ink-settle 420ms var(--ease-out) 80ms both;
 }
 
-/* The logo tag swings on its hole when you point at it. */
+/* The hexagon badge gives a little swing when you point at the logo. */
 @keyframes swing {
   0% { transform: rotate(0); }
   30% { transform: rotate(-10deg); }
@@ -771,10 +771,10 @@ body {
   80% { transform: rotate(-2deg); }
   100% { transform: rotate(0); }
 }
-.logo-swing svg {
-  transform-origin: 28% 50%;
+.logo-swing img {
+  transform-origin: 50% 12%;
 }
-.logo-swing:hover svg {
+.logo-swing:hover img {
   animation: swing 650ms var(--ease-out);
 }
 

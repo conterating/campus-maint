@@ -12,66 +12,64 @@ export function roleLine(v: Viewer): string {
   return "Student";
 }
 
-/** The mark: a navy roundel with a gold check, i.e. "reported, and getting fixed". */
-export function LogoMark({ className = "size-8" }: { className?: string }) {
+/** The mark: a work-order tag with a check on it, i.e. "reported, and getting fixed". */
+export function LogoMark({ className = "size-8", onNavy = false }: { className?: string; onNavy?: boolean }) {
+  const body = onNavy ? "#eaaa00" : "#003057";
+  const ink = onNavy ? "#003057" : "#eaaa00";
   return (
     <svg aria-hidden viewBox="0 0 32 32" className={`${className} shrink-0`}>
-      <rect width="32" height="32" rx="9" fill="#003057" />
-      <path d="M9 16.5l4.6 4.6L23.5 11" fill="none" stroke="#eaaa00" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M11 4h17a2.5 2.5 0 0 1 2.5 2.5v19A2.5 2.5 0 0 1 28 28H11L2.5 16z" fill={body} />
+      <circle cx="9" cy="16" r="2.2" fill={onNavy ? "#003057" : "#fff"} />
+      <path d="M14.5 16.5l3.6 3.6L26 11.5" fill="none" stroke={ink} strokeWidth="3.2" strokeLinecap="square" />
     </svg>
   );
 }
 
 export function AppHeader({ viewer, unread, clockOffsetMs }: { viewer: Viewer; unread: number; clockOffsetMs: number }) {
   return (
-    <header className="no-print sticky top-0 z-40 border-b border-line bg-surface">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 md:gap-4">
-        <Link href="/" className="flex items-center gap-2.5 rounded-lg pr-1">
-          <LogoMark />
-          <span className="font-display text-[1.125rem] font-extrabold tracking-[-0.015em] text-navy">
-            Ramblin’<span className="ml-1 text-gold-ink">Repairs</span>
+    <header className="no-print sticky top-0 z-40 border-b-[3px] border-buzz bg-navy text-white">
+      <div className="mx-auto flex h-[61px] max-w-6xl items-center gap-2 px-4 md:gap-4 md:px-6">
+        <Link href="/" className="flex items-center gap-2.5 pr-1">
+          <LogoMark onNavy className="size-8" />
+          <span className="font-display text-[1.5rem] font-extrabold uppercase leading-none tracking-[0.01em]">
+            Ramblin’<span className="ml-1.5 text-buzz">Repairs</span>
           </span>
           <span className="sr-only"> home</span>
         </Link>
 
-        <div className="ml-4 hidden flex-1 md:block">
+        <div className="ml-6 hidden flex-1 self-stretch md:block">
           <TopNav role={viewer.role} />
         </div>
         <div className="flex-1 md:hidden" />
 
         {clockOffsetMs > 0 && (
-          <Link
-            href="/demo"
-            className="hidden items-center gap-1.5 rounded-full bg-buzz-50 px-2.5 py-1 text-xs font-bold text-gold-ink ring-1 ring-buzz/50 sm:flex"
-            title="The demo clock is running ahead of real time"
-          >
+          <Link href="/demo" className="hidden items-center gap-1.5 rounded-[3px] bg-buzz px-2 py-1 text-navy sm:flex" title="The demo clock is running ahead of real time">
             <Clock aria-hidden className="size-3.5" />
-            <span className="num">
+            <span className="num text-[0.9375rem]">
               <span className="sr-only">Demo clock is </span>+{formatDuration(clockOffsetMs)}
               <span className="sr-only"> ahead</span>
             </span>
           </Link>
         )}
 
-        <Link
-          href="/notifications"
-          className="relative grid size-10 place-items-center rounded-full text-ink-2 hover:bg-bg hover:text-ink"
-        >
-          <Bell aria-hidden className="size-[1.2rem]" />
+        <Link href="/notifications" className="relative grid size-11 place-items-center rounded-[4px] text-white/85 transition-colors hover:bg-white/10 hover:text-white">
+          <Bell aria-hidden className="size-[1.25rem]" />
           <span className="sr-only">{unread ? `Alerts, ${unread} unread` : "Alerts"}</span>
           {unread > 0 && (
-            <span aria-hidden className="num absolute right-0.5 top-0.5 grid min-w-[1.15rem] place-items-center rounded-full bg-emergency px-1 text-[0.65rem] font-bold leading-[1.15rem] text-white ring-2 ring-surface">
+            <span aria-hidden className="num absolute right-0.5 top-0.5 grid min-w-[1.25rem] place-items-center rounded-full bg-buzz px-1 text-[0.75rem] leading-[1.25rem] text-navy ring-2 ring-navy">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
         </Link>
 
-        <Link href="/demo" className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-1 hover:bg-bg lg:pr-3" title="Switch user (demo)">
-          <Avatar name={viewer.name} hue={hueFor(viewer.id)} size="sm" />
+        <Link href="/demo" className="flex items-center gap-2.5 rounded-[4px] py-1 pl-1 pr-1 transition-colors hover:bg-white/10 lg:pr-2.5" title="Switch user (demo)">
+          <span className="rounded-full ring-2 ring-buzz/70">
+            <Avatar name={viewer.name} hue={hueFor(viewer.id)} size="sm" />
+          </span>
           <span className="sr-only">Switch user. Viewing as </span>
           <span className="hidden flex-col text-left leading-tight lg:flex">
-            <span className="text-sm font-bold text-ink">{viewer.name}</span>
-            <span className="text-xs text-ink-3">{roleLine(viewer)}</span>
+            <span className="text-[0.9375rem] font-bold text-white">{viewer.name}</span>
+            <span className="text-[0.8125rem] text-white/75">{roleLine(viewer)}</span>
           </span>
           <span className="sr-only lg:hidden">{viewer.name}</span>
         </Link>

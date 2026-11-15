@@ -41,7 +41,7 @@ const student: SignupInput = {
   firstName: "George",
   lastName: "Burdell",
   preferredName: "Buzz",
-  username: "gburdell3",
+  email: "gburdell3@gatech.edu",
   gtId: "903999001",
   password: "ramblin wreck from tech",
   confirmPassword: "ramblin wreck from tech",
@@ -119,11 +119,53 @@ describe("sign-up", () => {
     expect(await db.user.findUniqueOrThrow({ where: { username: "gburdell3" } })).toMatchObject({ role: "STUDENT", department: null, residenceVerified: false });
   });
 
-  it("rejects a duplicate username or GT ID", async () => {
-    const dupUser = await registerStudent({ ...student, username: "mpatel3" }, new Headers());
-    expect(dupUser).toMatchObject({ ok: false, code: "DUPLICATE", error: "An account already exists for this username." });
+  it("rejects a duplicate email or GT ID", async () => {
+    const dupUser = await registerStudent({ ...student, email: "MPatel3@gatech.edu" }, new Headers());
+    expect(dupUser).toMatchObject({ ok: false, code: "DUPLICATE", error: "An account already exists for this email.", fieldErrors: { email: expect.any(String) } });
     const dupId = await registerStudent({ ...student, gtId: "903100101" }, new Headers());
     expect(dupId).toMatchObject({ ok: false, code: "DUPLICATE", error: "An account already exists for this GT ID." });
+  });
+
+  it("accepts any email, sends the confirmation there, and generates a unique username", async () => {
+    const res = await registerStudent({ ...student, email: "Buzz.Burdell+qa@Example.com" }, new Headers());
+    expect(res).toEqual({ ok: true, data: { email: "buzz.burdell+qa@example.com" } });
+    const u = await db.user.findUniqueOrThrow({ where: { email: "buzz.burdell+qa@example.com" } });
+    expect(u.username).toBe("buzzburdellqa");
+    expect(lastEmailLink("buzz.burdell+qa@example.com", "verify")).toMatch(/\/api\/auth\/verify-email\?token=/);
+
+    // Same local part at another domain: the username gets a numeric suffix.
+    await registerStudent({ ...student, email: "buzz.burdell+qa@other.org", gtId: "903999010" }, new Headers());
+    expect((await db.user.findUniqueOrThrow({ where: { email: "buzz.burdell+qa@other.org" } })).username).toBe("buzzburdellqa2");
+    await registerStudent({ ...student, email: "buzzburdellqa@third.net", gtId: "903999011" }, new Headers());
+    expect((await db.user.findUniqueOrThrow({ where: { email: "buzzburdellqa@third.net" } })).username).toBe("buzzburdellqa3");
+
+    // Collides with a seeded username too.
+    await registerStudent({ ...student, email: "mpatel3@elsewhere.com", gtId: "903999012" }, new Headers());
+    expect((await db.user.findUniqueOrThrow({ where: { email: "mpatel3@elsewhere.com" } })).username).toBe("mpatel32");
+  });
+
+  it("signs in with the email or the username, and both share one lockout", async () => {
+    await registerStudent({ ...student, email: "Sam.Lee@example.com" }, new Headers());
+    const token = new URL(lastEmailLink("sam.lee@example.com", "verify")).searchParams.get("token")!;
+    await auth.api.verifyEmail({ query: { token } });
+    expect(await login("SAM.LEE@example.com", student.password)).toEqual({ ok: true, data: { redirectTo: "/" } });
+    expect(await login("samlee", student.password)).toEqual({ ok: true, data: { redirectTo: "/" } });
+    expect(await login("sam.lee@example.com", "wrong password here")).toMatchObject({ ok: false, error: "Username or password is incorrect." });
+
+    // Failures through the email and through the username count against the same account.
+    const h = () => new Headers({ "x-forwarded-for": "10.9.9.9" });
+    for (let i = 0; i < 5; i++) {
+      await attemptLogin({ username: i % 2 ? "samlee" : "sam.lee@example.com", password: "wrong password here" }, h());
+    }
+    const locked = await attemptLogin({ username: "samlee", password: student.password }, h());
+    expect(locked).toMatchObject({ ok: false, code: "LOCKED" });
+    expect(await attemptLogin({ username: "sam.lee@example.com", password: student.password }, h())).toMatchObject({ ok: false, code: "LOCKED" });
+  });
+
+  it("seeded users can sign in with their username or their email", async () => {
+    expect(await login("mpatel3")).toMatchObject({ ok: true });
+    expect(await login("mpatel3@gatech.edu")).toMatchObject({ ok: true });
+    expect(await login("nobody@example.com")).toMatchObject({ ok: false, error: "Username or password is incorrect." });
   });
 
   it("matches a typed room number to the hall's room, or adds the room to that hall", async () => {
@@ -132,13 +174,13 @@ describe("sign-up", () => {
     expect((await db.user.findUniqueOrThrow({ where: { username: "gburdell3" } })).roomId).toBe("s-gln-216");
 
     // "305" exists in Towers, not Glenn: it becomes a new Glenn room, never Towers' 305.
-    await registerStudent({ ...student, username: "gburdell4", gtId: "903999002", roomNumber: "Room 305" }, new Headers());
+    await registerStudent({ ...student, email: "gburdell4@gatech.edu", gtId: "903999002", roomNumber: "Room 305" }, new Headers());
     const u = await db.user.findUniqueOrThrow({ where: { username: "gburdell4" }, include: { room: true } });
     expect(u.room).toMatchObject({ buildingId: "b-glenn", scope: "DORM_ROOM", label: "Room 305", floor: 3 });
     expect(u.roomId).not.toBe("s-twr-305");
     expect(u.residenceVerified).toBe(false);
     // A second student typing the same number shares that room record.
-    await registerStudent({ ...student, username: "gburdell5", gtId: "903999003", roomNumber: "305" }, new Headers());
+    await registerStudent({ ...student, email: "gburdell5@gatech.edu", gtId: "903999003", roomNumber: "305" }, new Headers());
     expect((await db.user.findUniqueOrThrow({ where: { username: "gburdell5" } })).roomId).toBe(u.roomId);
   });
 

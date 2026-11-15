@@ -40,6 +40,19 @@ describe("sendEmail", () => {
     expect(readFileSync(DEV_OUTBOX, "utf8")).toContain("Resend failure");
   });
 
+  it("redirects to EMAIL_REDIRECT_TO with a subject tag and no testing sentence", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_fake");
+    vi.stubEnv("EMAIL_REDIRECT_TO", "inbox@example.com");
+    send.mockResolvedValue({ data: { id: "1" }, error: null });
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    await sendEmail(mail);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ to: "inbox@example.com", subject: "[for gburdell3@gatech.edu] Hi", text: "t" }));
+    expect(JSON.stringify(send.mock.calls[0][0])).not.toMatch(/testing mode|meant for/i);
+    send.mockClear();
+    await sendEmail({ ...mail, to: "Inbox@Example.com" });
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ subject: "Hi", text: "t" }));
+  });
+
   it("treats a thrown error like a rejection", async () => {
     vi.stubEnv("RESEND_API_KEY", "re_fake");
     send.mockRejectedValue(new Error("network down"));

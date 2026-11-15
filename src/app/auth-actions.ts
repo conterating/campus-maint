@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { appUrl } from "@/lib/email";
 import { getActor, getViewer, homeFor } from "@/lib/session";
-import { afterSignIn, attemptLogin, errorCode, errorMessage, type FormResult, type LoginOutcome } from "@/lib/sign-in";
+import { afterSignIn, attemptLogin, errorCode, errorMessage, findUserByIdentifier, type FormResult, type LoginOutcome } from "@/lib/sign-in";
 import { registerStudent, resendVerification } from "@/lib/registration";
 import { LIMITS, checkLimit, clearHits, clientIp, consume, digest, mailAllowed, minutesLabel, recordHit } from "@/lib/rate-limit";
 import { acceptInvite, inviteTokenUser } from "@/lib/accounts";
@@ -99,7 +99,7 @@ export async function verifyTotpAction(input: { code: string; trustDevice?: bool
   } catch (err) {
     const code = errorCode(err);
     if (code === "INVALID_TWO_FACTOR_COOKIE" || code === "TWO_FACTOR_EXPIRED") {
-      return fail("Your sign-in timed out. Enter your username and password again.", { code: "RESTART" });
+      return fail("Your sign-in timed out. Enter your email or username and password again.", { code: "RESTART" });
     }
     return fail("That code didn't work. Check your authenticator app and try again.", { fieldErrors: { code: "That code didn't work." } });
   }
@@ -121,9 +121,9 @@ export async function verifyBackupCodeAction(input: { code: string; next?: strin
 }
 
 /** Send the verification email again. Always reports success, so it can't be used to probe accounts. */
-export async function resendVerificationAction(rawUsername: string): Promise<FormResult> {
+export async function resendVerificationAction(rawIdentifier: string): Promise<FormResult> {
   try {
-    await resendVerification(typeof rawUsername === "string" ? rawUsername.slice(0, 200) : "", clientIp(await headers()));
+    await resendVerification(typeof rawIdentifier === "string" ? rawIdentifier.slice(0, 254) : "", clientIp(await headers()));
   } catch (err) {
     console.warn(`[auth] resend verification action failed: ${err instanceof Error ? err.name : "unknown"}`);
   }
@@ -177,8 +177,8 @@ export async function forgotPasswordAction(input: { username: string }): Promise
   if (!parsed.success) return fail("Fix the errors below.", { fieldErrors: fieldErrors(parsed.error) });
   try {
     // Over the limit looks exactly like success.
-    if (await mailAllowed(prisma, "forgot", parsed.data.username, clientIp(await headers()))) {
-      const user = await prisma.user.findUnique({ where: { username: parsed.data.username } });
+    const user = await findUserByIdentifier(parsed.data.username);
+    if (await mailAllowed(prisma, "forgot", user?.username ?? parsed.data.username, clientIp(await headers()))) {
       if (user && !user.disabledAt) {
         await auth.api.requestPasswordReset({ body: { email: user.email, redirectTo: appUrl("/reset-password") } });
       }
@@ -204,7 +204,7 @@ async function resetPassword({ token, password }: { token: string; password: str
   const row = await prisma.verification.findFirst({ where: { identifier: `reset-password:${token}` } });
   if (!row || row.expiresAt < new Date()) return fail("This reset link is invalid or has expired. Request a new one.", { code: "EXPIRED" });
   const user = await prisma.user.findUnique({ where: { id: row.value } });
-  const problem = passwordProblem(password, user?.username);
+  const problem = passwordProblem(password, user?.username, user?.email);
   if (problem) return fail("Fix the errors below.", { fieldErrors: { password: problem } });
 
   try {
@@ -230,7 +230,7 @@ export async function acceptInviteAction(input: { token: string; password: strin
   try {
     const user = await inviteTokenUser(prisma, parsed.data.token);
     if (!user) return fail("This invite link is invalid or has expired. Ask an administrator to send a new one.", { code: "EXPIRED" });
-    const problem = passwordProblem(parsed.data.password, user.username);
+    const problem = passwordProblem(parsed.data.password, user.username, user.email);
     if (problem) return fail("Fix the errors below.", { fieldErrors: { password: problem } });
     const res = await acceptInvite(prisma, parsed.data.token, parsed.data.password);
     if (!res.ok) return fail(res.error, { fieldErrors: res.field ? { [res.field]: res.error } : undefined });
@@ -248,7 +248,7 @@ export async function changePasswordAction(input: { currentPassword: string; pas
   const actor = await getActor();
   const parsed = changePasswordSchema.safeParse(input);
   if (!parsed.success) return fail("Fix the errors below.", { fieldErrors: fieldErrors(parsed.error) });
-  const problem = passwordProblem(parsed.data.password, actor.username);
+  const problem = passwordProblem(parsed.data.password, actor.username, actor.email);
   if (problem) return fail("Fix the errors below.", { fieldErrors: { password: problem } });
   try {
     // Signs out every other session.

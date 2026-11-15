@@ -30,6 +30,17 @@ export function errorMessage(err: unknown): string | undefined {
   return (err as { body?: { message?: string } })?.body?.message;
 }
 
+/**
+ * Find the account for something typed into an "Email or username" box
+ * (already lowercased and trimmed). An "@" means email; otherwise a username.
+ */
+export async function findUserByIdentifier(identifier: string) {
+  return prisma.user.findFirst({
+    where: identifier.includes("@") ? { email: identifier } : { username: identifier },
+    include: { contractorProfile: true },
+  });
+}
+
 export async function afterSignIn(userId: string, next: string | undefined): Promise<string> {
   const user = await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   const role = isRole(user.role) ? user.role : "STUDENT";
@@ -41,7 +52,7 @@ export async function afterSignIn(userId: string, next: string | undefined): Pro
 export type LoginOutcome = { redirectTo: string } | { twoFactor: true };
 
 /**
- * Sign in with a username and password. The login tab only changes labels:
+ * Sign in with an email or username and a password. The login tab only changes labels:
  * the redirect always comes from the role stored on the account.
  */
 export async function attemptLogin(input: LoginInput, reqHeaders: Headers): Promise<FormResult<LoginOutcome>> {
@@ -49,10 +60,14 @@ export async function attemptLogin(input: LoginInput, reqHeaders: Headers): Prom
   if (!parsed.success) {
     const errs = fieldErrors(parsed.error);
     // Missing fields get their own messages; anything else is the generic error.
-    if (errs.username === "Enter your username." || errs.password === "Enter your password.") return fail("Fix the errors below.", { fieldErrors: errs });
+    if (errs.username === "Enter your email or username." || errs.password === "Enter your password.") return fail("Fix the errors below.", { fieldErrors: errs });
     return fail(LOGIN_ERROR);
   }
-  const { username, password, rememberMe, next } = parsed.data;
+  const { username: identifier, password, rememberMe, next } = parsed.data;
+  // Email or username: everything below (lockout, rate limits, sign-in) keys on the account's username
+  // when there is one, so the two ways in share one counter. Unknown identifiers key on what was typed.
+  const user = await findUserByIdentifier(identifier);
+  const username = user?.username ?? identifier;
 
   // Layers: this username from this address (hard lock), this username from
   // anywhere (hard lock at a much higher count), and this address overall
@@ -72,7 +87,6 @@ export async function attemptLogin(input: LoginInput, reqHeaders: Headers): Prom
     await recordHit(prisma, "login-ip", ip, LIMITS.loginIp);
   };
 
-  const user = await prisma.user.findUnique({ where: { username }, include: { contractorProfile: true } });
   const blocked = user ? signInBlockReason(user, new Date()) : null;
   if (blocked) {
     // Same message as a wrong password; the reason stays in the server log.

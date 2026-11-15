@@ -6,6 +6,7 @@ import {
   loginSchema,
   normalizePhone,
   normalizeUsername,
+  usernameBaseFromEmail,
   passwordProblem,
   passwordStrength,
   profileSchema,
@@ -20,7 +21,7 @@ const valid: SignupInput = {
   firstName: "George",
   lastName: "Burdell",
   preferredName: "",
-  username: "gburdell3",
+  email: "gburdell3@example.com",
   gtId: "903123456",
   password: "correct horse battery",
   confirmPassword: "correct horse battery",
@@ -40,19 +41,27 @@ const errorsFor = (input: Partial<SignupInput>) => {
 
 describe("sign-up schema", () => {
   it("accepts a complete student and normalizes it", () => {
-    const r = signupSchema.parse({ ...valid, username: "  GBurdell3@gatech.edu ", gtId: "903-123-456", phone: "+1 404.555.0123" });
-    expect(r).toMatchObject({ username: "gburdell3", gtId: "903123456", phone: "(404) 555-0123", residenceBuildingId: "b-glenn", roomNumber: "216" });
+    const r = signupSchema.parse({ ...valid, email: "  GBurdell3@Example.com ", gtId: "903-123-456", phone: "+1 404.555.0123" });
+    expect(r).toMatchObject({ email: "gburdell3@example.com", gtId: "903123456", phone: "(404) 555-0123", residenceBuildingId: "b-glenn", roomNumber: "216" });
     expect(r).not.toHaveProperty("confirmPassword");
     expect(r).not.toHaveProperty("acceptTerms");
   });
 
-  it("validates the GT username", () => {
-    expect(errorsFor({ username: "" }).username).toMatch(/GT username/);
-    expect(errorsFor({ username: "3burdell" }).username).toMatch(/letter followed by/);
-    expect(errorsFor({ username: "g" }).username).toBeDefined();
-    expect(errorsFor({ username: "george.burdell" }).username).toBeDefined();
-    expect(errorsFor({ username: "a".repeat(17) }).username).toBeDefined();
-    expect(errorsFor({ username: "Gburdell3" }).username).toBeUndefined();
+  it("validates the email", () => {
+    expect(errorsFor({ email: "" }).email).toMatch(/Enter your email/);
+    expect(errorsFor({ email: "not an email" }).email).toMatch(/valid email/);
+    expect(errorsFor({ email: "a@" }).email).toBeDefined();
+    expect(errorsFor({ email: `${"a".repeat(250)}@x.co` }).email).toBeDefined();
+    expect(errorsFor({ email: "qa+tag@example.com" }).email).toBeUndefined();
+    expect(errorsFor({ email: "George@Gmail.com" }).email).toBeUndefined();
+  });
+
+  it("builds a username from the email's first part", () => {
+    expect(usernameBaseFromEmail("George.P.Burdell+x@gmail.com")).toBe("georgepburdellx");
+    expect(usernameBaseFromEmail("a".repeat(40) + "@x.co")).toHaveLength(20);
+    expect(usernameBaseFromEmail("123abc@x.com")).toBe("s123abc");
+    expect(usernameBaseFromEmail("...@x.com")).toBe("student");
+    expect(usernameBaseFromEmail("...@x.co")).toBe("student");
   });
 
   it("validates the GT ID: 9 digits starting with 90", () => {
@@ -63,11 +72,12 @@ describe("sign-up schema", () => {
     expect(errorsFor({ gtId: "90312345a" }).gtId).toBeDefined();
   });
 
-  it("validates password length, match, and that it doesn't contain the username", () => {
+  it("validates password length, match, and that it doesn't contain the email name", () => {
     expect(errorsFor({ password: "short", confirmPassword: "short" }).password).toMatch(/12 characters/);
     expect(errorsFor({ password: "x".repeat(129), confirmPassword: "x".repeat(129) }).password).toMatch(/128/);
-    expect(errorsFor({ password: "my gburdell3 password", confirmPassword: "my gburdell3 password" }).password).toMatch(/username/);
-    expect(errorsFor({ password: "MY GBURDELL3 PASSWORD", confirmPassword: "MY GBURDELL3 PASSWORD" }).password).toMatch(/username/);
+    expect(errorsFor({ password: "my gburdell3 password", confirmPassword: "my gburdell3 password" }).password).toMatch(/email/);
+    expect(errorsFor({ password: "MY GBURDELL3 PASSWORD", confirmPassword: "MY GBURDELL3 PASSWORD" }).password).toMatch(/email/)
+    expect(errorsFor({ email: "ab@example.com", password: "my ab password!!", confirmPassword: "my ab password!!" }).password).toBeUndefined();;
     expect(errorsFor({ confirmPassword: "something else entirely" }).confirmPassword).toMatch(/don't match/);
     // No forced symbol rules.
     expect(errorsFor({ password: "aaaaaaaaaaaa", confirmPassword: "aaaaaaaaaaaa" }).password).toBeUndefined();
@@ -109,8 +119,9 @@ describe("sign-up schema", () => {
 });
 
 describe("login, reset and profile schemas", () => {
-  it("normalizes the username and strips a pasted @gatech.edu", () => {
+  it("normalizes the email or username without stripping anything", () => {
     expect(normalizeUsername("  GBurdell3@GaTech.edu ")).toBe("gburdell3");
+    expect(loginSchema.parse({ username: " GBurdell3@GaTech.edu ", password: "x" })).toMatchObject({ username: "gburdell3@gatech.edu" });
     expect(loginSchema.parse({ username: "GBURDELL3", password: "x" })).toMatchObject({ username: "gburdell3", rememberMe: false, tab: "student" });
   });
 

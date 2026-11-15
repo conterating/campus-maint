@@ -6,14 +6,14 @@ import { MailCheck } from "lucide-react";
 import { resendVerificationAction, signupAction } from "@/app/auth-actions";
 import { Checkbox, ErrorSummary, Field, PasswordInput, StatusMessage, StrengthMeter, passwordHint } from "@/components/forms";
 import { GENDERS, GENDER_LABEL, STUDENT_YEARS, STUDENT_YEAR_LABEL } from "@/lib/domain";
-import { OFF_CAMPUS, emailForUsername, fieldErrors, normalizeUsername, signupSchema, type SignupInput } from "@/lib/auth-schemas";
+import { OFF_CAMPUS, fieldErrors, signupSchema, type SignupInput } from "@/lib/auth-schemas";
 import type { HallOption } from "@/lib/residences";
 
 const EMPTY: SignupInput = {
   firstName: "",
   lastName: "",
   preferredName: "",
-  username: "",
+  email: "",
   gtId: "",
   password: "",
   confirmPassword: "",
@@ -28,7 +28,7 @@ const EMPTY: SignupInput = {
 
 const RESEND_COOLDOWN_S = 60;
 
-export function SignupForm({ halls, devMail, redirectedTo = null }: { halls: HallOption[]; devMail: { link: boolean } | null; redirectedTo?: string | null }) {
+export function SignupForm({ halls, devMail }: { halls: HallOption[]; devMail: { link: boolean } | null }) {
   const [v, setV] = useState<SignupInput>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<React.ReactNode>(null);
@@ -49,7 +49,7 @@ export function SignupForm({ halls, devMail, redirectedTo = null }: { halls: Hal
     setResent(false);
     setCooldown(RESEND_COOLDOWN_S);
     start(async () => {
-      await resendVerificationAction(normalizeUsername(v.username));
+      await resendVerificationAction(sentTo ?? v.email.trim().toLowerCase());
       setResent(true);
     });
   }
@@ -57,7 +57,6 @@ export function SignupForm({ halls, devMail, redirectedTo = null }: { halls: Hal
   const set = <K extends keyof SignupInput>(k: K, val: SignupInput[K]) => setV((p) => ({ ...p, [k]: val }));
   const hall = halls.find((h) => h.id === v.residenceBuildingId);
   const groups = useMemo(() => [...new Set(halls.map((h) => h.group))], [halls]);
-  const username = normalizeUsername(v.username);
   const maskedGtId = v.gtId && !gtIdFocused ? v.gtId.replace(/\d(?=\d{3})/g, "•") : v.gtId;
 
   function submit(e: React.FormEvent) {
@@ -102,16 +101,11 @@ export function SignupForm({ halls, devMail, redirectedTo = null }: { halls: Hal
     return (
       <div role="status" className="card mt-6 p-6">
         <MailCheck aria-hidden className="size-8 text-resolved" />
-        <h2 className="h-section mt-3 text-xl">Check your GT email to finish signing up.</h2>
+        <h2 className="h-section mt-3 text-xl">Check your email</h2>
         <p className="mt-2 text-ink-2">
           We sent a confirmation link to <span className="font-bold text-ink">{sentTo}</span>. It expires in 24 hours.
         </p>
         <p className="mt-2 text-ink-2">Housing will also confirm your room. Until then you can report issues in public buildings.</p>
-        {redirectedTo && (
-          <p className="mt-3 rounded-[10px] bg-[#fffbeb] px-3 py-2.5 text-sm font-bold text-ink ring-1 ring-inset ring-[#f59e0b]/30">
-            Email is in testing mode: the confirmation link was sent to {redirectedTo} instead.
-          </p>
-        )}
         {devMail && (
           <p className="mt-3 rounded-[10px] bg-[#fffbeb] px-3 py-2.5 text-sm font-bold text-ink ring-1 ring-inset ring-[#f59e0b]/30">
             Email isn&apos;t configured on this machine.{" "}
@@ -188,6 +182,9 @@ export function SignupForm({ halls, devMail, redirectedTo = null }: { halls: Hal
             {(a) => <input {...a} className="field" value={v.genderSelfDescribe ?? ""} onChange={(e) => set("genderSelfDescribe", e.target.value)} />}
           </Field>
         )}
+        <Field id="email" label="Email" hint="We'll send a confirmation link here." error={errors.email}>
+          {(a) => <input {...a} className="field" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} value={v.email} onChange={(e) => set("email", e.target.value)} />}
+        </Field>
         <Field id="phone" label="Phone" optional hint="US number, for staff to reach you about a repair." error={errors.phone}>
           {(a) => <input {...a} className="field" type="tel" autoComplete="tel" inputMode="tel" value={v.phone ?? ""} onChange={(e) => set("phone", e.target.value)} />}
         </Field>
@@ -195,14 +192,6 @@ export function SignupForm({ halls, devMail, redirectedTo = null }: { halls: Hal
 
       <fieldset className="space-y-4 border-t border-line pt-6">
         <legend className="h-section text-lg">Georgia Tech</legend>
-        <Field
-          id="username"
-          label="GT username"
-          hint={username ? <>Your email will be <span className="font-bold text-ink-2">{emailForUsername(username)}</span></> : "Like gburdell3. We'll send a confirmation link to your GT email."}
-          error={errors.username}
-        >
-          {(a) => <input {...a} className="field" autoComplete="username" autoCapitalize="none" spellCheck={false} value={v.username} onChange={(e) => set("username", e.target.value)} />}
-        </Field>
         <Field id="gtId" label="GT ID" hint="The 9-digit number on your BuzzCard, starting with 90." error={errors.gtId}>
           {(a) => (
             <input
@@ -271,7 +260,7 @@ export function SignupForm({ halls, devMail, redirectedTo = null }: { halls: Hal
 
       <fieldset className="space-y-4 border-t border-line pt-6">
         <legend className="h-section text-lg">Password</legend>
-        <Field id="password" label="Password" hint={passwordHint("it can't contain your username")} error={errors.password}>
+        <Field id="password" label="Password" hint={passwordHint("it can't contain the first part of your email")} error={errors.password}>
           {(a) => (
             <>
               <PasswordInput {...a} autoComplete="new-password" value={v.password} onChange={(e) => set("password", e.target.value)} />

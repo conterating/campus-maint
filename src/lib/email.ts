@@ -84,8 +84,9 @@ export async function sendEmail(mail: OutgoingEmail): Promise<SendResult> {
       const { data, error } = await resend.emails.send({
         from: process.env.EMAIL_FROM || "Ramblin' Repairs <onboarding@resend.dev>",
         to: redirect ?? mail.to,
-        subject: redirect ? `[for ${mail.to}] ${mail.subject}` : mail.subject,
-        text: redirect ? `This email was meant for ${mail.to}. It was redirected to you by EMAIL_REDIRECT_TO while email is in testing mode.\n\n${mail.text}` : mail.text,
+        // Everything lands in one inbox: a short tag tells the owner which account it was for.
+        subject: redirect && redirect.toLowerCase() !== mail.to.toLowerCase() ? `[for ${mail.to}] ${mail.subject}` : mail.subject,
+        text: mail.text,
       });
       if (!error) {
         // Log the outcome, never the message: it carries a single-use link.

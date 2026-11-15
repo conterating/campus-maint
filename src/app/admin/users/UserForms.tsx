@@ -128,7 +128,7 @@ export function CreateStaffForm({ isAdmin }: { isAdmin: boolean }) {
         <Field id="preferredName" label="Preferred name" optional error={f.errors.preferredName}>
           {(a) => <input {...a} className="field" autoComplete="off" value={v.preferredName} onChange={(e) => set("preferredName", e.target.value)} />}
         </Field>
-        <Field id="username" label="GT username" error={f.errors.username}>
+        <Field id="username" label="Username" error={f.errors.username}>
           {(a) => <input {...a} className="field" autoComplete="off" autoCapitalize="none" value={v.username} onChange={(e) => set("username", e.target.value)} />}
         </Field>
         <Field id="gtId" label="GT ID" error={f.errors.gtId}>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessionState, homeFor } from "@/lib/session";
 import { residenceOptions } from "@/lib/residences";
-import { devMailboxAvailable, mailIsLocalOnly, mailRedirectedTo } from "@/lib/dev-mail";
+import { devMailboxAvailable, mailIsLocalOnly } from "@/lib/dev-mail";
 import { SignupForm } from "./SignupForm";
 
 export const metadata: Metadata = { title: "Create a student account" };
@@ -16,7 +16,7 @@ export default async function SignupPage() {
       <p className="mt-1.5 max-w-prose text-ink-2">
         For Georgia Tech students. Staff and contractor accounts are created by an administrator.
       </p>
-      <SignupForm halls={await residenceOptions()} devMail={mailIsLocalOnly() ? { link: devMailboxAvailable() } : null} redirectedTo={mailRedirectedTo()} />
+      <SignupForm halls={await residenceOptions()} devMail={mailIsLocalOnly() ? { link: devMailboxAvailable() } : null} />
     </div>
   );
 }

@@ -2,9 +2,9 @@ import "server-only";
 import { prisma } from "./db";
 import { auth } from "./auth";
 import { findOrCreateRoom } from "./rooms";
-import { errorCode, errorMessage, type FormResult } from "./sign-in";
+import { errorCode, errorMessage, findUserByIdentifier, type FormResult } from "./sign-in";
 import { mailAllowed } from "./rate-limit";
-import { emailForUsername, fieldErrors, forgotPasswordSchema, signupSchema, type FieldErrors, type SignupInput } from "./auth-schemas";
+import { fieldErrors, usernameBaseFromEmail, forgotPasswordSchema, signupSchema, type FieldErrors, type SignupInput } from "./auth-schemas";
 
 // Student self sign-up, shared by the server action and the tests.
 
@@ -20,15 +20,15 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
   const v = parsed.data;
 
   // Duplicates: same message shape either way, with links to sign in or reset.
-  const [byUsername, byGtId] = await Promise.all([
-    prisma.user.findUnique({ where: { username: v.username }, select: { id: true } }),
+  const [byEmail, byGtId] = await Promise.all([
+    prisma.user.findFirst({ where: { email: v.email }, select: { id: true } }),
     prisma.user.findUnique({ where: { gtId: v.gtId }, select: { id: true } }),
   ]);
-  if (byUsername || byGtId) {
-    const which = byUsername ? "username" : "GT ID";
+  if (byEmail || byGtId) {
+    const which = byEmail ? "email" : "GT ID";
     return fail(`An account already exists for this ${which}.`, {
       code: "DUPLICATE",
-      fieldErrors: byUsername ? { username: "An account already exists for this username." } : { gtId: "An account already exists for this GT ID." },
+      fieldErrors: byEmail ? { email: "An account already exists for this email." } : { gtId: "An account already exists for this GT ID." },
     });
   }
 
@@ -40,7 +40,13 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
     if (!v.roomNumber) return fail("Fix the errors below.", { fieldErrors: { roomNumber: "Enter your room number, or pick Off campus." } });
   }
 
-  const email = emailForUsername(v.username);
+  const email = v.email;
+  // Internal sign-in name, from the email's first part; users never see or type it.
+  const base = usernameBaseFromEmail(email);
+  let username = base;
+  for (let n = 2; await prisma.user.findUnique({ where: { username }, select: { id: true } }); n++) {
+    username = `${base.slice(0, 20)}${n}`;
+  }
   const name = `${v.preferredName || v.firstName} ${v.lastName}`;
   try {
     const res = await auth.api.signUpEmail({
@@ -48,8 +54,8 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
         name,
         email,
         password: v.password,
-        username: v.username,
-        displayUsername: v.username,
+        username,
+        displayUsername: username,
         firstName: v.firstName,
         lastName: v.lastName,
         preferredName: v.preferredName,
@@ -81,8 +87,12 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
     if (code === "PASSWORD_COMPROMISED") {
       return fail("Fix the errors below.", { fieldErrors: { password: "That password has appeared in a data breach. Choose a different one." } });
     }
-    if (code === "USERNAME_IS_ALREADY_TAKEN" || code === "USER_ALREADY_EXISTS" || code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
-      return fail("An account already exists for this username.", { code: "DUPLICATE", fieldErrors: { username: "An account already exists for this username." } });
+    if (code === "USER_ALREADY_EXISTS" || code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
+      return fail("An account already exists for this email.", { code: "DUPLICATE", fieldErrors: { email: "An account already exists for this email." } });
+    }
+    if (code === "USERNAME_IS_ALREADY_TAKEN") {
+      // Lost a race for the generated username: ask them to try again.
+      return fail("We couldn't create your account. Try again in a moment.");
     }
     if (/Failed to check password/i.test(errorMessage(err) ?? "")) {
       return fail("Fix the errors below.", { fieldErrors: { password: "We couldn't check this password against known breaches right now. Try again in a moment." } });
@@ -99,12 +109,13 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
  * not the account exists, is already verified, or the caller is rate limited,
  * so it can't be used to probe accounts or to flood an inbox.
  */
-export async function resendVerification(rawUsername: string, ip: string): Promise<void> {
-  const parsed = forgotPasswordSchema.safeParse({ username: rawUsername });
+export async function resendVerification(rawIdentifier: string, ip: string): Promise<void> {
+  const parsed = forgotPasswordSchema.safeParse({ username: rawIdentifier });
   if (!parsed.success) return;
   try {
-    if (!(await mailAllowed(prisma, "resend", parsed.data.username, ip))) return;
-    const user = await prisma.user.findUnique({ where: { username: parsed.data.username } });
+    // Rate limit on the account when there is one, so email and username share a budget.
+    const user = await findUserByIdentifier(parsed.data.username);
+    if (!(await mailAllowed(prisma, "resend", user?.username ?? parsed.data.username, ip))) return;
     if (user && !user.emailVerified && !user.disabledAt) {
       await auth.api.sendVerificationEmail({ body: { email: user.email, callbackURL: "/login?verified=1" } });
     }

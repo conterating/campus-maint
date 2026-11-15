@@ -8,15 +8,12 @@ import { ErrorSummary, Field, PasswordInput, StatusMessage, Checkbox } from "@/c
 import { LOGIN_TABS, type LoginTab } from "@/lib/auth-schemas";
 import { GtSsoButton } from "./GtSsoButton";
 
-const TABS: Record<LoginTab, { label: string; href: string; usernameLabel: string; usernameHint: string }> = {
-  student: { label: "Student", href: "/login", usernameLabel: "GT username", usernameHint: "Like gburdell3. You can paste your @gatech.edu address." },
-  contractor: { label: "Contractor", href: "/login/contractor", usernameLabel: "Contractor username", usernameHint: "The username in your invite email." },
-  staff: {
-    label: "Staff & Administrator",
-    href: "/login/staff",
-    usernameLabel: "GT username",
-    usernameHint: "Like gburdell3. You can paste your @gatech.edu address.",
-  },
+const USERNAME_LABEL = "Email or username";
+const USERNAME_HINT = "The email you signed up with. Staff and contractors can use their username.";
+const TABS: Record<LoginTab, { label: string; href: string }> = {
+  student: { label: "Student", href: "/login" },
+  contractor: { label: "Contractor", href: "/login/contractor" },
+  staff: { label: "Staff & Administrator", href: "/login/staff" },
 };
 
 type Step = "password" | "totp" | "backup";
@@ -221,7 +218,7 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
             }
             title={unverified ? "Finish setting up your account" : "Couldn't sign in"}
           />
-          <Field id="username" label={cfg.usernameLabel} hint={cfg.usernameHint} error={errors.username}>
+          <Field id="username" label={USERNAME_LABEL} hint={USERNAME_HINT} error={errors.username}>
             {(a) => (
               <input
                 {...a}
@@ -269,7 +266,7 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
               }}
             >
               <label htmlFor={`${base}-resend-user`} className="block font-bold text-ink">
-                Your username
+                Your email or username
               </label>
               <input
                 id={`${base}-resend-user`}

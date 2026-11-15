@@ -16,7 +16,7 @@ export const PASSWORD_MAX = 128;
 export const PASSWORD_HINT = "Create a password for Ramblin' Repairs. Don't reuse your Georgia Tech password.";
 export const LOGIN_ERROR = "Username or password is incorrect.";
 
-/** GT usernames: a letter, then letters/digits, 2–16 characters total (e.g. "gburdell3"). */
+/** Staff usernames: a letter, then letters/digits, 2–16 characters total (e.g. "gburdell3"). */
 export const USERNAME_PATTERN = /^[a-z][a-z0-9]{1,15}$/;
 /** Contractor usernames may also use . _ - (they have no GT account). */
 export const CONTRACTOR_USERNAME_PATTERN = /^[a-z][a-z0-9._-]{1,31}$/;
@@ -36,6 +36,26 @@ export function normalizeRoomNumber(raw: string): string {
 /** Lowercase, trim, and drop a pasted "@gatech.edu". */
 export function normalizeUsername(raw: string): string {
   return raw.trim().toLowerCase().replace(/@gatech\.edu$/, "");
+}
+
+/** Lowercase and trim a sign-in / reset identifier: an email address or a username. Never strips anything. */
+export function normalizeIdentifier(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+export const EMAIL_MAX = 254;
+
+/** The part of an email before the "@", lowercased. */
+export function emailLocalPart(email: string): string {
+  return email.trim().toLowerCase().split("@")[0] ?? "";
+}
+
+/** A username for a new student, from the email's local part: a-z0-9 only, at most 20 characters. */
+export function usernameBaseFromEmail(email: string): string {
+  const base = emailLocalPart(email).replace(/[^a-z0-9]/g, "").slice(0, 20);
+  if (!base) return "student";
+  // Usernames must start with a letter (see the validator in src/lib/auth.ts): "123abc" → "s123abc".
+  return /^[a-z]/.test(base) ? base : `s${base}`.slice(0, 20);
 }
 
 export function emailForUsername(username: string): string {
@@ -64,9 +84,17 @@ export const usernameField = z
   .pipe(
     z
       .string()
-      .min(1, "Enter your GT username.")
-      .regex(USERNAME_PATTERN, "Use your GT username: a letter followed by letters or numbers (2–16 characters), like gburdell3."),
+      .min(1, "Enter a username.")
+      .regex(USERNAME_PATTERN, "Use a letter followed by letters or numbers (2–16 characters)."),
   );
+
+export const emailField = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1, "Enter your email.")
+  .max(EMAIL_MAX, "Keep this under 254 characters.")
+  .pipe(z.email("Enter a valid email address."));
 
 export const gtIdField = z
   .string()
@@ -87,12 +115,18 @@ export const phoneField = z
     return p;
   });
 
-/** Length and "doesn't contain the username" rules. Breach checks happen on the server. */
-export function passwordProblem(password: string, username?: string | null): string | null {
+/**
+ * Length and "doesn't contain your email name" rules. Breach checks happen on the server.
+ * `identities` are emails or usernames; for an email only the part before the "@" counts.
+ */
+export function passwordProblem(password: string, ...identities: (string | null | undefined)[]): string | null {
   if (password.length < PASSWORD_MIN) return `Use at least ${PASSWORD_MIN} characters.`;
   if (password.length > PASSWORD_MAX) return `Use ${PASSWORD_MAX} characters or fewer.`;
-  const u = username ? normalizeUsername(username) : "";
-  if (u.length >= 2 && password.toLowerCase().includes(u)) return "Your password can't contain your username.";
+  const lower = password.toLowerCase();
+  for (const id of identities) {
+    const u = id ? emailLocalPart(id) : "";
+    if (u.length >= 3 && lower.includes(u)) return "Your password can't contain the first part of your email or your username.";
+  }
   return null;
 }
 
@@ -119,8 +153,8 @@ export const LOGIN_TABS = ["student", "contractor", "staff"] as const;
 export type LoginTab = (typeof LOGIN_TABS)[number];
 
 export const loginSchema = z.object({
-  // Lenient on purpose: any malformed username just fails with the generic message.
-  username: z.string().transform(normalizeUsername).pipe(z.string().min(1, "Enter your username.").max(64, LOGIN_ERROR)),
+  // Email or username. Lenient on purpose: anything malformed just fails with the generic message.
+  username: z.string().transform(normalizeIdentifier).pipe(z.string().min(1, "Enter your email or username.").max(254, LOGIN_ERROR)),
   password: z.string().min(1, "Enter your password.").max(PASSWORD_MAX, LOGIN_ERROR),
   rememberMe: z.boolean().default(false),
   tab: z.enum(LOGIN_TABS).default("student"),
@@ -151,7 +185,7 @@ export const signupSchema = z
     firstName: trimmed(60).min(1, "Enter your first name."),
     lastName: trimmed(60).min(1, "Enter your last name."),
     preferredName: optionalText(60),
-    username: usernameField,
+    email: emailField,
     gtId: gtIdField,
     password: z.string(),
     confirmPassword: z.string(),
@@ -164,7 +198,7 @@ export const signupSchema = z
     acceptTerms: z.literal(true, "You need to agree to the terms and privacy notice."),
   })
   .superRefine((v, ctx) => {
-    const pw = passwordProblem(v.password, v.username);
+    const pw = passwordProblem(v.password, v.email);
     if (pw) ctx.addIssue({ code: "custom", path: ["password"], message: pw });
     if (v.confirmPassword !== v.password) ctx.addIssue({ code: "custom", path: ["confirmPassword"], message: "The passwords don't match." });
     if (v.residenceBuildingId !== OFF_CAMPUS) {
@@ -195,7 +229,7 @@ export type SignupData = z.output<typeof signupSchema>;
 // ---------------------------------------------------------------------------
 
 export const forgotPasswordSchema = z.object({
-  username: z.string().transform(normalizeUsername).pipe(z.string().min(1, "Enter your username.").max(64, "Enter your username.")),
+  username: z.string().transform(normalizeIdentifier).pipe(z.string().min(1, "Enter your email or username.").max(254, "Enter your email or username.")),
 });
 
 /** Reset and invite links. `username` is looked up on the server for the contains-username rule. */

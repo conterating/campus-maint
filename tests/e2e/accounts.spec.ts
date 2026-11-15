@@ -19,15 +19,15 @@ async function signOut(page: Page) {
 }
 
 test("student: sign up, verify from the email link, sign in, report, sign out", async ({ page }, info) => {
-  const username = `gp${info.project.name === "mobile" ? "m" : "d"}${Date.now() % 1_000_000}`;
+  const email = `qa+${info.project.name === "mobile" ? "m" : "d"}${Date.now() % 1_000_000}@example.com`;
   const gtId = `90${String(Date.now()).slice(-7)}`;
   await page.goto("/signup");
   await page.getByLabel("First name").fill("George");
   await page.getByLabel("Last name").fill("Burdell");
   await page.getByLabel("Year").selectOption("SECOND");
   await page.getByLabel("Gender (optional)").selectOption("PREFER_NOT_TO_SAY");
-  await page.getByLabel("GT username").fill(username);
-  await expect(page.getByText(`Your email will be ${username}@gatech.edu`)).toBeVisible();
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await expect(page.getByText("We'll send a confirmation link here.")).toBeVisible();
   await page.getByLabel("GT ID", { exact: true }).fill(gtId);
   await page.getByLabel("Residence hall").selectOption("b-glenn");
   await page.getByLabel("Room number").fill("216");
@@ -36,16 +36,16 @@ test("student: sign up, verify from the email link, sign in, report, sign out", 
   await page.getByLabel("Retype password").fill("ramblin wreck from tech");
   await page.getByLabel(/I agree to the Ramblin/).check();
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("heading", { name: "Check your GT email to finish signing up." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 
   // Can't sign in until the email is confirmed.
-  await loginAttempt(page, username, "ramblin wreck from tech");
+  await loginAttempt(page, email, "ramblin wreck from tech");
   await expect(page.getByText("Check your email to finish setting up your account.")).toBeVisible();
 
-  await page.goto(await lastEmailLink(`${username}@gatech.edu`, "verify"));
+  await page.goto(await lastEmailLink(email, "verify"));
   await expect(page).toHaveURL(/\/login\?verified=1/);
   await expect(page.getByText("Your email is confirmed. Sign in to continue.")).toBeVisible();
-  await loginWithForm(page, username, { password: "ramblin wreck from tech" });
+  await loginWithForm(page, email, { password: "ramblin wreck from tech" });
   await expect(page).toHaveURL(/\/$/);
   // The room isn't confirmed yet, so the banner shows and only public buildings are open.
   await expect(page.getByText("Housing is confirming your room. Until then you can report issues in public buildings.")).toBeVisible();
@@ -172,14 +172,14 @@ test("forgot password, reset from the email link, then sign in", async ({ page }
   await page.goto("/login");
   await page.getByRole("link", { name: "Forgot password?" }).click();
   await expect(page.getByRole("heading", { name: "Forgot your password?" })).toBeVisible();
-  await page.getByLabel("Username", { exact: true }).fill("hali3");
+  await page.getByLabel("Email or username", { exact: true }).fill("hali3");
   await page.getByRole("button", { name: "Email me a reset link" }).click();
-  await expect(page.getByText(/If there's an account for that username, we sent a reset link/)).toBeVisible();
+  await expect(page.getByText(/If there's an account for that email or username, we sent a reset link/)).toBeVisible();
   await page.goto(await lastEmailLink("hali3@gatech.edu", "reset"));
   await page.getByLabel("New password", { exact: true }).fill("hali3 is my password");
   await page.getByLabel("Retype new password").fill("hali3 is my password");
   await page.getByRole("button", { name: "Change password" }).click();
-  await expect(page.getByText("Your password can't contain your username.").first()).toBeVisible();
+  await expect(page.getByText("Your password can't contain the first part of your email or your username.").first()).toBeVisible();
   await page.getByLabel("New password", { exact: true }).fill("graduate living center");
   await page.getByLabel("Retype new password").fill("graduate living center");
   await page.getByRole("button", { name: "Change password" }).click();

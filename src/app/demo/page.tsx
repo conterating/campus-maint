@@ -9,6 +9,12 @@ import { DemoControls, UserButton } from "./DemoControls";
 
 export const metadata: Metadata = { title: "Demo controls" };
 
+// "Reset demo data" replays the whole seed (about 3,300 SQL statements).
+// Locally that's under a second; against a hosted database every statement is
+// a network round trip, so give this page's server actions the most time
+// Vercel allows instead of the default.
+export const maxDuration = 300;
+
 export default async function DemoPage() {
   const { viewer, now } = await getContext();
   const [users, offset] = await Promise.all([

@@ -5,6 +5,16 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 // it back to record "what the AI said" next to any student corrections. Signing it
 // stops a tampered request from rewriting the AI's original classification.
 
+// A random per-process secret is fine on one long-running server. On Vercel,
+// "analyze" and "submit" can run in different function instances, each with
+// its own random secret, so the signature check fails and the ticket silently
+// records the keyword classifier instead of the AI's verdict. Say so in the logs.
+if (!process.env.TRIAGE_SIGNING_SECRET && process.env.VERCEL) {
+  console.warn(
+    "TRIAGE_SIGNING_SECRET is not set. On Vercel, set it to a long random string in the project's environment variables, " +
+      "or reports will often record the keyword classification instead of Claude's.",
+  );
+}
 const secret = process.env.TRIAGE_SIGNING_SECRET || randomBytes(32).toString("hex");
 
 export type SignedAiVerdict = {

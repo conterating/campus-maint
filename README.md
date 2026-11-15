@@ -42,6 +42,29 @@ GOOGLE_MAPS_API_KEY=AIza...
 
 Restrict the key to your site's domain (HTTP referrers) in Google Cloud, since browsers can see it. Without a key the map uses OpenStreetMap tiles, and everything else works the same.
 
+## Deploying to Vercel
+
+Locally the app keeps its data in a SQLite file and photos in `uploads/`. Vercel's filesystem is read-only and isn't shared between requests, so a deployment uses two hosted services instead: **Turso** (hosted SQLite, so the schema and queries are unchanged) and **Vercel Blob** (for photos). The app switches to them automatically when their environment variables are present; nothing else changes.
+
+1. **Import the repo** in Vercel (Add New → Project). Framework preset **Next.js**; leave the root directory, build command (`npm run build` already runs `prisma generate`), output and install settings at their defaults.
+2. **Add a database:** in the project, Storage → Marketplace → **Turso Cloud** → create a database and connect it to the project. Pick a region close to your Vercel functions' region (Settings → Functions); every query is a round trip. This sets `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
+3. **Add photo storage:** Storage → **Blob** → create a store, choose **Private** access, and connect it to the project. This sets `BLOB_READ_WRITE_TOKEN`. (If you chose Public, also add `BLOB_ACCESS=public`.)
+4. **Add environment variables** (Settings → Environment Variables):
+   - `TRIAGE_SIGNING_SECRET`: **required.** A long random string (`openssl rand -hex 32`). Without it, Vercel's separate function instances can't verify each other's signatures, and reports quietly record the keyword classification instead of Claude's.
+   - `ANTHROPIC_API_KEY` (optional): turns on Claude triage.
+   - `GOOGLE_MAPS_API_KEY` (optional): restrict it to your `*.vercel.app` domain in Google Cloud.
+   - `PUBLIC_BASE_URL`: your site's address, so printed QR codes point at it.
+5. **Load the schema and demo data once**, from your laptop. Copy the two Turso values from the Vercel project's environment variables (don't put them in your local `.env`):
+   ```bash
+   TURSO_DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... npm run db:hosted:reset
+   ```
+   It drops every table, recreates the schema from `prisma/schema.prisma` and loads the sample data. Run it again after any schema change.
+6. **Deploy** (or redeploy, so the new variables apply).
+
+Notes:
+- **Reset demo data** on the live site replays the whole seed (about 3,300 SQL statements) over the network, so it can take a minute or more. The Demo page allows up to 300 seconds, Vercel's maximum.
+- The test suites blank the Turso and Blob variables, so running tests can never touch the live database or photos.
+
 ## How the demo works
 
 There's no real login. The person chip in the header opens **Demo**, where you can:
@@ -115,7 +138,7 @@ Students can also only *file* reports in public buildings, their own hall's shar
 ## Testing
 
 ```bash
-npm test             # unit + integration (Vitest): 180 tests, ~25 s
+npm test             # unit + integration (Vitest): 184 tests, ~25 s
 npm run test:e2e     # browser tests (Playwright): 34 scenarios × phone and desktop
 npm run test:all     # typecheck, lint, Vitest, Playwright
 ```
@@ -138,10 +161,10 @@ The first Playwright run needs a browser: `npx playwright install chromium`.
 ## Tech notes and decisions
 
 - **Next.js 16** (App Router) with Tailwind 4. `cacheComponents` is off: every page depends on the "view as" cookie, so request-time rendering is the simpler, correct model.
-- **Prisma 6.19 + SQLite.** Prisma's `latest` npm tag pointed at a 8.0 release candidate during development, so the stable 6.x line is pinned. SQLite has no enums; allowed values live in `src/lib/domain.ts` and are validated before writes.
+- **Prisma 6.19 + SQLite.** Prisma's `latest` npm tag pointed at a 8.0 release candidate during development, so the stable 6.x line is pinned. SQLite has no enums; allowed values live in `src/lib/domain.ts` and are validated before writes. Deployed, the same schema runs on Turso (hosted SQLite) through `@prisma/adapter-libsql`; `src/lib/prismaClient.ts` picks the database.
 - **The seed replays history through the real services**, in time order, with the escalation sweep running hourly. Seeded data therefore obeys exactly the same rules as live data.
 - **Department comes from the routing rules, not the model.** The AI suggests category and severity, and the config decides the department, so routing is auditable and editable in one file. Students correct the category (the department follows); staff can reassign departments directly.
 - **The AI's original verdict is signed** between the analyze and submit steps, so the "what the AI said vs. what was filed" record can't be tampered with from the browser.
-- Photos are downscaled in the browser, checked by magic bytes, stored in `uploads/`, and served by a route handler. Their URLs are unguessable UUIDs but aren't permission-checked. Fine for a demo; a real deployment would put them behind the same visibility check.
+- Photos are downscaled in the browser, checked by magic bytes, stored in `uploads/` locally or a private Vercel Blob store when deployed (`src/lib/uploads.ts`), and served by a route handler. Their URLs are unguessable UUIDs but aren't permission-checked. Fine for a demo; a real deployment would put them behind the same visibility check.
 - **All 38 residence halls** are in the sample data (East Campus, West Campus, North Avenue, graduate housing), each with generated hallways, bathrooms (traditional halls), lounges, laundry rooms, washers, dryers, and elevators. Coordinates and addresses come from OpenStreetMap (Nominatim). The building picker groups them by area, with the student's own hall first.
 - **Maps.** With `GOOGLE_MAPS_API_KEY` set, the map uses Google Maps with a quiet custom style; pins, popups, and the heat layer are drawn as our own DOM and canvas overlays, so no Map ID is needed and pins stay keyboard-focusable buttons. Without a key, or if Google rejects the key, it falls back to OpenStreetMap tiles through Leaflet.

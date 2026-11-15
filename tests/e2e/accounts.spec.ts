@@ -1,6 +1,7 @@
 // Accounts in a real browser: sign-up and email verification, each role's
 // sign-in, contractor work, staff dispatch, admin 2FA, password reset, the
 // keyboard, and the GT SSO placeholder.
+import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
 import { PASSWORD, ADMIN_TOTP_SECRET, expectAccessible, lastEmailLink, loginWithForm, resetDemo, signInAs, totp } from "./helpers";
 
@@ -60,9 +61,21 @@ test("student: sign up, verify from the email link, sign in, report, sign out", 
   expect((await page.goto("/my-tickets"))?.url()).toMatch(/\/login\?next=%2Fmy-tickets/);
 });
 
+/** Test fixture: un-dispatch one assigned Facilities ticket in the e2e database (the real unassigned state auto-assign avoids). */
+async function returnOneFacilitiesTicketToQueue() {
+  const db = new PrismaClient({ datasourceUrl: "file:./e2e.db" });
+  try {
+    const t = await db.ticket.findFirstOrThrow({ where: { department: "FACILITIES", status: "ASSIGNED", assigneeId: { not: null } }, orderBy: { number: "desc" } });
+    await db.scheduledJob.deleteMany({ where: { ticketId: t.id } });
+    await db.ticket.update({ where: { id: t.id }, data: { status: "TRIAGED", assigneeId: null } });
+  } finally {
+    await db.$disconnect();
+  }
+}
+
 async function loginAttempt(page: Page, username: string, password: string, tab = "/login") {
   await page.goto(tab);
-  await page.getByLabel(/username/i).fill(username);
+  await page.locator("#username").fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
@@ -93,6 +106,8 @@ test("contractor: sign in on the Contractor tab, start and finish a job, and the
 
 test("staff: assign a ticket to a contractor, and the contractor sees it", async ({ page, context }, info) => {
   test.skip(info.project.name === "mobile", "The queue's quick-assign column is desktop-only; phones assign from the ticket page (demo script).");
+  // The scheduler now dispatches every waiting ticket on its own, so put one Facilities job back in the queue.
+  await returnOneFacilitiesTicketToQueue();
   await loginWithForm(page, "rdelgado7", { tab: "/login/staff" });
   await expect(page).toHaveURL(/\/staff$/);
   // The first unassigned Facilities ticket in the queue: only eligible contractors are offered.
@@ -102,14 +117,14 @@ test("staff: assign a ticket to a contractor, and the contractor sees it", async
   const num = (await page.locator(`label[for="${id}"]`).textContent())!.match(/RR-\d+/)![0];
   await expect(picker.locator("option", { hasText: "Victor" })).toHaveCount(0); // background check pending
   await picker.selectOption({ label: (await picker.locator("option", { hasText: "Marcus B." }).textContent())! });
-  await page.getByRole("button", { name: `Assign ${num}` }).filter({ visible: true }).click();
+  await page.getByRole("button", { name: `Assign ${num}`, exact: true }).filter({ visible: true }).click();
   await expect(page.getByLabel(`Assign ${num} to`).filter({ visible: true })).toHaveCount(0);
 
   await signInAs(context, "u-marcus");
   await page.goto("/jobs");
   await expect(page.getByText(num).first()).toBeVisible();
   await page.goto("/notifications");
-  await expect(page.getByRole("link", { name: new RegExp(`New job: ${num}`) })).toBeVisible();
+  await expect(page.getByRole("link", { name: new RegExp(`New job: ${num}`) }).first()).toBeVisible();
 });
 
 test("admin: sign in with 2FA, create a contractor, and the audit log shows it", async ({ page }, info) => {
@@ -131,8 +146,8 @@ test("admin: sign in with 2FA, create a contractor, and the audit log shows it",
   await page.getByLabel("Contractor username").fill(user);
   await page.getByLabel("Email", { exact: true }).fill(`${user}@lopezhvac.test`);
   await page.getByLabel("Company", { exact: true }).fill("Lopez HVAC");
-  await page.getByRole("checkbox", { name: /Heating|HVAC/ }).check();
-  await page.getByRole("checkbox", { name: "Facilities" }).check();
+  await page.getByRole("checkbox", { name: "Heating & cooling", exact: true }).check();
+  await page.getByRole("checkbox", { name: "Facilities", exact: true }).check();
   await page.getByLabel("License expires").fill("2030-01-31");
   await page.getByLabel("Insurance expires").fill("2030-01-31");
   await page.getByLabel("Background check").selectOption("CLEARED");
@@ -225,7 +240,7 @@ for (const [tab, path, username, home] of [
     await expect(page.getByRole("tab", { name: tab })).toHaveAttribute("aria-selected", "true");
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await page.keyboard.press("Tab");
-    await expect(page.getByLabel(/username/i)).toBeFocused();
+    await expect(page.locator("#username")).toBeFocused();
     await page.keyboard.type(username);
     await page.keyboard.press("Tab");
     await expect(page.getByLabel("Password", { exact: true })).toBeFocused();

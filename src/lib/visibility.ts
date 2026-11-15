@@ -4,7 +4,8 @@
 //   DORM   tickets: residents of that residence hall, plus staff and admins
 //   PUBLIC tickets: every student, staff member and admin
 //   Students also always see the tickets they reported.
-//   CONTRACTORS see only the tickets assigned to them, nothing else.
+//   CONTRACTORS see only the tickets assigned to them, or open tickets they hold a live
+//   (scheduled or in-progress) slot on as a helper. Finished or cancelled slots grant nothing.
 //
 // A student whose residence isn't verified yet gets a Viewer with no hall or
 // room (see getViewer), so they see public tickets plus their own reports.
@@ -12,7 +13,7 @@
 // Every query that returns tickets, ticket counts, map points, or duplicate
 // matches to a user must AND its filter with `ticketVisibilityWhere(viewer)`.
 import type { Prisma } from "@prisma/client";
-import type { Role } from "./domain";
+import { OPEN_STATUSES, type Role } from "./domain";
 
 export type StaffPermissions = {
   canManageUsers: boolean;
@@ -66,9 +67,19 @@ export function can(v: Pick<Viewer, "role" | "permissions">, perm: keyof StaffPe
   return v.permissions[perm];
 }
 
+/** Schedule-row statuses that still give a helper access to a ticket. */
+export const LIVE_SLOT_STATUSES = ["SCHEDULED", "IN_PROGRESS"];
+
+/** A live slot for this contractor on an open ticket (the only way a non-assignee contractor sees a ticket). */
+export function helperSlotWhere(contractorId: string): Prisma.ScheduledJobWhereInput {
+  return { contractorId, status: { in: LIVE_SLOT_STATUSES }, ticket: { status: { in: [...OPEN_STATUSES] } } };
+}
+
 export function ticketVisibilityWhere(viewer: Viewer): Prisma.TicketWhereInput {
   if (isStaff(viewer)) return {};
-  if (viewer.role === "CONTRACTOR") return { assigneeId: viewer.id };
+  if (viewer.role === "CONTRACTOR") {
+    return { OR: [{ assigneeId: viewer.id }, { status: { in: [...OPEN_STATUSES] }, scheduledJobs: { some: { contractorId: viewer.id, status: { in: LIVE_SLOT_STATUSES } } } }] };
+  }
   if (viewer.role !== "STUDENT") return { id: "__nobody__" };
 
   const allowed: Prisma.TicketWhereInput[] = [{ scope: "PUBLIC" }, { reporterId: viewer.id }];
@@ -89,10 +100,10 @@ export function visibleTickets(viewer: Viewer, where: Prisma.TicketWhereInput = 
 /** In-memory check for a ticket already loaded (used to guard writes). */
 export function canView(
   viewer: Viewer,
-  t: { scope: string; buildingId: string; spaceId: string | null; reporterId: string; assigneeId: string | null },
+  t: { scope: string; buildingId: string; spaceId: string | null; reporterId: string; assigneeId: string | null; helperIds?: string[] },
 ): boolean {
   if (isStaff(viewer)) return true;
-  if (viewer.role === "CONTRACTOR") return t.assigneeId === viewer.id;
+  if (viewer.role === "CONTRACTOR") return t.assigneeId === viewer.id || !!t.helperIds?.includes(viewer.id);
   if (viewer.role !== "STUDENT") return false;
   if (t.reporterId === viewer.id) return true;
   if (t.scope === "PUBLIC") return true;

@@ -98,7 +98,7 @@ describe("students who don't live in a dorm", () => {
   });
 
   it("cannot read, follow, or me-too a hidden ticket by id", async () => {
-    const hidden = await db.ticket.findFirstOrThrow({ where: { scope: "DORM", buildingId: "b-glenn", status: "TRIAGED" } });
+    const hidden = await db.ticket.findFirstOrThrow({ where: { scope: "DORM", buildingId: "b-glenn", status: { in: ["TRIAGED", "ASSIGNED", "IN_PROGRESS"] } } });
     await expect(getVisibleTicketOrThrow(db, as("u-alex"), hidden.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(setFollow(db, as("u-alex"), hidden.id, true, now)).rejects.toBeInstanceOf(AppError);
     await expect(addMeToo(db, as("u-sam"), hidden.id, now)).rejects.toMatchObject({ code: "NOT_FOUND" });

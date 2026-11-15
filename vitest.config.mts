@@ -25,6 +25,8 @@ export default defineConfig({
       HIBP_DISABLED: "1",
       RESEND_API_KEY: "",
       DEMO_MODE: "true",
+      // Tickets stay Triaged after filing; scheduler tests opt in explicitly.
+      AUTO_ASSIGN: "off",
       TURSO_DATABASE_URL: "",
       TURSO_AUTH_TOKEN: "",
       BLOB_READ_WRITE_TOKEN: "",

@@ -23,7 +23,7 @@ export function navItemsFor(role: NavRole): NavItem[] {
       { href: "/admin", label: "Insights", icon: "chart" },
       { href: "/staff", label: "Queues", icon: "queue" },
       { href: "/report", label: "Report", icon: "plus" },
-      { href: "/map", label: "Map", icon: "map" },
+      { href: "/admin/map", label: "Live map", icon: "map" },
       { href: "/admin/users", label: "People", icon: "user" },
     ];
   }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ArrowRightLeft, ChevronDown, MessageSquarePlus, PencilLine, Wrench } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, MessageSquarePlus, PencilLine, Wand2, Wrench } from "lucide-react";
+import { autoAssignAction } from "@/app/schedule-actions";
 import { staffNoteAction, staffOverrideAction, staffReassignAction, staffStatusAction } from "@/app/actions";
 import { CATEGORIES, CATEGORY_LABEL, DEPARTMENTS, DEPARTMENT_LABEL, SEVERITIES, SEVERITY_LABEL, STAFF_SETTABLE_STATUSES, STATUS_LABEL, type Department } from "@/lib/domain";
 import { useAction } from "@/components/useAction";
@@ -11,6 +12,8 @@ type Ticket = { id: string; status: string; category: string; severity: string; 
 type Options = {
   contractors: { id: string; name: string; company: string; availability: string; activeJobs: number; maxActiveJobs: number; problems: string[] }[];
   staff: { id: string; name: string; activeJobs: number }[];
+  /** The scheduler's best contractors, best first. */
+  suggestions?: { id: string; name: string; reasons: string; startsLabel: string; score: number }[];
 };
 
 function Section({ title, icon: Icon, children, defaultOpen = false }: { title: string; icon: typeof Wrench; children: React.ReactNode; defaultOpen?: boolean }) {
@@ -53,6 +56,33 @@ export function StaffPanel({ ticket, options, viewerId, canAssign }: { ticket: T
         <p className="hint mt-1">{DEPARTMENT_LABEL[ticket.department as Department]} queue</p>
         {closed && <p className="mt-2 text-sm text-ink-2">The reporter confirmed this fix. They can reopen it if it breaks again.</p>}
       </div>
+
+      {!ticket.assigneeId && !closed && canAssign && (
+        <div className="border-t border-line py-3">
+          <h3 className="wo-label">Scheduler suggests</h3>
+          {options.suggestions?.length ? (
+            <ol className="mt-2 space-y-2">
+              {options.suggestions.map((s, i) => (
+                <li key={s.id} className="border-l-[3px] border-navy pl-3 text-[0.9375rem]">
+                  <span className="font-bold text-ink">
+                    {i + 1}. {s.name}
+                  </span>{" "}
+                  <span className="num text-ink-3">score {s.score.toFixed(0)}</span>
+                  <br />
+                  <span className="text-ink-2">{s.reasons}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-1 text-sm text-ink-2">Nobody eligible has an open slot. Check the ineligible list below.</p>
+          )}
+          {ticket.status === "TRIAGED" && (
+            <button type="button" className="btn btn-accent btn-sm mt-3" disabled={pending || !options.suggestions?.length} onClick={() => run(() => autoAssignAction(ticket.id), "Auto-assigned.")}>
+              <Wand2 aria-hidden className="size-4" /> Auto-assign
+            </button>
+          )}
+        </div>
+      )}
 
       <Section title="Update status" icon={Wrench} defaultOpen={!closed}>
         <form

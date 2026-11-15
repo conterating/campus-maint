@@ -3,11 +3,11 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useId, useMemo, useState } from "react";
-import { Flame, List, MapPin, SlidersHorizontal, X } from "lucide-react";
+import { Flame, List, MapPin, SlidersHorizontal, Wrench, X } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABEL, SEVERITIES, SEVERITY_LABEL, formatTicketNumber, isOpenStatus, type Category, type Severity } from "@/lib/domain";
 import { StatusText } from "@/components/TicketTag";
 import { relativeTime } from "@/lib/format";
-import { PIN_COLOR } from "./mapShared";
+import { PIN_COLOR, isWorking } from "./mapShared";
 import { EmptyState } from "@/components/EmptyState";
 import { cleanWhere } from "@/components/WorkOrder";
 
@@ -30,6 +30,12 @@ export type MapPoint = {
   createdAt: string;
   /** Signed-out visitor: show a sign-in link instead of Me too / Follow. */
   guest?: boolean;
+  /** When the open work log began (IN_PROGRESS tickets). */
+  workingSince?: string;
+  /** Short name of the technician; only sent to STAFF and ADMIN. */
+  workerName?: string;
+  /** Admin map context pins: no Follow / Me too. */
+  readOnly?: boolean;
 };
 
 const loading = () => (
@@ -107,6 +113,11 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
                       <span className="num text-right text-[1.125rem] text-navy">{formatTicketNumber(p.number)}</span>
                       <span className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[1.375rem] text-[0.9375rem]">
                         <StatusText status={p.status} />
+                        {isWorking(p) && (
+                          <span className="inline-flex items-center gap-1 rounded-[3px] bg-navy px-1.5 py-0.5 text-[0.8125rem] font-bold text-white">
+                            <Wrench aria-hidden className="size-3" /> Working now
+                          </span>
+                        )}
                         <span className="text-ink-2">{SEVERITY_LABEL[p.severity as Severity]}</span>
                         {p.meTooCount > 0 && <span className="num text-ink-2">{p.meTooCount + 1} affected</span>}
                         <span className="num text-ink-3">{relativeTime(p.createdAt, now)}</span>
@@ -228,7 +239,7 @@ export function MapClient({ points, now, isStudent, googleKey }: { points: MapPo
               </button>
             )}
             <p className="hidden border-t border-white/15 pt-4 text-[0.875rem] leading-relaxed text-white/75 md:block">
-              Pin color shows how serious an issue is; green means fixed. The number on a pin is how many people reported it. Heat shows where problems cluster.
+              Pin color shows how serious an issue is; green means fixed, and a gold wrench badge means a technician is working on it right now. The number on a pin is how many people reported it. Heat shows where problems cluster.
             </p>
           </div>
         </div>

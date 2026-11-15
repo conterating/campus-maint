@@ -27,6 +27,8 @@ function accountLinks(v: Viewer, demoMode: boolean, realRole: string): AccountLi
   ];
   if (can(v, "canManageUsers") || can(v, "canVerifyResidence")) links.push({ href: "/admin/users", label: "People & residences" });
   if (can(v, "canManageContractors")) links.push({ href: "/admin/contractors", label: "Contractors" });
+  if (v.role === "STAFF" || v.role === "ADMIN") links.push({ href: "/admin/advisories", label: "Post an advisory" });
+  if (v.role === "ADMIN") links.push({ href: "/map", label: "Public map" });
   if (v.role === "ADMIN") links.push({ href: "/admin/audit", label: "Audit log" });
   if (demoMode && realRole === "ADMIN") links.push({ href: "/demo", label: "Demo controls" });
   return links;

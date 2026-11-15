@@ -3,6 +3,8 @@ import { routeTicket } from "@/config/routing";
 import {
   CATEGORIES,
   DEPARTMENTS,
+  SKILLS,
+  SKILL_LABEL,
   LOCATION_TYPES,
   parseKeyList,
   type Category,
@@ -45,6 +47,8 @@ export type ContractorForAssignment = {
   role: string;
   disabledAt: Date | null;
   trades: string;
+  /** Comma-separated Skill keys. Empty or missing means "go by trades". */
+  skills?: string | null;
   departments: string;
   licenseExpiresAt: Date | null;
   insuranceExpiresAt: Date | null;
@@ -55,25 +59,41 @@ export type ContractorForAssignment = {
   contractEndsAt: Date | null;
 };
 
-export type TicketForAssignment = { department: string; category: string; scope: string };
+export type TicketForAssignment = {
+  department: string;
+  category: string;
+  scope: string;
+  /** Comma-separated Skill keys the job needs. Empty or missing means "go by category". */
+  requiredSkills?: string | null;
+};
 
 /**
  * Every reason a contractor can't take this ticket right now (empty = eligible).
  * `activeJobs` is how many open tickets are already assigned to them, not
- * counting this one.
+ * counting this one. `forScheduling` is for the auto-scheduler: shifts and work days decide when
+ * someone can be booked, so an OFF_DUTY status is ignored.
  */
-export function assignmentProblems(c: ContractorForAssignment, t: TicketForAssignment, activeJobs: number, now: Date): string[] {
+export function assignmentProblems(c: ContractorForAssignment, t: TicketForAssignment, activeJobs: number, now: Date, opts: { forScheduling?: boolean } = {}): string[] {
   const problems: string[] = [];
   const at = now.getTime();
   if (c.role !== "CONTRACTOR" || c.disabledAt) problems.push("Account is not an active contractor");
   if (c.backgroundCheckStatus !== "CLEARED") problems.push("Background check is not cleared");
   if (c.contractEndsAt && c.contractEndsAt.getTime() < at) problems.push("Contract has ended");
   if (!parseKeyList(c.departments, DEPARTMENTS).includes(t.department as Department)) problems.push("Doesn't work for this department");
-  if (!parseKeyList(c.trades, CATEGORIES).includes(t.category as Category)) problems.push("No trade covering this category");
+  const ownSkills = parseKeyList(c.skills, SKILLS);
+  const needed = parseKeyList(t.requiredSkills, SKILLS);
+  if (ownSkills.length && needed.length) {
+    // Partial cover is fine here: the scheduler adds helpers for the rest. No overlap at all is not.
+    if (!needed.some((k) => ownSkills.includes(k))) problems.push(`No matching skill (needs ${needed.map((k) => SKILL_LABEL[k]).join(" or ")})`);
+  } else if (!parseKeyList(c.trades, CATEGORIES).includes(t.category as Category)) {
+    problems.push("No trade covering this category");
+  }
   if (!c.licenseExpiresAt || c.licenseExpiresAt.getTime() < at) problems.push("License expired or missing");
   if (!c.insuranceExpiresAt || c.insuranceExpiresAt.getTime() < at) problems.push("Insurance expired or missing");
   if ((t.scope === "ROOM" || t.scope === "DORM") && !c.residenceHallAccess) problems.push("Not cleared to work inside residence halls");
-  if (c.availability === "OFF_DUTY") problems.push("Off duty");
+  // The scheduler plans future shifts (and on-call Emergencies), so "off duty" right now doesn't rule anyone out there;
+  // it still blocks a dispatcher's manual "assign now".
+  if (c.availability === "OFF_DUTY" && !opts.forScheduling) problems.push("Off duty");
   if (activeJobs >= c.maxActiveJobs) problems.push(`Already has ${activeJobs} active jobs (max ${c.maxActiveJobs})`);
   return problems;
 }

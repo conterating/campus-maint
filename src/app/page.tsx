@@ -14,6 +14,8 @@ import { TicketThumb } from "@/components/TicketTag";
 import { placeText } from "@/components/WorkOrder";
 import { EmptyState } from "@/components/EmptyState";
 import { HomeComposer } from "./HomeComposer";
+import { AdvisoryBoard } from "@/components/AdvisoryBoard";
+import { listActiveAdvisories } from "@/lib/advisories";
 
 /** Short hall name for chips: "Glenn Residence Hall" → "Glenn". */
 function hallShort(name: string) {
@@ -27,10 +29,11 @@ export default async function HomePage() {
   if (viewer.role === "ADMIN") redirect("/admin");
   if (viewer.role === "CONTRACTOR") redirect("/jobs");
 
-  const [mine, nearby, user] = await Promise.all([
+  const [mine, nearby, user, advisories] = await Promise.all([
     listMyTickets(prisma, viewer),
     listVisibleTickets(prisma, viewer, { status: { in: OPEN_STATUSES } }),
     prisma.user.findUnique({ where: { id: viewer.id }, include: { residenceBuilding: true, room: true } }),
+    listActiveAdvisories(prisma, now),
   ]);
 
   const active = mine.filter((t) => isOpenStatus(t.status) || t.status === "RESOLVED").slice(0, 4);
@@ -68,6 +71,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-12 pt-8 md:px-6 md:pt-16">
+      <AdvisoryBoard advisories={advisories} now={now} className="mb-10" />
       <section aria-labelledby="hero-title" className="max-w-3xl">
         <p className="wo-label">
           {viewer.name.split(" ")[0]}

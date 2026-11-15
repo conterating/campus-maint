@@ -7,6 +7,8 @@ import {
   CATEGORY_LABEL,
   LOCATION_TYPE_LABEL,
   SEVERITIES,
+  SKILLS,
+  SKILL_LABEL,
   type Category,
   type LocationType,
   type Severity,
@@ -19,6 +21,8 @@ const TriageSchema = z.object({
   summary: z.string(),
   rationale: z.string(),
   safety_concern: z.boolean(),
+  required_skills: z.array(z.enum(SKILLS)).optional(),
+  estimated_minutes: z.number().optional(),
 });
 
 export type ClaudeTriage = z.infer<typeof TriageSchema>;
@@ -44,7 +48,12 @@ Rules:
 - Base the severity on what the student describes, not on how upset they sound.
 - If there is any sign of a safety hazard, set safety_concern to true and severity to EMERGENCY.
 - summary: one plain sentence, under 80 characters, naming the problem and where it is, written for a maintenance technician. No ticket jargon.
-- rationale: one short sentence explaining the category and severity.`;
+- rationale: one short sentence explaining the category and severity.
+- required_skills: the trades a technician needs on site (use the keys), at most 3. A leaking light fixture needs PLUMBER and ELECTRICIAN.
+- estimated_minutes: realistic on-site time for one technician, 15 to 480.
+
+Skills (use the key):
+${SKILLS.map((k) => `- ${k}: ${SKILL_LABEL[k]}`).join("\n")}`;
 
 let client: Anthropic | null = null;
 

@@ -3,7 +3,8 @@ import { prisma } from "./db";
 import { auth } from "./auth";
 import { signInBlockReason } from "./eligibility";
 import { canAccessPath, homeFor } from "./access";
-import { lockedUntil, recordLoginAttempt } from "./lockout";
+import { lockedUntil, lockedUntilGlobal, recentFailureCount, recordLoginAttempt } from "./lockout";
+import { LIMITS, checkLimit, clientIp, minutesLabel, recordHit } from "./rate-limit";
 import { isRole } from "./domain";
 import { LOGIN_ERROR, fieldErrors, loginSchema, type FieldErrors, type LoginInput } from "./auth-schemas";
 
@@ -53,18 +54,30 @@ export async function attemptLogin(input: LoginInput, reqHeaders: Headers): Prom
   }
   const { username, password, rememberMe, next } = parsed.data;
 
-  const until = await lockedUntil(prisma, username, new Date());
+  // Layers: this username from this address (hard lock), this username from
+  // anywhere (hard lock at a much higher count), and this address overall
+  // (slowdown only, so a shared campus address isn't locked out by one person).
+  const ip = clientIp(reqHeaders);
+  const now = new Date();
+  const until = (await lockedUntil(prisma, username, now, ip)) ?? (await lockedUntilGlobal(prisma, username, now));
   if (until) {
-    const mins = Math.max(1, Math.ceil((until.getTime() - Date.now()) / 60_000));
-    return fail(`Too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}, or reset your password.`, { code: "LOCKED" });
+    return fail(`Too many failed attempts. Try again in ${minutesLabel(until.getTime() - Date.now())}, or reset your password.`, { code: "LOCKED" });
   }
+  const ipState = await checkLimit(prisma, "login-ip", ip, LIMITS.loginIp);
+  if (!ipState.ok || (await recentFailureCount(prisma, username, now)) >= LIMITS.loginUserGlobal.max) {
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  const recordFailure = async (reason?: string) => {
+    await recordLoginAttempt(prisma, username, false, reason, ip);
+    await recordHit(prisma, "login-ip", ip, LIMITS.loginIp);
+  };
 
   const user = await prisma.user.findUnique({ where: { username }, include: { contractorProfile: true } });
   const blocked = user ? signInBlockReason(user, new Date()) : null;
   if (blocked) {
     // Same message as a wrong password; the reason stays in the server log.
     console.warn(`[auth] sign-in refused for user ${user!.id}: ${blocked}`);
-    await recordLoginAttempt(prisma, username, false, blocked);
+    await recordFailure(blocked);
     return fail(LOGIN_ERROR);
   }
 
@@ -77,7 +90,7 @@ export async function attemptLogin(input: LoginInput, reqHeaders: Headers): Prom
       return { ok: true, data: { twoFactor: true } };
     }
     if (!res?.user) throw new Error("No user in sign-in response");
-    await recordLoginAttempt(prisma, username, true);
+    await recordLoginAttempt(prisma, username, true, undefined, ip);
     return { ok: true, data: { redirectTo: await afterSignIn(res.user.id, next) } };
   } catch (err) {
     const code = errorCode(err);
@@ -88,7 +101,7 @@ export async function attemptLogin(input: LoginInput, reqHeaders: Headers): Prom
     if (code !== "INVALID_USERNAME_OR_PASSWORD" && code !== "INVALID_USERNAME" && code !== "USERNAME_TOO_SHORT" && code !== "USERNAME_TOO_LONG") {
       console.warn(`[auth] sign-in failed: ${code ?? (err instanceof Error ? err.name : "unknown")}`);
     }
-    await recordLoginAttempt(prisma, username, false);
+    await recordFailure();
     return fail(LOGIN_ERROR);
   }
 }

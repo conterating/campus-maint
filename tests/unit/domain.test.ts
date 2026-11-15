@@ -57,8 +57,13 @@ describe("ticketVisibilityWhere", () => {
     });
   });
 
-  it("limits a contractor to tickets assigned to them", () => {
-    expect(ticketVisibilityWhere(student({ id: "c1", role: "CONTRACTOR", residenceBuildingId: null, roomId: null }))).toEqual({ assigneeId: "c1" });
+  it("limits a contractor to tickets assigned to them or open ones they hold a live slot on as a helper", () => {
+    expect(ticketVisibilityWhere(student({ id: "c1", role: "CONTRACTOR", residenceBuildingId: null, roomId: null }))).toEqual({
+      OR: [
+        { assigneeId: "c1" },
+        { status: { in: ["SUBMITTED", "TRIAGED", "ASSIGNED", "IN_PROGRESS", "REOPENED"] }, scheduledJobs: { some: { contractorId: "c1", status: { in: ["SCHEDULED", "IN_PROGRESS"] } } } },
+      ],
+    });
   });
 
   it("limits an off-campus student to public tickets only", () => {

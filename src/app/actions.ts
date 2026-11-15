@@ -9,6 +9,7 @@ import { AppError, toActionError, type ActionResult } from "@/lib/errors";
 import { canReportAt } from "@/lib/visibility";
 import { writeAudit } from "@/lib/audit";
 import { finishWorkSchema } from "@/lib/auth-schemas";
+import { ID, TEXT, check, schemas } from "@/lib/action-schemas";
 import { triage, type TriageResult } from "@/lib/triage";
 import { classifyByKeywords } from "@/lib/triage/keywords";
 import { hashDescription, signVerdict, verifyVerdict } from "@/lib/triage/token";
@@ -55,6 +56,7 @@ async function demoAdmin() {
 export async function switchViewer(userId: string): Promise<ActionResult<{ home: string }>> {
   try {
     const admin = await demoAdmin();
+    userId = check(ID, userId);
     const jar = await cookies();
     if (userId === admin.id) {
       if (jar.get(IMPERSONATE_COOKIE)) {
@@ -174,6 +176,7 @@ export async function analyzeReport(formData: FormData): Promise<ActionResult<An
     if (description.length > 2000) throw new AppError("Keep the description under 2,000 characters.");
     const buildingId = str(formData, "buildingId");
     if (!buildingId) throw new AppError("Choose the building first.");
+    for (const k of ["buildingId", "spaceId", "assetId"]) check(ID.nullable(), str(formData, k));
 
     const loc = await resolveLocation(prisma, { buildingId, spaceId: str(formData, "spaceId"), assetId: str(formData, "assetId") });
     const permitted = canReportAt(viewer, {
@@ -214,6 +217,8 @@ export async function analyzeReport(formData: FormData): Promise<ActionResult<An
       source: result.source,
       rationale: result.rationale,
       hazards: result.hazards,
+      requiredSkills: result.requiredSkills,
+      estimatedMinutes: result.estimatedMinutes,
       descriptionHash: hashDescription(description),
     });
 
@@ -249,6 +254,7 @@ export type SubmitReportInput = {
 export async function submitReport(input: SubmitReportInput): Promise<ActionResult<{ id: string; number: number }>> {
   try {
     const viewer = requireRole(await getViewer(), "STUDENT", "STAFF", "ADMIN");
+    input = check(schemas.submitReport, input);
     const photoUrl = input.photoUrl && PHOTO_URL_PATTERN.test(input.photoUrl) ? input.photoUrl : null;
     let verdict = verifyVerdict(input.token);
     if (!verdict || verdict.descriptionHash !== hashDescription(input.description)) {
@@ -295,7 +301,7 @@ export async function submitReport(input: SubmitReportInput): Promise<ActionResu
 
 export async function meTooAction(ticketId: string): Promise<ActionResult<{ meTooCount: number; raisedTo: string | null }>> {
   try {
-    const res = await addMeToo(prisma, await getViewer(), ticketId, await now());
+    const res = await addMeToo(prisma, await getViewer(), check(ID, ticketId), await now());
     refreshAll();
     return { ok: true, data: res };
   } catch (err) {
@@ -305,7 +311,7 @@ export async function meTooAction(ticketId: string): Promise<ActionResult<{ meTo
 
 export async function followAction(ticketId: string, follow: boolean): Promise<ActionResult<{ following: boolean }>> {
   try {
-    const res = await setFollow(prisma, requireRole(await getViewer(), "STUDENT", "STAFF", "ADMIN"), ticketId, follow, await now());
+    const res = await setFollow(prisma, requireRole(await getViewer(), "STUDENT", "STAFF", "ADMIN"), check(ID, ticketId), check(schemas.follow, follow), await now());
     refreshAll();
     return { ok: true, data: res };
   } catch (err) {
@@ -315,7 +321,7 @@ export async function followAction(ticketId: string, follow: boolean): Promise<A
 
 export async function confirmAction(ticketId: string): Promise<ActionResult> {
   try {
-    await confirmResolution(prisma, await getViewer(), ticketId, await now());
+    await confirmResolution(prisma, await getViewer(), check(ID, ticketId), await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -325,7 +331,7 @@ export async function confirmAction(ticketId: string): Promise<ActionResult> {
 
 export async function reopenAction(ticketId: string, reason: string): Promise<ActionResult> {
   try {
-    await reopenTicket(prisma, await getViewer(), ticketId, reason, await now());
+    await reopenTicket(prisma, await getViewer(), check(ID, ticketId), check(TEXT, reason), await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -335,6 +341,9 @@ export async function reopenAction(ticketId: string, reason: string): Promise<Ac
 
 export async function markNotificationsRead(ids?: string[]): Promise<ActionResult> {
   const viewer = await getViewer();
+  const parsedIds = schemas.ids.safeParse(ids);
+  if (!parsedIds.success) return { ok: false, error: "Check the form and try again." };
+  ids = parsedIds.data;
   await prisma.notification.updateMany({
     where: { userId: viewer.id, read: false, ...(ids ? { id: { in: ids } } : {}) },
     data: { read: true },
@@ -355,7 +364,9 @@ async function staffViewer() {
 
 export async function staffStatusAction(ticketId: string, status: string, note?: string, assigneeId?: string | null): Promise<ActionResult> {
   try {
-    await staffSetStatus(prisma, await staffViewer(), ticketId, { status, note, assigneeId }, await now());
+    const v = await staffViewer();
+    const input = check(schemas.staffStatus, { status, note, assigneeId });
+    await staffSetStatus(prisma, v, check(ID, ticketId), input, await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -365,7 +376,9 @@ export async function staffStatusAction(ticketId: string, status: string, note?:
 
 export async function staffReassignAction(ticketId: string, department: string, reason?: string): Promise<ActionResult> {
   try {
-    await staffReassign(prisma, await staffViewer(), ticketId, department, reason ?? null, await now());
+    const v = await staffViewer();
+    const input = check(schemas.reassign, { department, reason });
+    await staffReassign(prisma, v, check(ID, ticketId), input.department, input.reason ?? null, await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -378,7 +391,8 @@ export async function staffOverrideAction(
   input: { category?: string; severity?: string; summary?: string; reason?: string },
 ): Promise<ActionResult> {
   try {
-    await staffOverride(prisma, await staffViewer(), ticketId, input, await now());
+    const v = await staffViewer();
+    await staffOverride(prisma, v, check(ID, ticketId), check(schemas.override, input), await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -394,6 +408,8 @@ export async function commentAction(formData: FormData): Promise<ActionResult> {
   try {
     const viewer = await getViewer();
     const ticketId = str(formData, "ticketId");
+    check(TEXT, str(formData, "text") ?? "");
+    check(ID.nullable(), ticketId);
     if (!ticketId) throw new AppError("That ticket doesn't exist or isn't visible to you.", "NOT_FOUND");
     const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
     if (files.length > MAX_COMMENT_PHOTOS) throw new AppError(`Add up to ${MAX_COMMENT_PHOTOS} photos per comment.`);
@@ -411,7 +427,9 @@ export async function commentAction(formData: FormData): Promise<ActionResult> {
 
 export async function staffNoteAction(ticketId: string, text: string, internal: boolean): Promise<ActionResult> {
   try {
-    await staffAddNote(prisma, await staffViewer(), ticketId, text, internal, await now());
+    const v = await staffViewer();
+    const n = check(schemas.note, { text, internal });
+    await staffAddNote(prisma, v, check(ID, ticketId), n.text, n.internal, await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -423,7 +441,9 @@ export async function staffNoteAction(ticketId: string, text: string, internal: 
 export async function assignAction(ticketId: string, assigneeId: string, note?: string): Promise<ActionResult> {
   try {
     if (!assigneeId) throw new AppError("Choose someone to assign.");
-    await staffSetStatus(prisma, await staffViewer(), ticketId, { status: "ASSIGNED", assigneeId, note }, await now());
+    const v = await staffViewer();
+    const a = check(schemas.assign, { assigneeId, note });
+    await staffSetStatus(prisma, v, check(ID, ticketId), { status: "ASSIGNED", assigneeId: a.assigneeId, note: a.note }, await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -441,7 +461,8 @@ async function contractorViewer() {
 
 export async function startWorkAction(ticketId: string, note?: string): Promise<ActionResult> {
   try {
-    await contractorStartWork(prisma, await contractorViewer(), ticketId, note ?? null, await now());
+    const v = await contractorViewer();
+    await contractorStartWork(prisma, v, check(ID, ticketId), check(schemas.optNote, note) ?? null, await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -471,7 +492,8 @@ export async function finishWorkAction(formData: FormData): Promise<ActionResult
 
 export async function contractorNoteAction(ticketId: string, text: string): Promise<ActionResult> {
   try {
-    await contractorAddNote(prisma, await contractorViewer(), ticketId, text, await now());
+    const v = await contractorViewer();
+    await contractorAddNote(prisma, v, check(ID, ticketId), check(TEXT, text), await now());
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {
@@ -481,7 +503,8 @@ export async function contractorNoteAction(ticketId: string, text: string): Prom
 
 export async function setAvailabilityAction(availability: string): Promise<ActionResult> {
   try {
-    await contractorSetAvailability(prisma, await contractorViewer(), availability);
+    const v = await contractorViewer();
+    await contractorSetAvailability(prisma, v, check(schemas.availability, availability));
     refreshAll();
     return { ok: true, data: undefined };
   } catch (err) {

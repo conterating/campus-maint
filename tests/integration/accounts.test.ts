@@ -1,12 +1,14 @@
 // Accounts end to end through the real services and Better Auth (auth.api),
 // against the seeded test database.
 import { readFileSync } from "node:fs";
+import { SignJWT } from "jose";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { as, db, reseed } from "../support/db";
 import { auth } from "@/lib/auth";
 import { DEV_OUTBOX } from "@/lib/email";
 import { attemptLogin } from "@/lib/sign-in";
-import { registerStudent } from "@/lib/registration";
+import { registerStudent, resendVerification } from "@/lib/registration";
+import { LIMITS, consume, mailAllowed } from "@/lib/rate-limit";
 import { acceptInvite, createContractor, createStaffAccount, decideResidence, setAccountDisabled, updateStaffAccount } from "@/lib/accounts";
 import { canSeePhoto } from "@/lib/photo-access";
 import {
@@ -26,6 +28,7 @@ import type { SignupInput } from "@/lib/auth-schemas";
 let now: Date;
 beforeEach(async () => {
   now = await reseed();
+  await db.rateLimitHit.deleteMany();
 });
 afterAll(() => db.$disconnect());
 
@@ -50,6 +53,9 @@ const student: SignupInput = {
   phone: "404-555-0199",
   acceptTerms: true,
 };
+
+const outboxCount = (to: string, kind: string) =>
+  readFileSync(DEV_OUTBOX, "utf8").trim().split("\n").map((l) => JSON.parse(l) as { to: string; kind: string }).filter((m) => m.to === to && m.kind === kind).length;
 
 function lastEmailLink(to: string, kind: string): string {
   const lines = readFileSync(DEV_OUTBOX, "utf8").trim().split("\n").map((l) => JSON.parse(l) as { to: string; kind: string; link: string });
@@ -155,6 +161,111 @@ describe("sign-up", () => {
   });
 });
 
+describe("confirmation email", () => {
+  const to = "gburdell3@gatech.edu";
+
+  it("sign-up writes an email whose link confirms the account, then sign-in works", async () => {
+    await registerStudent(student, new Headers());
+    const link = new URL(lastEmailLink(to, "verify"));
+    expect(link.pathname).toBe("/api/auth/verify-email");
+    expect(link.searchParams.get("callbackURL")).toBe("/login?verified=1");
+    expect((await db.user.findUniqueOrThrow({ where: { username: "gburdell3" } })).emailVerified).toBe(false);
+    await auth.api.verifyEmail({ query: { token: link.searchParams.get("token")! } });
+    expect((await db.user.findUniqueOrThrow({ where: { username: "gburdell3" } })).emailVerified).toBe(true);
+    expect(await login("gburdell3", student.password)).toEqual({ ok: true, data: { redirectTo: "/" } });
+  });
+
+  it("resend sends a fresh working link, and does nothing visible for unknown or verified accounts", async () => {
+    await registerStudent(student, new Headers());
+    const before = outboxCount(to, "verify");
+    await resendVerification("GBurdell3", "10.0.0.1");
+    expect(outboxCount(to, "verify")).toBe(before + 1);
+    await auth.api.verifyEmail({ query: { token: new URL(lastEmailLink(to, "verify")).searchParams.get("token")! } });
+    expect((await db.user.findUniqueOrThrow({ where: { username: "gburdell3" } })).emailVerified).toBe(true);
+
+    const after = readFileSync(DEV_OUTBOX, "utf8").length;
+    await resendVerification("gburdell3", "10.0.0.2"); // already verified
+    await resendVerification("nobody123", "10.0.0.3"); // no such account
+    await resendVerification("", "10.0.0.4"); // invalid
+    expect(readFileSync(DEV_OUTBOX, "utf8").length).toBe(after);
+  });
+
+  it("rejects garbage and expired tokens without verifying anyone", async () => {
+    await registerStudent(student, new Headers());
+    await expect(auth.api.verifyEmail({ query: { token: "not-a-token" } })).rejects.toBeTruthy();
+    const expired = await new SignJWT({ email: to })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 3600)
+      .sign(new TextEncoder().encode(process.env.BETTER_AUTH_SECRET));
+    await expect(auth.api.verifyEmail({ query: { token: expired } })).rejects.toBeTruthy();
+    expect((await db.user.findUniqueOrThrow({ where: { username: "gburdell3" } })).emailVerified).toBe(false);
+    expect(await login("gburdell3", student.password)).toMatchObject({ ok: false, code: "EMAIL_NOT_VERIFIED" });
+  });
+
+  it("limits resend requests per username and per address", async () => {
+    await registerStudent(student, new Headers());
+    const before = outboxCount(to, "verify");
+    for (let i = 0; i < 6; i++) await resendVerification("gburdell3", "10.1.0.1");
+    expect(outboxCount(to, "verify")).toBe(before + LIMITS.mailUser.max);
+    // Other addresses get their own pair bucket, but a looser per-username cap still applies.
+    for (let i = 0; i < 20; i++) await resendVerification("gburdell3", `10.1.1.${i}`);
+    expect(outboxCount(to, "verify")).toBe(before + LIMITS.mailUserGlobal.max);
+    expect(await mailAllowed(db, "forgot", "someone", "10.2.0.1")).toBe(true);
+  });
+});
+
+describe("rate limits", () => {
+  const from = (ip: string) => new Headers({ "x-forwarded-for": `198.18.0.1, ${ip}` });
+  const attempt = (username: string, password: string, ip: string) => attemptLogin({ username, password, tab: "student" }, from(ip));
+
+  it("locks a username for the guessing address only, not for the real owner elsewhere", async () => {
+    for (let i = 0; i < 5; i++) await attempt("jlee42", "wrong password " + i, "203.0.113.7");
+    expect(await attempt("jlee42", PW, "203.0.113.7")).toMatchObject({ ok: false, code: "LOCKED" });
+    expect((await attempt("jlee42", PW, "198.51.100.2")).ok).toBe(true);
+  });
+
+  it("only slows down an address after many failures across usernames (no lock)", async () => {
+    for (let i = 0; i < LIMITS.loginIp.max; i++) await consume(db, "login-ip", "203.0.113.9", LIMITS.loginIp);
+    expect((await attempt("mpatel3", PW, "203.0.113.9")).ok).toBe(true);
+  }, 15_000);
+
+  it("locks a username across all addresses after the global cap", async () => {
+    const now = Date.now();
+    await db.loginAttempt.createMany({
+      data: Array.from({ length: 30 }, (_, i) => ({ username: "jlee42", success: false, ip: `192.0.2.${i}`, createdAt: new Date(now - i * 1000) })),
+    });
+    expect(await attempt("jlee42", PW, "198.51.100.77")).toMatchObject({ ok: false, code: "LOCKED" });
+  });
+
+  it("a successful sign-in clears only that address's failures", async () => {
+    for (let i = 0; i < 3; i++) await attempt("jlee42", "wrong " + i, "203.0.113.50");
+    for (let i = 0; i < 3; i++) await attempt("jlee42", "wrong " + i, "203.0.113.51");
+    expect((await attempt("jlee42", PW, "203.0.113.50")).ok).toBe(true);
+    expect(await db.loginAttempt.count({ where: { username: "jlee42", success: false, ip: "203.0.113.50" } })).toBe(0);
+    expect(await db.loginAttempt.count({ where: { username: "jlee42", success: false, ip: "203.0.113.51" } })).toBe(3);
+  });
+
+  it("counts IPv6 addresses by /64", async () => {
+    const { clientIp } = await import("@/lib/rate-limit");
+    const a = clientIp(new Headers({ "x-real-ip": "2001:db8:1:2:aaaa::1" }));
+    const b = clientIp(new Headers({ "x-real-ip": "2001:db8:1:2:bbbb::9" }));
+    expect(a).toBe(b);
+    expect(clientIp(new Headers({ "x-forwarded-for": "1.1.1.1, 2.2.2.2" }))).toBe("2.2.2.2");
+    expect(clientIp(new Headers())).toBe("unknown");
+  });
+
+  it("counts a sliding window", async () => {
+    const t0 = new Date("2026-01-01T00:00:00Z");
+    const lim = { max: 2, windowMs: 60_000 };
+    expect((await consume(db, "t", "x", lim, t0)).ok).toBe(true);
+    expect((await consume(db, "t", "x", lim, new Date(t0.getTime() + 1000))).ok).toBe(true);
+    const blocked = await consume(db, "t", "x", lim, new Date(t0.getTime() + 2000));
+    expect(blocked).toEqual({ ok: false, retryAfterMs: 59_000 });
+    expect((await consume(db, "t", "x", lim, new Date(t0.getTime() + 61_000))).ok).toBe(true);
+  });
+});
+
 describe("sign-in", () => {
   it("redirects by the role in the database, whatever tab was used", async () => {
     expect(await login("mpatel3", PW, "staff")).toEqual({ ok: true, data: { redirectTo: "/" } });
@@ -169,7 +280,7 @@ describe("sign-in", () => {
     expect(unknown).toEqual(wrong);
   });
 
-  it("locks a username after 5 failures in 15 minutes", async () => {
+  it("locks a username from the guessing address after 5 failures in 15 minutes", async () => {
     for (let i = 0; i < 5; i++) expect((await login("jlee42", "wrong password " + i)).ok).toBe(false);
     const locked = await login("jlee42", PW);
     expect(locked).toMatchObject({ ok: false, code: "LOCKED" });
@@ -400,5 +511,13 @@ describe("upload permissions", () => {
     await db.workLog.update({ where: { id: log.id }, data: { completionPhotoUrl: `/uploads/${done}` } });
     expect(await canSeePhoto(db, as(log.contractorId), done)).toBe(log.ticket.assigneeId === log.contractorId);
     expect(await canSeePhoto(db, as("u-alex"), done)).toBe(false);
+  });
+
+  it("serves a photo not yet attached to a ticket only to staff and administrators", async () => {
+    const loose = "0b5e3c1a-3333-4222-8333-944455556666.jpg";
+    expect(await canSeePhoto(db, as("u-maya"), loose)).toBe(false);
+    expect(await canSeePhoto(db, as("u-marcus"), loose)).toBe(false);
+    expect(await canSeePhoto(db, as("u-linda"), loose)).toBe(true);
+    expect(await canSeePhoto(db, as("u-elena"), loose)).toBe(true);
   });
 });

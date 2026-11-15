@@ -12,16 +12,21 @@ import {
   DEPARTMENTS,
   DEPARTMENT_LABEL,
   OPEN_STATUSES,
+  SKILLS,
+  SKILL_LABEL,
   parseKeyList,
+  parseWorkDays,
   type Availability,
   type BackgroundCheckStatus,
 } from "@/lib/domain";
 import { credentialWarnings, signInBlockReason } from "@/lib/eligibility";
+import Link from "next/link";
 import { AdminNav } from "../AdminNav";
 import { ContractorEditor, CreateContractorForm, type ContractorFormValues } from "./ContractorForms";
 
 export const metadata: Metadata = { title: "Contractors" };
 
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
 export default async function ContractorsPage() {
@@ -86,18 +91,27 @@ export default async function ContractorsPage() {
               hourlyRate: isAdmin && p.hourlyRate != null ? String(p.hourlyRate) : "",
               contractStartsAt: day(p.contractStartsAt),
               contractEndsAt: day(p.contractEndsAt),
+              skills: parseKeyList(p.skills, SKILLS),
+              shiftStart: hhmm(p.shiftStartMinute),
+              shiftEnd: hhmm(p.shiftEndMinute),
+              workDays: parseWorkDays(p.workDays),
+              onCall: p.onCall,
             };
             return (
               <li key={user.id} className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-bold text-ink">
-                      {user.name} <span className="font-normal text-ink-3">@{user.username} · {p.contractorId}</span>
+                      <Link href={`/admin/contractors/${user.id}`} className="text-navy underline underline-offset-2 hover:decoration-2">
+                        {user.name}
+                      </Link>{" "}
+                      <span className="font-normal text-ink-3">@{user.username} · {p.contractorId}</span>
                     </p>
                     <p className="text-sm text-ink-2">
                       {p.companyName} · {parseKeyList(p.departments, DEPARTMENTS).map((d) => DEPARTMENT_LABEL[d]).join(", ")}
                     </p>
                     <p className="text-sm text-ink-2">{parseKeyList(p.trades, CATEGORIES).map((c) => CATEGORY_LABEL[c]).join(", ")}</p>
+                    {values.skills.length > 0 && <p className="text-sm text-ink-3">Skills: {values.skills.map((k) => SKILL_LABEL[k]).join(", ")}</p>}
                     <p className="mt-1 flex flex-wrap gap-1.5 text-xs">
                       <span className="pill bg-navy-50 text-navy">{AVAILABILITY_LABEL[p.availability as Availability]}</span>
                       <span className="pill bg-bg text-ink-2">{jobCount.get(user.id) ?? 0} open jobs (max {p.maxActiveJobs})</span>
@@ -107,6 +121,10 @@ export default async function ContractorsPage() {
                       {p.residenceHallAccess && <span className="pill bg-bg text-ink-2">Residence hall access</span>}
                       {isAdmin && p.hourlyRate != null && <span className="pill bg-bg text-ink-2">${p.hourlyRate.toFixed(2)}/hr</span>}
                       {blocked && <span className="pill bg-emergency-bg text-emergency">Can&apos;t sign in: {blocked}</span>}
+                      {p.onCall && <span className="pill bg-bg text-ink-2">On call</span>}
+                      <Link href={`/admin/contractors/${user.id}`} className="pill bg-navy-50 text-navy hover:underline">
+                        Schedule
+                      </Link>
                       {user.disabledAt && <span className="pill bg-emergency-bg text-emergency">Disabled</span>}
                     </p>
                     {warnings.length > 0 && <p className="mt-1 text-sm font-bold text-urgent">{warnings.join("; ")}</p>}

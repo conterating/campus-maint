@@ -19,6 +19,8 @@ const env = {
   SEED_DEMO_PASSWORD: "buzz-fixes-everything",
   DEMO_MODE: "true",
   RESEND_API_KEY: "",
+  // The production build still writes mail to .mail/outbox.jsonl so tests can read the links.
+  E2E_LOCAL_MAILBOX: "1",
   // The breached-password check calls an external API; tests run offline.
   HIBP_DISABLED: "1",
 };

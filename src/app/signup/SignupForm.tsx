@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { MailCheck } from "lucide-react";
-import { signupAction } from "@/app/auth-actions";
-import { Checkbox, ErrorSummary, Field, PasswordInput, StrengthMeter, passwordHint } from "@/components/forms";
+import { resendVerificationAction, signupAction } from "@/app/auth-actions";
+import { Checkbox, ErrorSummary, Field, PasswordInput, StatusMessage, StrengthMeter, passwordHint } from "@/components/forms";
 import { GENDERS, GENDER_LABEL, STUDENT_YEARS, STUDENT_YEAR_LABEL } from "@/lib/domain";
 import { OFF_CAMPUS, emailForUsername, fieldErrors, normalizeUsername, signupSchema, type SignupInput } from "@/lib/auth-schemas";
 import type { HallOption } from "@/lib/residences";
@@ -26,7 +26,9 @@ const EMPTY: SignupInput = {
   acceptTerms: false as never,
 };
 
-export function SignupForm({ halls }: { halls: HallOption[] }) {
+const RESEND_COOLDOWN_S = 60;
+
+export function SignupForm({ halls, devMail }: { halls: HallOption[]; devMail: { link: boolean } | null }) {
   const [v, setV] = useState<SignupInput>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<React.ReactNode>(null);
@@ -34,6 +36,23 @@ export function SignupForm({ halls }: { halls: HallOption[] }) {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [gtIdFocused, setGtIdFocused] = useState(false);
   const [pending, start] = useTransition();
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_S);
+  const [resent, setResent] = useState(false);
+
+  useEffect(() => {
+    if (!sentTo || cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [sentTo, cooldown]);
+
+  function resend() {
+    setResent(false);
+    setCooldown(RESEND_COOLDOWN_S);
+    start(async () => {
+      await resendVerificationAction(normalizeUsername(v.username));
+      setResent(true);
+    });
+  }
 
   const set = <K extends keyof SignupInput>(k: K, val: SignupInput[K]) => setV((p) => ({ ...p, [k]: val }));
   const hall = halls.find((h) => h.id === v.residenceBuildingId);
@@ -88,9 +107,32 @@ export function SignupForm({ halls }: { halls: HallOption[] }) {
           We sent a confirmation link to <span className="font-bold text-ink">{sentTo}</span>. It expires in 24 hours.
         </p>
         <p className="mt-2 text-ink-2">Housing will also confirm your room. Until then you can report issues in public buildings.</p>
-        <Link href="/login" className="btn btn-secondary mt-5">
-          Go to sign in
-        </Link>
+        {devMail && (
+          <p className="mt-3 rounded-[10px] bg-[#fffbeb] px-3 py-2.5 text-sm font-bold text-ink ring-1 ring-inset ring-[#f59e0b]/30">
+            Email isn&apos;t configured on this machine.{" "}
+            {devMail.link ? (
+              <>
+                Open the confirmation link from the{" "}
+                <Link href="/dev/mail" className="text-navy underline underline-offset-2">
+                  dev mailbox
+                </Link>
+                .
+              </>
+            ) : (
+              "Find the confirmation link in the server console or .mail/outbox.jsonl."
+            )}
+          </p>
+        )}
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Link href="/login" className="btn btn-secondary">
+            Go to sign in
+          </Link>
+          <span className="text-sm text-ink-2">Didn&apos;t get it?</span>
+          <button type="button" onClick={resend} disabled={pending || cooldown > 0} className="min-h-6 text-sm font-bold text-navy underline underline-offset-2 disabled:text-ink-2 disabled:no-underline">
+            {cooldown > 0 ? `Resend the email in ${cooldown}s` : "Resend the email"}
+          </button>
+        </div>
+        <StatusMessage>{resent ? "If that account is still waiting for confirmation, we sent a new link." : null}</StatusMessage>
       </div>
     );
   }

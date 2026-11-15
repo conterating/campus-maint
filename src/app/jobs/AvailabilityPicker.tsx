@@ -26,8 +26,9 @@ export function AvailabilityPicker({ value }: { value: Availability }) {
           run(() => setAvailabilityAction(next), `You're now ${AVAILABILITY_LABEL[next].toLowerCase()}.`);
         }}
       >
-        {AVAILABILITIES.map((a) => (
-          <option key={a} value={a}>
+        {AVAILABILITIES.filter((a) => a !== "ON_BREAK" || v === "ON_BREAK").map((a) => (
+          // Breaks go through "Start break" so they land on the calendar; "On a break" only shows while one is running.
+          <option key={a} value={a} disabled={a === "ON_BREAK"}>
             {AVAILABILITY_LABEL[a]}
           </option>
         ))}

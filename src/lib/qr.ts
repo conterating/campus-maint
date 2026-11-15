@@ -1,14 +1,14 @@
 import "server-only";
 import QRCode from "qrcode";
-import { headers } from "next/headers";
 
-/** Base URL encoded into QR codes: PUBLIC_BASE_URL if set, otherwise the request's host. */
+/**
+ * Base URL encoded into QR codes. Only configuration is trusted (PUBLIC_BASE_URL,
+ * then BETTER_AUTH_URL): the request's Host / X-Forwarded-Host headers are
+ * attacker-controlled and would let a forged request print a QR pointing elsewhere.
+ */
 export async function publicBaseUrl(): Promise<string> {
-  if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
+  const base = process.env.PUBLIC_BASE_URL || process.env.BETTER_AUTH_URL || "http://localhost:3000";
+  return base.replace(/\/$/, "");
 }
 
 export function reportPath(loc: { building: string; space?: string | null; asset?: string | null }): string {

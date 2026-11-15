@@ -10,10 +10,14 @@ import {
   CATEGORIES,
   CATEGORY_LABEL,
   DEPARTMENTS,
+  DAY_NAME,
   DEPARTMENT_LABEL,
+  SKILLS,
+  SKILL_LABEL,
   type BackgroundCheckStatus,
   type Category,
   type Department,
+  type Skill,
 } from "@/lib/domain";
 
 export type ContractorFormValues = {
@@ -31,6 +35,12 @@ export type ContractorFormValues = {
   hourlyRate: string;
   contractStartsAt: string;
   contractEndsAt: string;
+  skills: Skill[];
+  /** "HH:MM", 24-hour */
+  shiftStart: string;
+  shiftEnd: string;
+  workDays: number[];
+  onCall: boolean;
 };
 
 const EMPTY: ContractorFormValues = {
@@ -48,6 +58,11 @@ const EMPTY: ContractorFormValues = {
   hourlyRate: "",
   contractStartsAt: "",
   contractEndsAt: "",
+  skills: [],
+  shiftStart: "07:00",
+  shiftEnd: "16:00",
+  workDays: [1, 2, 3, 4, 5],
+  onCall: false,
 };
 
 function useForm() {
@@ -113,6 +128,41 @@ function ProfileFields({ v, set, errors, prefix, isAdmin }: { v: ContractorFormV
           ))}
         </div>
       </fieldset>
+      <fieldset id={id("skills")}>
+        <legend className="label">Skills</legend>
+        <p className="mb-1.5 text-sm text-ink-3">What the scheduler matches jobs against. Leave empty to go by trades.</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {SKILLS.map((k) => (
+            <Checkbox key={k} id={`${id("skill")}-${k}`} checked={v.skills.includes(k)} onChange={(on) => set("skills", toggle(v.skills, k, on))}>
+              {SKILL_LABEL[k]}
+            </Checkbox>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset id={id("shift")}>
+        <legend className="label">Shift</legend>
+        {errors.shiftEndMinute && <p className="mb-1.5 text-sm font-bold text-emergency">{errors.shiftEndMinute}</p>}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id={id("shiftStart")} label="Starts">
+            {(a) => <input {...a} className="field num" type="time" value={v.shiftStart} onChange={(e) => set("shiftStart", e.target.value)} />}
+          </Field>
+          <Field id={id("shiftEnd")} label="Ends">
+            {(a) => <input {...a} className="field num" type="time" value={v.shiftEnd} onChange={(e) => set("shiftEnd", e.target.value)} />}
+          </Field>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+          {DAY_NAME.map((d, i) => (
+            <Checkbox key={d} id={`${id("day")}-${i}`} checked={v.workDays.includes(i)} onChange={(on) => set("workDays", toggle(v.workDays, i, on))}>
+              {d}
+            </Checkbox>
+          ))}
+        </div>
+        <div className="mt-3">
+          <Checkbox id={id("onCall")} checked={v.onCall} onChange={(c) => set("onCall", c)}>
+            On call: can take Emergencies outside their shift
+          </Checkbox>
+        </div>
+      </fieldset>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field id={id("licenseNumber")} label="License number" optional error={errors.licenseNumber}>
           {(a) => <input {...a} className="field" autoComplete="off" value={v.licenseNumber} onChange={(e) => set("licenseNumber", e.target.value)} />}
@@ -159,7 +209,13 @@ function ProfileFields({ v, set, errors, prefix, isAdmin }: { v: ContractorFormV
   );
 }
 
-const payload = (v: ContractorFormValues) => ({ ...v, maxActiveJobs: v.maxActiveJobs, hourlyRate: v.hourlyRate || undefined });
+const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const payload = ({ shiftStart, shiftEnd, ...v }: ContractorFormValues) => ({
+  ...v,
+  shiftStartMinute: toMinutes(shiftStart),
+  shiftEndMinute: toMinutes(shiftEnd),
+  hourlyRate: v.hourlyRate || undefined,
+});
 
 export function CreateContractorForm({ isAdmin }: { isAdmin: boolean }) {
   const [open, setOpen] = useState(false);

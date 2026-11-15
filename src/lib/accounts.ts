@@ -8,7 +8,7 @@ import { isPasswordCompromised } from "better-auth/plugins";
 import { AppError } from "./errors";
 import { writeAudit } from "./audit";
 import { appUrl, sendEmail } from "./email";
-import { CATEGORIES, DEPARTMENTS, formatKeyList, type Role } from "./domain";
+import { CATEGORIES, DEPARTMENTS, SKILLS, formatKeyList, type Role } from "./domain";
 import { can, type Viewer } from "./visibility";
 import {
   contractorCreateSchema,
@@ -51,7 +51,7 @@ async function revokeSessions(db: Db | Prisma.TransactionClient, userId: string)
 // Invites (72-hour, single-use set-password links)
 // ---------------------------------------------------------------------------
 
-export async function sendInvite(db: Db, actorId: string, userId: string): Promise<string> {
+export async function sendInvite(db: Db, actorId: string, userId: string): Promise<{ token: string; emailOk: boolean }> {
   const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
   const token = randomBytes(32).toString("base64url");
   await db.verification.deleteMany({ where: { identifier: { startsWith: INVITE_PREFIX }, value: userId } });
@@ -59,7 +59,7 @@ export async function sendInvite(db: Db, actorId: string, userId: string): Promi
     data: { id: randomBytes(12).toString("hex"), identifier: `${INVITE_PREFIX}${token}`, value: userId, expiresAt: new Date(Date.now() + INVITE_TTL_MS) },
   });
   const link = appUrl(`/invite?token=${encodeURIComponent(token)}`);
-  await sendEmail({
+  const sent = await sendEmail({
     kind: "invite",
     to: user.email,
     subject: "You're invited to Ramblin' Repairs",
@@ -67,7 +67,7 @@ export async function sendInvite(db: Db, actorId: string, userId: string): Promi
     link,
   });
   await writeAudit(db, { actorId, action: "INVITE_SENT", targetType: "User", targetId: userId });
-  return token;
+  return { token, emailOk: sent.ok };
 }
 
 export async function inviteTokenUser(db: Db, token: string) {
@@ -233,12 +233,14 @@ export async function setAccountDisabled(db: Db, actor: Viewer, userId: string, 
   });
 }
 
-export async function sendPasswordResetFor(db: Db, actor: Viewer, userId: string, send: (email: string) => Promise<void>) {
+export async function sendPasswordResetFor(db: Db, actor: Viewer, userId: string, send: (email: string) => Promise<void | { ok: boolean }>): Promise<{ ok: boolean }> {
   requirePermission(actor, "canManageUsers");
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) throw new AppError("That account doesn't exist.", "NOT_FOUND");
-  await send(user.email);
+  const sent = await send(user.email);
+  const ok = !sent || sent.ok;
   await writeAudit(db, { actorId: actor.id, action: "PASSWORD_RESET_SENT", targetType: "User", targetId: userId });
+  return { ok };
 }
 
 // ---------------------------------------------------------------------------
@@ -320,6 +322,12 @@ function profileData(v: z.output<typeof contractorUpdateSchema> | z.output<typeo
     hourlyRate: v.hourlyRate,
     contractStartsAt: v.contractStartsAt,
     contractEndsAt: v.contractEndsAt,
+    // Scheduling fields: only written when the form sent them.
+    ...(v.skills ? { skills: formatKeyList(v.skills, SKILLS) } : {}),
+    ...(v.shiftStartMinute !== undefined ? { shiftStartMinute: v.shiftStartMinute } : {}),
+    ...(v.shiftEndMinute !== undefined ? { shiftEndMinute: v.shiftEndMinute } : {}),
+    ...(v.workDays ? { workDays: [...new Set(v.workDays)].sort().join(",") } : {}),
+    ...(v.onCall !== undefined ? { onCall: v.onCall } : {}),
   };
 }
 
@@ -377,7 +385,11 @@ export async function deactivateContractor(db: Db, actor: Viewer, userId: string
   if (!profile) throw new AppError("That contractor doesn't exist.", "NOT_FOUND");
   await db.$transaction(async (tx) => {
     await tx.contractorProfile.update({ where: { userId }, data: { contractEndsAt: now, availability: "OFF_DUTY" } });
+    // Their own slots (including helper rows on other people's jobs) go away.
+    await tx.scheduledJob.updateMany({ where: { contractorId: userId, status: { in: ["SCHEDULED", "IN_PROGRESS"] } }, data: { status: "CANCELLED" } });
     const open = await tx.ticket.findMany({ where: { assigneeId: userId, status: { in: ["ASSIGNED", "IN_PROGRESS", "REOPENED"] } } });
+    // Tickets going back to the queue lose every slot on them (helpers and backups too), by ticket.
+    await tx.scheduledJob.updateMany({ where: { ticketId: { in: open.map((t) => t.id) }, status: { in: ["SCHEDULED", "IN_PROGRESS"] } }, data: { status: "CANCELLED" } });
     for (const t of open) {
       await tx.ticket.update({ where: { id: t.id }, data: { assigneeId: null, status: "TRIAGED", updatedAt: now } });
       await tx.ticketEvent.create({ data: { ticketId: t.id, type: "STATUS", fromStatus: t.status, toStatus: "TRIAGED", message: "Back in the queue: the contractor is no longer available", internal: true, createdAt: now } });

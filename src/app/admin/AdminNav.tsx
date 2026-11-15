@@ -2,11 +2,13 @@ import Link from "next/link";
 import { can, type Viewer } from "@/lib/visibility";
 
 /** Tabs across the admin area, filtered to what this viewer may open. */
-export function AdminNav({ viewer, current }: { viewer: Viewer; current: "insights" | "users" | "contractors" | "audit" }) {
+export function AdminNav({ viewer, current }: { viewer: Viewer; current: "insights" | "users" | "contractors" | "audit" | "map" | "advisories" }) {
   const items = [
     { key: "insights", href: "/admin", label: "Insights", show: can(viewer, "canViewAnalytics") },
     { key: "users", href: "/admin/users", label: "People", show: can(viewer, "canManageUsers") || can(viewer, "canVerifyResidence") },
     { key: "contractors", href: "/admin/contractors", label: "Contractors", show: can(viewer, "canManageContractors") },
+    { key: "map", href: "/admin/map", label: "Live map", show: viewer.role === "ADMIN" },
+    { key: "advisories", href: "/admin/advisories", label: "Advisories", show: viewer.role === "ADMIN" || viewer.role === "STAFF" },
     { key: "audit", href: "/admin/audit", label: "Audit log", show: viewer.role === "ADMIN" },
   ].filter((i) => i.show);
   if (items.length < 2) return null;

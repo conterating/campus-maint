@@ -48,6 +48,8 @@ export const auth = betterAuth({
     "/change-password",
     "/delete-user",
     "/request-password-reset",
+    "/send-verification-email",
+    "/is-username-available",
     "/reset-password",
     "/two-factor/enable",
     "/two-factor/disable",

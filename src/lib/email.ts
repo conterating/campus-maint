@@ -1,5 +1,5 @@
 import "server-only";
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { Resend } from "resend";
 
@@ -11,35 +11,99 @@ import { Resend } from "resend";
 // end-to-end tests can read it. Never put passwords in an email.
 
 export type OutgoingEmail = { to: string; subject: string; text: string; link: string; kind: "verify" | "reset" | "invite" };
+export type SendResult = { ok: boolean; id?: string; error?: string };
 
 export const DEV_OUTBOX = path.join(process.cwd(), ".mail", "outbox.jsonl");
 
+// The e2e suite runs a production build, so it opts in explicitly. Never set this on a real deployment.
+const isProduction = () => process.env.NODE_ENV === "production" && process.env.E2E_LOCAL_MAILBOX !== "1";
+
 let resend: Resend | null = null;
 
-export async function sendEmail(mail: OutgoingEmail): Promise<void> {
+// Resend's shared sandbox sender only delivers to the Resend account owner, so
+// a real deployment needs its own verified sender.
+if (process.env.RESEND_API_KEY && !process.env.EMAIL_FROM) {
+  console.warn(
+    "[email] RESEND_API_KEY is set but EMAIL_FROM is not. The default sender onboarding@resend.dev can only deliver to the Resend account owner, so students will not receive mail. Set EMAIL_FROM to an address on a domain verified in Resend.",
+  );
+}
+
+const domainOf = (address: string) => address.split("@")[1] ?? "unknown";
+
+/** Append to the local dev mailbox (.mail/outbox.jsonl). Returns false if it couldn't be written. */
+async function writeOutbox(mail: OutgoingEmail): Promise<boolean> {
+  try {
+    await mkdir(path.dirname(DEV_OUTBOX), { recursive: true });
+    await appendFile(DEV_OUTBOX, JSON.stringify({ ...mail, sentAt: new Date().toISOString() }) + "\n");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The newest messages in the dev mailbox, newest first. */
+export async function readOutbox(limit = 50): Promise<(OutgoingEmail & { sentAt: string })[]> {
+  try {
+    const lines = (await readFile(DEV_OUTBOX, "utf8")).split("\n").filter(Boolean);
+    const out: (OutgoingEmail & { sentAt: string })[] = [];
+    for (const line of lines.slice(-limit).reverse()) {
+      try {
+        out.push(JSON.parse(line));
+      } catch {
+        // Skip a damaged line.
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/** Never throws. The caller decides what a failure means; Better Auth just logs it. */
+export async function sendEmail(mail: OutgoingEmail): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (key) {
-    resend ??= new Resend(key);
-    const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || "Ramblin' Repairs <onboarding@resend.dev>",
-      to: mail.to,
-      subject: mail.subject,
-      text: mail.text,
-    });
-    // Log the outcome, never the message: it carries a single-use link.
-    if (error) console.error(`[email] Resend rejected a "${mail.kind}" email: ${error.name}: ${error.message}`);
-    else console.info(`[email] sent a "${mail.kind}" email through Resend (id ${data?.id})`);
-    return;
+    try {
+      resend ??= new Resend(key);
+      const { data, error } = await resend.emails.send({
+        from: process.env.EMAIL_FROM || "Ramblin' Repairs <onboarding@resend.dev>",
+        to: mail.to,
+        subject: mail.subject,
+        text: mail.text,
+      });
+      if (!error) {
+        // Log the outcome, never the message: it carries a single-use link.
+        console.info(`[email] sent a "${mail.kind}" email through Resend (id ${data?.id})`);
+        return { ok: true, id: data?.id };
+      }
+      return await failed(mail, `${error.name}: ${error.message}`);
+    } catch (err) {
+      return await failed(mail, err instanceof Error ? err.message : "unknown error");
+    }
+  }
+
+  // Production without a mail provider: never print or store the link (it is a live credential).
+  if (isProduction()) {
+    console.error(`[email] email not configured: RESEND_API_KEY is not set, so a "${mail.kind}" email to a ${domainOf(mail.to)} address was NOT sent.`);
+    return { ok: false, error: "Email is not configured." };
   }
 
   // Development mailer. The link is the point of the message here, so it is printed.
   console.info(`\n[email] To: ${mail.to}\n[email] ${mail.subject}\n[email] ${mail.link}\n`);
-  try {
-    await mkdir(path.dirname(DEV_OUTBOX), { recursive: true });
-    await appendFile(DEV_OUTBOX, JSON.stringify({ ...mail, sentAt: new Date().toISOString() }) + "\n");
-  } catch {
-    // The console copy is enough.
-  }
+  const saved = await writeOutbox(mail);
+  return saved ? { ok: true, id: "dev-outbox" } : { ok: true, id: "console" };
+}
+
+async function failed(mail: OutgoingEmail, error: string): Promise<SendResult> {
+  // Kind and recipient domain only: no address, no token.
+  console.error(`[email] FAILED to send a "${mail.kind}" email to a ${domainOf(mail.to)} address: ${error}`);
+  if (!isProduction() && (await writeOutbox(mail))) console.warn("[email] a copy was saved to the dev mailbox (.mail/outbox.jsonl, /dev/mail).");
+  return { ok: false, error };
+}
+
+/** True when mail can actually be delivered (a provider key, or the dev mailbox outside production). */
+export function emailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY) || !isProduction();
 }
 
 export function appUrl(pathname: string): string {

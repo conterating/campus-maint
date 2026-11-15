@@ -28,6 +28,7 @@ model Building {
   assets    Asset[]
   tickets   Ticket[]
   residents User[]   @relation("Residence")
+  advisories Advisory[]
 }
 
 model Space {
@@ -67,6 +68,7 @@ model Asset {
 
 model User {
   id                  String    @id
+  advisoriesCreated   Advisory[] @relation("AdvisoryCreator")
   name                String
   email               String    @unique
   // STUDENT | CONTRACTOR | STAFF | ADMIN (see src/lib/domain.ts)
@@ -128,6 +130,8 @@ model User {
   contractorProfile ContractorProfile?
   staffProfile      StaffProfile?
   workLogs          WorkLog[]
+  scheduledJobs     ScheduledJob[]
+  breaks            ContractorBreak[]
   auditEntries      AuditLog[]
 }
 
@@ -195,6 +199,11 @@ model Ticket {
   notifications Notification[]
 
   workLogs WorkLog[]
+  scheduledJobs ScheduledJob[]
+
+  // Skills the job needs (comma-separated Skill keys) and a rough duration for scheduling
+  requiredSkills   String @default("")
+  estimatedMinutes Int    @default(60)
 
   @@index([scope, buildingId])
   @@index([department, status])
@@ -252,6 +261,8 @@ model Notification {
   ticketId  String?
   ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   message   String
+  // Optional link target for notifications that aren't about a ticket (e.g. /advisories).
+  href      String?
   // info | success | warning | danger
   tone      String   @default("info")
   read      Boolean  @default(false)
@@ -291,8 +302,16 @@ model ContractorProfile {
   backgroundCheckedAt   DateTime?
   // Allowed to work inside residence hall rooms
   residenceHallAccess   Boolean   @default(false)
-  // AVAILABLE | ON_JOB | OFF_DUTY
+  // AVAILABLE | ON_JOB | ON_BREAK | OFF_DUTY
   availability          String    @default("OFF_DUTY")
+  // Comma-separated Skill keys (see SKILLS in domain.ts). Empty = fall back to trades.
+  skills                String    @default("")
+  // Shift, minutes after local midnight (420 = 7:00 AM), on the days in workDays (0 = Sunday)
+  shiftStartMinute      Int       @default(420)
+  shiftEndMinute        Int       @default(960)
+  workDays              String    @default("1,2,3,4,5")
+  // May take Emergency jobs outside their shift
+  onCall                Boolean   @default(false)
   maxActiveJobs         Int       @default(5)
   // Visible to ADMIN only
   hourlyRate            Float?
@@ -369,6 +388,8 @@ model LoginAttempt {
   success   Boolean
   // Why a correct-looking attempt was refused (never shown to the user).
   reason    String?
+  // Client address the attempt came from, so a lockout is per username + address.
+  ip        String?
   createdAt DateTime @default(now())
 
   @@index([username, createdAt])
@@ -441,4 +462,76 @@ model RateLimit {
   key         String @unique
   count       Int
   lastRequest BigInt
+}
+
+// An "avoid this area" notice shown on the home pages and /advisories.
+model Advisory {
+  id          String    @id @default(cuid())
+  title       String
+  message     String
+  // EMERGENCY | WARNING | INFO
+  severity    String
+  buildingId  String?
+  building    Building? @relation(fields: [buildingId], references: [id])
+  // Free-text place label, e.g. "Ferst Drive between Atlantic and Hemphill"
+  area        String?
+  lat         Float?
+  lng         Float?
+  startsAt    DateTime
+  endsAt      DateTime?
+  clearedAt   DateTime?
+  // Set once, atomically, when the broadcast goes out (idempotent fan-out)
+  notifiedAt  DateTime?
+  createdById String
+  createdBy   User      @relation("AdvisoryCreator", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([clearedAt, endsAt])
+}
+
+// A slot on a contractor's calendar for a ticket, written by the scheduler.
+model ScheduledJob {
+  id            String   @id @default(cuid())
+  ticketId      String
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  contractorId  String
+  contractor    User     @relation(fields: [contractorId], references: [id])
+  // PRIMARY | HELPER
+  role          String   @default("PRIMARY")
+  startsAt      DateTime
+  endsAt        DateTime
+  travelMinutes Int      @default(0)
+  // SCHEDULED | IN_PROGRESS | DONE | CANCELLED
+  status        String   @default("SCHEDULED")
+  score         Float    @default(0)
+  // Human-readable explanation of the score
+  reasons       String   @default("")
+  createdAt     DateTime @default(now())
+
+  @@index([contractorId, startsAt])
+  @@index([ticketId])
+}
+
+// Time a contractor has blocked off (lunch, meetings). The scheduler works around it.
+model ContractorBreak {
+  id           String   @id @default(cuid())
+  contractorId String
+  contractor   User     @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  startsAt     DateTime
+  endsAt       DateTime
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([contractorId, startsAt])
+}
+
+// One row per rate-limited event (sign-up, reset request, 2FA failure, ...).
+// Counted in a sliding window by src/lib/rate-limit.ts.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }

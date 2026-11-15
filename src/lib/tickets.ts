@@ -17,6 +17,7 @@ import {
   isDepartment,
   isOpenStatus,
   isSeverity,
+  isSkill,
   locationTypeFor,
   ticketScopeFor,
   type Category,
@@ -31,6 +32,9 @@ import { textSimilarity } from "./similarity";
 import { detectSafetyHazards } from "./triage/safety";
 import { can, canReportAt, canView, isStaff, visibleTickets, type Viewer } from "./visibility";
 import { assignmentProblems } from "./eligibility";
+import { formatClock } from "./scheduling/time";
+import { autoAssignTicket, suggestAssignees, cancelScheduledJobs, completeScheduledJobs, markJobStarted, replanAfterChange, scheduleManualAssignment } from "./scheduling/service";
+import { deriveRequiredSkills, estimateMinutes } from "./scheduling/skills";
 
 type Db = PrismaClient;
 
@@ -64,8 +68,8 @@ export async function getTicketDetail(db: Db, viewer: Viewer, id: string) {
       assignee: { select: { id: true, name: true, role: true } },
       workLogs: { orderBy: { startedAt: "asc" }, include: { contractor: { select: { id: true, name: true } } } },
       events: {
-        // Contractors only ever load tickets assigned to them, and they need the full picture.
-        where: isStaff(viewer) || viewer.role === "CONTRACTOR" ? {} : { internal: false },
+        // Staff see everything. The assigned contractor needs the full picture; a helper (or anyone else) doesn't see internal notes.
+        where: isStaff(viewer) ? {} : viewer.role === "CONTRACTOR" ? { OR: [{ internal: false }, { ticket: { assigneeId: viewer.id } }] } : { internal: false },
         orderBy: { createdAt: "asc" },
         include: { actor: { select: { id: true, name: true, role: true, department: true } } },
       },
@@ -103,8 +107,14 @@ export type CreateTicketInput = {
     summary: string;
     source: "claude" | "keywords";
     rationale?: string | null;
+    /** Skill keys and minutes from the AI triage, when it provided them. */
+    requiredSkills?: string[];
+    estimatedMinutes?: number | null;
   };
 };
+
+/** Don't dispatch automatically (seeding replays dispatch by hand). Also off when AUTO_ASSIGN=off. */
+export type CreateTicketOptions = { autoAssign?: boolean };
 
 export async function resolveLocation(db: Db, input: { buildingId: string; spaceId?: string | null; assetId?: string | null }) {
   const building = await db.building.findUnique({ where: { id: input.buildingId } });
@@ -141,7 +151,7 @@ export function jitter(lat: number, lng: number, seed: number): { lat: number; l
   return { lat: lat + r * Math.sin(angle), lng: lng + r * Math.cos(angle) * 1.2 };
 }
 
-export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketInput, now: Date): Promise<{ id: string; number: number }> {
+export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketInput, now: Date, opts: CreateTicketOptions = {}): Promise<{ id: string; number: number }> {
   const description = input.description.trim();
   if (description.length < 8) throw new AppError("Describe the problem in a few more words.");
   if (description.length > 2000) throw new AppError("Keep the description under 2,000 characters.");
@@ -167,7 +177,13 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
   const studentOwned = scope === "ROOM" && viewer.role === "STUDENT";
   const summary = (input.summary.trim() || input.ai.summary || CATEGORY_LABEL[category]).slice(0, 120);
 
-  return db.$transaction(async (tx) => {
+  // Skills the AI named, merged with what the category and description imply.
+  // If the reporter changed the category, the AI's skills and estimate were for another job: use the final category.
+  const aiAgrees = input.ai.category === category;
+  const requiredSkills = [...new Set([...(aiAgrees ? (input.ai.requiredSkills ?? []).filter(isSkill) : []), ...deriveRequiredSkills(category, description)])].slice(0, 4);
+  const estimatedMinutes = Math.min(480, Math.max(15, Math.round((aiAgrees ? input.ai.estimatedMinutes : null) ?? estimateMinutes(category, requiredSkills))));
+
+  const created = await db.$transaction(async (tx) => {
     const last = await tx.ticket.findFirst({ orderBy: { number: "desc" }, select: { number: true } });
     const number = (last?.number ?? 1000) + 1;
     const pos = jitter(building.lat, building.lng, number);
@@ -203,6 +219,8 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
         createdAt: now,
         updatedAt: now,
         responseDueAt: responseDueAt(now, severity),
+        requiredSkills: requiredSkills.join(","),
+        estimatedMinutes,
       },
     });
 
@@ -254,6 +272,16 @@ export async function createTicket(db: Db, viewer: Viewer, input: CreateTicketIn
 
     return { id: ticket.id, number };
   });
+
+  // Dispatch once the report is safely saved. A scheduler failure must never block filing.
+  if (opts.autoAssign ?? process.env.AUTO_ASSIGN !== "off") {
+    try {
+      await autoAssignTicket(db, created.id, now);
+    } catch (err) {
+      console.error("Auto-assign failed", err);
+    }
+  }
+  return created;
 }
 
 // ---------------------------------------------------------------------------
@@ -433,7 +461,7 @@ export async function reopenTicket(db: Db, viewer: Viewer, ticketId: string, rea
   }
   const why = reason.trim();
   if (why.length < 3) throw new AppError("Tell staff what's still wrong so they can fix it.");
-  return db.$transaction(async (tx) => {
+  const reopened = await db.$transaction(async (tx) => {
     const updated = await tx.ticket.update({
       where: { id: ticketId },
       data: {
@@ -452,6 +480,15 @@ export async function reopenTicket(db: Db, viewer: Viewer, ticketId: string, rea
     await notifyTicket(tx, { ticket: updated, message: `RR-${updated.number} was reopened: ${why.slice(0, 80)}`, tone: "warning", actorId: viewer.id, now, includeDepartment: true });
     return updated;
   });
+  // A contractor assignee gets it back on their calendar (best effort).
+  if (reopened.assigneeId) {
+    try {
+      await scheduleManualAssignment(db, ticketId, reopened.assigneeId, now);
+    } catch (err) {
+      console.error("Schedule sync failed", err);
+    }
+  }
+  return reopened;
 }
 
 // ---------------------------------------------------------------------------
@@ -541,7 +578,7 @@ export async function staffSetStatus(
   }
 
   const isResponse = RESPONSE_STATUSES.includes(status);
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const updated = await tx.ticket.update({
       where: { id: ticketId },
       data: {
@@ -587,6 +624,17 @@ export async function staffSetStatus(
     }
     return updated;
   });
+  // Keep the contractor's calendar in step (best effort: the status change already committed).
+  try {
+    if (assigneeId !== ticket.assigneeId) {
+      await cancelScheduledJobs(db, ticketId);
+      if (assigneeId && assigneeRole === "CONTRACTOR") await scheduleManualAssignment(db, ticketId, assigneeId, now);
+    }
+    if (status === "RESOLVED" && assigneeId) await completeScheduledJobs(db, ticketId, assigneeId, now);
+  } catch (err) {
+    console.error("Schedule sync failed", err);
+  }
+  return result;
 }
 
 export async function staffReassign(db: Db, viewer: Viewer, ticketId: string, department: string, reason: string | null, now: Date) {
@@ -612,6 +660,7 @@ export async function staffReassign(db: Db, viewer: Viewer, ticketId: string, de
       },
     });
     await notifyTicket(tx, { ticket: updated, message: `RR-${updated.number} moved to ${to}`, actorId: viewer.id, now, includeDepartment: true });
+    await cancelScheduledJobs(tx, ticketId);
     return updated;
   });
 }
@@ -639,10 +688,21 @@ export async function staffOverride(
   const dueAt =
     severity !== ticket.severity && awaitingFirstResponse(ticket) ? responseDueAt(ticket.createdAt, severity) : ticket.responseDueAt;
 
-  return db.$transaction(async (tx) => {
+  // A different category is a different job: its skills and time estimate follow.
+  const categoryChanged = category !== ticket.category;
+  const skills = categoryChanged ? deriveRequiredSkills(category, ticket.description) : null;
+  const result = await db.$transaction(async (tx) => {
     const updated = await tx.ticket.update({
       where: { id: ticketId },
-      data: { category, severity, summary: summary.slice(0, 120), responseDueAt: dueAt, safetyFlag: severity === "EMERGENCY" ? ticket.safetyFlag : false, updatedAt: now },
+      data: {
+        category,
+        severity,
+        summary: summary.slice(0, 120),
+        responseDueAt: dueAt,
+        safetyFlag: severity === "EMERGENCY" ? ticket.safetyFlag : false,
+        updatedAt: now,
+        ...(skills ? { requiredSkills: skills.join(","), estimatedMinutes: estimateMinutes(category, skills) } : {}),
+      },
     });
     await tx.ticketEvent.create({
       data: {
@@ -656,6 +716,14 @@ export async function staffOverride(
     await notifyTicket(tx, { ticket: updated, message: `RR-${updated.number}: staff changed ${changes.join(", ")}`, actorId: viewer.id, now });
     return updated;
   });
+  if (categoryChanged || severity !== ticket.severity) {
+    try {
+      await replanAfterChange(db, ticketId, now);
+    } catch (err) {
+      console.error("Schedule sync failed", err);
+    }
+  }
+  return result;
 }
 
 export async function staffAddNote(db: Db, viewer: Viewer, ticketId: string, text: string, internal: boolean, now: Date) {
@@ -750,7 +818,7 @@ export async function contractorStartWork(db: Db, viewer: Viewer, ticketId: stri
   const open = await db.workLog.findFirst({ where: { ticketId, contractorId: viewer.id, endedAt: null } });
   if (open) throw new AppError("You've already started work on this job. Finish it first.", "CONFLICT");
   const text = note?.trim();
-  return db.$transaction(async (tx) => {
+  const log = await db.$transaction(async (tx) => {
     const log = await tx.workLog.create({
       data: { ticketId, contractorId: viewer.id, startedAt: now, roomEnteredAt: ticket.scope === "ROOM" ? now : null, createdAt: now },
     });
@@ -775,6 +843,12 @@ export async function contractorStartWork(db: Db, viewer: Viewer, ticketId: stri
     await notifyTicket(tx, { ticket: updated, message: `Work has started on RR-${updated.number}`, actorId: viewer.id, now, includeDepartment: false });
     return log;
   });
+  try {
+    await markJobStarted(db, ticketId, viewer.id, now);
+  } catch (err) {
+    console.error("Schedule sync failed", err);
+  }
+  return log;
 }
 
 export type FinishWorkInput = {
@@ -793,7 +867,7 @@ export async function contractorFinishWork(db: Db, viewer: Viewer, ticketId: str
   const minutes = Math.max(1, Math.round((now.getTime() - open.startedAt.getTime()) / 60_000));
   const laborCost = profile?.hourlyRate != null ? Math.round(((profile.hourlyRate * minutes) / 60) * 100) / 100 : null;
   const notes = input.notes?.trim() || null;
-  return db.$transaction(async (tx) => {
+  const finished = await db.$transaction(async (tx) => {
     await tx.workLog.update({
       where: { id: open.id },
       data: {
@@ -834,6 +908,12 @@ export async function contractorFinishWork(db: Db, viewer: Viewer, ticketId: str
     });
     return updated;
   });
+  try {
+    await completeScheduledJobs(db, ticketId, viewer.id, now);
+  } catch (err) {
+    console.error("Schedule sync failed", err);
+  }
+  return finished;
 }
 
 /** Contractors may move their own jobs to In progress or Resolved (without the work log, e.g. a quick fix). */
@@ -858,6 +938,7 @@ export async function contractorAddNote(db: Db, viewer: Viewer, ticketId: string
 
 export async function contractorSetAvailability(db: Db, viewer: Viewer, availability: string) {
   if (viewer.role !== "CONTRACTOR") throw new AppError("Only contractors set availability.", "FORBIDDEN");
+  if (availability === "ON_BREAK") throw new AppError("Use Start break to go on a break.");
   if (!["AVAILABLE", "ON_JOB", "OFF_DUTY"].includes(availability)) throw new AppError("Choose your availability.");
   await db.contractorProfile.update({ where: { userId: viewer.id }, data: { availability } });
 }
@@ -877,7 +958,7 @@ export async function listContractorJobs(db: Db, viewer: Viewer) {
  * (with eligibility problems, so the form can explain why someone is greyed
  * out) and the department's staff.
  */
-export async function assignmentOptions(db: Db, ticket: { id: string; department: string; category: string; scope: string }, now: Date) {
+export async function assignmentOptions(db: Db, ticket: { id: string; department: string; category: string; scope: string; requiredSkills?: string | null }, now: Date) {
   const [contractors, staff] = await Promise.all([
     db.user.findMany({
       where: { role: "CONTRACTOR", contractorProfile: { departments: { contains: ticket.department } } },
@@ -892,7 +973,9 @@ export async function assignmentOptions(db: Db, ticket: { id: string; department
     _count: { _all: true },
   });
   const jobs = new Map(counts.map((c) => [c.assigneeId, c._count._all]));
+  const { options: picks } = await suggestAssignees(db, ticket.id, now, 3);
   return {
+    suggestions: picks.map((o) => ({ id: o.userId, name: shortName(o.name), reasons: o.reasons, startsLabel: formatClock(o.startsAt), score: o.score })),
     contractors: contractors
       .filter((u) => u.contractorProfile)
       .map((u) => {

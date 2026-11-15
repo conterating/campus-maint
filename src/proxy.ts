@@ -5,7 +5,7 @@ import { getSessionCookie } from "better-auth/cookies";
 // session valid, is the account enabled, what may this role see) happens in
 // getViewer() on every page and server action.
 
-const PUBLIC_PREFIXES = ["/login", "/signup", "/forgot-password", "/reset-password", "/invite", "/api/auth", "/map", "/tickets"];
+const PUBLIC_PREFIXES = ["/login", "/signup", "/forgot-password", "/reset-password", "/invite", "/api/auth", "/map", "/tickets", "/advisories", "/dev/mail"];
 // Guests can browse public issues: the home page, the map, and the issue list and pages.
 const PUBLIC_EXACT = ["/"];
 

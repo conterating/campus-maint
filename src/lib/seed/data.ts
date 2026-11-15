@@ -1,5 +1,5 @@
 // Sample data for the Ramblin’ Repairs demo. Building coordinates come from OpenStreetMap.
-import type { Category, Department, Gender, Severity, StudentYear } from "@/lib/domain";
+import { CATEGORY_SKILLS, SKILLS, type Category, type Department, type Gender, type Severity, type Skill, type StudentYear } from "@/lib/domain";
 
 export type BuildingSeed = {
   id: string;
@@ -285,6 +285,12 @@ export type ContractorSeed = {
   availability: "AVAILABLE" | "ON_JOB" | "OFF_DUTY";
   maxActiveJobs: number;
   hourlyRate: number;
+  /** Scheduling: skills (consistent with trades), shift in minutes after midnight, days 0-6, on call */
+  skills: Skill[];
+  shiftStartMinute: number;
+  shiftEndMinute: number;
+  workDays: number[];
+  onCall: boolean;
 };
 
 export type StaffSeed = {
@@ -335,7 +341,31 @@ const students: UserSeed[] = STUDENT_ROWS.map(([id, firstName, lastName, usernam
   gender,
 }));
 
+/** Deterministic PRNG so the seeded schedules (and the tests built on them) never change. */
+function mulberry32(seed: number) {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(20260915);
+const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)];
+const WORK_WEEKS = [[1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [0, 1, 2, 3, 4], [2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]];
+
+/** Skills implied by their trades, plus one random extra for variety (rarely more than 4). */
+function randomSchedule(trades: Category[]) {
+  const base = [...new Set(trades.flatMap((t) => CATEGORY_SKILLS[t]))];
+  const extra = rand() < 0.7 ? [pick(SKILLS.filter((k) => !base.includes(k)))] : [];
+  const skills = [...base, ...extra].slice(0, Math.max(4, base.length));
+  const start = pick([360, 420, 450, 480, 540]);
+  return { skills, shiftStartMinute: start, shiftEndMinute: start + pick([480, 480, 540, 600]), workDays: pick(WORK_WEEKS), onCall: rand() < 0.4 };
+}
+
 const contractor = (c: Partial<ContractorSeed> & Pick<ContractorSeed, "contractorId" | "companyName" | "trades" | "departments" | "licenseNumber">): ContractorSeed => ({
+  ...randomSchedule(c.trades),
   licenseExpiresInDays: 400,
   insuranceExpiresInDays: 300,
   backgroundCheckStatus: "CLEARED",
@@ -358,6 +388,7 @@ export const USERS: UserSeed[] = [
       contractorId: "C-1001", companyName: "Peachtree Mechanical", companyPhone: "(404) 555-0100",
       trades: ["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCE", "FURNITURE", "DOORS_LOCKS", "CLEANING", "STRUCTURAL", "ELEVATOR", "OTHER", "FITNESS", "FOOD_SERVICE"],
       departments: ["HOUSING"], licenseNumber: "GA-MECH-55102", residenceHallAccess: true, hourlyRate: 52, maxActiveJobs: 30,
+      shiftStartMinute: 420, shiftEndMinute: 960, workDays: [0, 1, 2, 3, 4, 5, 6], onCall: true,
     }),
   },
   {
@@ -406,6 +437,32 @@ export const USERS: UserSeed[] = [
       contractorId: "C-1007", companyName: "Ramos Plumbing", trades: ["PLUMBING"], departments: ["HOUSING", "FACILITIES"], licenseNumber: "GA-PL-90211",
       backgroundCheckStatus: "PENDING", residenceHallAccess: true, availability: "OFF_DUTY",
     }),
+  },
+  // More contractors so the scheduler has real choices (added after the originals: the sample history dispatches to the first match)
+  {
+    id: "u-ct-priya", name: "Priya Nair", email: "priya@pinnacleelectric.test", role: "CONTRACTOR", avatarHue: 265, title: "Electrical contractor",
+    username: "pnair", firstName: "Priya", lastName: "Nair", phone: "(404) 555-0188",
+    contractor: contractor({ contractorId: "C-1008", companyName: "Pinnacle Electric", trades: ["ELECTRICAL"], departments: ["HOUSING", "FACILITIES"], licenseNumber: "GA-EL-40412", residenceHallAccess: true, hourlyRate: 58, maxActiveJobs: 10 }),
+  },
+  {
+    id: "u-ct-omar", name: "Omar Haddad", email: "omar@haddadmechanical.test", role: "CONTRACTOR", avatarHue: 160, title: "Plumbing and heating contractor",
+    username: "ohaddad", firstName: "Omar", lastName: "Haddad",
+    contractor: contractor({ contractorId: "C-1009", companyName: "Haddad Plumbing & Heating", trades: ["PLUMBING", "HVAC"], departments: ["FACILITIES", "HOUSING"], licenseNumber: "GA-PL-77310", residenceHallAccess: true, hourlyRate: 54, maxActiveJobs: 10 }),
+  },
+  {
+    id: "u-ct-lena", name: "Lena Fischer", email: "lena@keystonelock.test", role: "CONTRACTOR", avatarHue: 340, title: "Locksmith and carpentry contractor",
+    username: "lfischer", firstName: "Lena", lastName: "Fischer",
+    contractor: contractor({ contractorId: "C-1010", companyName: "Keystone Lock & Carpentry", trades: ["DOORS_LOCKS", "FURNITURE", "STRUCTURAL"], departments: ["FACILITIES", "HOUSING", "LIBRARY"], licenseNumber: "GA-LK-18820", residenceHallAccess: true, hourlyRate: 49, maxActiveJobs: 10 }),
+  },
+  {
+    id: "u-ct-dmitri", name: "Dmitri Volkov", email: "dmitri@volkovclimate.test", role: "CONTRACTOR", avatarHue: 205, title: "Climate control contractor",
+    username: "dvolkov", firstName: "Dmitri", lastName: "Volkov",
+    contractor: contractor({ contractorId: "C-1011", companyName: "Volkov Climate Control", trades: ["HVAC", "ELECTRICAL"], departments: ["FACILITIES"], licenseNumber: "GA-HV-62705", hourlyRate: 57, maxActiveJobs: 10 }),
+  },
+  {
+    id: "u-ct-nia", name: "Nia Brooks", email: "nia@clearpathav.test", role: "CONTRACTOR", avatarHue: 295, title: "AV and network contractor",
+    username: "nbrooks", firstName: "Nia", lastName: "Brooks",
+    contractor: contractor({ contractorId: "C-1012", companyName: "ClearPath AV & Network", trades: ["AV_TECH", "NETWORK"], departments: ["IT", "LIBRARY"], licenseNumber: "GA-LV-93044", residenceHallAccess: true, hourlyRate: 56, maxActiveJobs: 10 }),
   },
   // Staff: a supervisor (dispatcher) for each department
   {

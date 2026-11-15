@@ -25,6 +25,8 @@ export type SignedAiVerdict = {
   source: "claude" | "keywords";
   rationale: string;
   hazards: string[];
+  requiredSkills?: string[];
+  estimatedMinutes?: number;
   descriptionHash: string;
 };
 

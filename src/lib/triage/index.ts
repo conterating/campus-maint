@@ -1,5 +1,6 @@
 import { routeTicket } from "@/config/routing";
-import { locationTypeFor, type Category, type Department, type Severity } from "@/lib/domain";
+import { isSkill, locationTypeFor, type Category, type Department, type Severity, type Skill } from "@/lib/domain";
+import { deriveRequiredSkills, estimateMinutes } from "@/lib/scheduling/skills";
 import { classifyByKeywords } from "./keywords";
 import { detectSafetyHazards } from "./safety";
 import { classifyWithClaude, claudeConfigured, type ClaudeTriage, type TriageImage } from "./claude";
@@ -24,6 +25,9 @@ export type TriageResult = {
   /** Safety hazards detected. Non-empty means Emergency and the police banner. */
   hazards: string[];
   routeRule: string;
+  /** Skills the job needs (the AI's, merged with category and keyword hints) and a rough duration. */
+  requiredSkills: Skill[];
+  estimatedMinutes: number;
   /** Set when the AI was configured but failed and we fell back to keywords. */
   fallbackReason?: string;
 };
@@ -45,6 +49,8 @@ export async function triage(input: TriageInput, deps: TriageDeps = defaultDeps)
   let rationale: string;
   let source: TriageResult["source"] = "keywords";
   let fallbackReason: string | undefined;
+  let aiSkills: Skill[] = [];
+  let aiMinutes: number | null = null;
 
   const kw = () => classifyByKeywords(input.description, { assetType: input.assetType });
 
@@ -59,6 +65,8 @@ export async function triage(input: TriageInput, deps: TriageDeps = defaultDeps)
       });
       ({ category, severity, summary, rationale } = ai);
       source = "claude";
+      aiSkills = (ai.required_skills ?? []).filter(isSkill);
+      aiMinutes = ai.estimated_minutes ?? null;
       if (ai.safety_concern && ai.severity === "EMERGENCY" && hazards.length === 0) {
         hazards.push("Safety concern spotted by AI");
       }
@@ -80,6 +88,8 @@ export async function triage(input: TriageInput, deps: TriageDeps = defaultDeps)
   }
 
   const route = routeTicket(category, locationType);
+  const requiredSkills = [...new Set([...aiSkills, ...deriveRequiredSkills(category, input.description)])].slice(0, 4);
+  const estimatedMinutes = Math.min(480, Math.max(15, Math.round(aiMinutes ?? estimateMinutes(category, requiredSkills))));
   return {
     category,
     severity,
@@ -89,6 +99,8 @@ export async function triage(input: TriageInput, deps: TriageDeps = defaultDeps)
     source,
     hazards,
     routeRule: route.rule,
+    requiredSkills,
+    estimatedMinutes,
     fallbackReason,
   };
 }

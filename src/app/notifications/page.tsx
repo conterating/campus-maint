@@ -65,7 +65,7 @@ export default async function NotificationsPage() {
                 {d.items.map((n) => (
                   <li key={n.id}>
                     <Link
-                      href={n.ticketId ? `/tickets/${n.ticketId}` : "#"}
+                      href={n.ticketId ? `/tickets/${n.ticketId}` : (n.href && n.href.startsWith("/") && !n.href.startsWith("//") ? n.href : "#")}
                       className={`group relative grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 py-4 pl-3 pr-2 transition-colors hover:bg-surface-2 before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-full ${
                         n.read ? "before:bg-transparent" : "bg-navy-50/50 before:bg-navy"
                       }`}

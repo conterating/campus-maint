@@ -8,7 +8,8 @@ import { auth } from "@/lib/auth";
 import { appUrl } from "@/lib/email";
 import { getActor, getViewer, homeFor } from "@/lib/session";
 import { afterSignIn, attemptLogin, errorCode, errorMessage, type FormResult, type LoginOutcome } from "@/lib/sign-in";
-import { registerStudent } from "@/lib/registration";
+import { registerStudent, resendVerification } from "@/lib/registration";
+import { LIMITS, checkLimit, clearHits, clientIp, consume, digest, mailAllowed, minutesLabel, recordHit } from "@/lib/rate-limit";
 import { acceptInvite, inviteTokenUser } from "@/lib/accounts";
 import { isRole } from "@/lib/domain";
 import {
@@ -35,6 +36,37 @@ const fail = (error: string, extra: { fieldErrors?: FieldErrors; code?: string }
   ...extra,
 });
 
+/** Log the real error on the server; the caller only ever sees a generic message. */
+function unexpected(where: string, err: unknown): { ok: false; error: string } {
+  console.error(`[auth] ${where} failed unexpectedly: ${err instanceof Error ? err.name : "unknown"}`);
+  return fail("Something went wrong on our side. Try again in a moment.");
+}
+
+/**
+ * Who the pending two-factor sign-in belongs to. Better Auth's signed cookie holds a
+ * verification identifier whose row stores the user id; keying on the user means
+ * signing in again (new cookie) doesn't reset the count. Falls back to a hash of the cookie.
+ */
+async function twoFactorKeys(): Promise<{ ip: string; user: string }> {
+  const h = await headers();
+  const raw = h.get("cookie")?.split(";").map((c) => c.trim()).find((c) => c.split("=")[0].includes("two_factor")) ?? "";
+  const value = raw ? decodeURIComponent(raw.slice(raw.indexOf("=") + 1)) : "";
+  const identifier = value.includes(".") ? value.slice(0, value.lastIndexOf(".")) : value;
+  const row = identifier ? await prisma.verification.findFirst({ where: { identifier }, select: { value: true } }) : null;
+  return { ip: clientIp(h), user: row ? `user:${row.value}` : `cookie:${digest(raw || "none")}` };
+}
+
+/**
+ * Record this code attempt, then count including it. Returns an error result when
+ * the sign-in has had too many attempts; otherwise the keys, to clear on success.
+ */
+async function twoFactorAttempt(): Promise<{ locked: { ok: false; error: string; code: string } } | { keys: { ip: string; user: string } }> {
+  const k = await twoFactorKeys();
+  const [u, i] = await Promise.all([consume(prisma, "totp-user", k.user, LIMITS.totpUser), consume(prisma, "totp-ip", k.ip, LIMITS.totpIp)]);
+  if (u.ok && i.ok) return { keys: k };
+  return { locked: { ok: false, error: `Too many incorrect codes. Sign in again in ${minutesLabel(Math.max(u.retryAfterMs, i.retryAfterMs))}.`, code: "LOCKED" } };
+}
+
 // ---------------------------------------------------------------------------
 // Sign in
 // ---------------------------------------------------------------------------
@@ -46,7 +78,11 @@ export type { LoginOutcome } from "@/lib/sign-in";
  * the redirect always comes from the role stored on the account.
  */
 export async function loginAction(input: LoginInput): Promise<FormResult<LoginOutcome>> {
-  return attemptLogin(input, await headers());
+  try {
+    return await attemptLogin(input, await headers());
+  } catch (err) {
+    return unexpected("login", err);
+  }
 }
 
 /** Second step for accounts with two-factor sign-in. */
@@ -54,8 +90,11 @@ export async function verifyTotpAction(input: { code: string; trustDevice?: bool
   const parsed = totpSchema.safeParse(input);
   if (!parsed.success) return fail("Fix the errors below.", { fieldErrors: fieldErrors(parsed.error) });
   try {
+    const attempt = await twoFactorAttempt();
+    if ("locked" in attempt) return attempt.locked;
     const res = (await auth.api.verifyTOTP({ body: { code: parsed.data.code, trustDevice: parsed.data.trustDevice }, headers: await headers() })) as { user?: { id: string } };
     if (!res?.user) throw new Error("No user");
+    await clearHits(prisma, "totp-user", attempt.keys.user).catch(() => {});
     return { ok: true, data: { redirectTo: await afterSignIn(res.user.id, parsed.data.next) } };
   } catch (err) {
     const code = errorCode(err);
@@ -70,8 +109,11 @@ export async function verifyBackupCodeAction(input: { code: string; next?: strin
   const parsed = backupCodeSchema.safeParse(input);
   if (!parsed.success) return fail("Fix the errors below.", { fieldErrors: fieldErrors(parsed.error) });
   try {
+    const attempt = await twoFactorAttempt();
+    if ("locked" in attempt) return attempt.locked;
     const res = (await auth.api.verifyBackupCode({ body: { code: parsed.data.code }, headers: await headers() })) as { user?: { id: string } };
     if (!res?.user) throw new Error("No user");
+    await clearHits(prisma, "totp-user", attempt.keys.user).catch(() => {});
     return { ok: true, data: { redirectTo: await afterSignIn(res.user.id, parsed.data.next) } };
   } catch {
     return fail("That backup code didn't work.", { fieldErrors: { code: "That backup code didn't work." } });
@@ -80,16 +122,10 @@ export async function verifyBackupCodeAction(input: { code: string; next?: strin
 
 /** Send the verification email again. Always reports success, so it can't be used to probe accounts. */
 export async function resendVerificationAction(rawUsername: string): Promise<FormResult> {
-  const parsed = forgotPasswordSchema.safeParse({ username: rawUsername });
-  if (parsed.success) {
-    const user = await prisma.user.findUnique({ where: { username: parsed.data.username } });
-    if (user && !user.emailVerified && !user.disabledAt) {
-      try {
-        await auth.api.sendVerificationEmail({ body: { email: user.email, callbackURL: "/login?verified=1" } });
-      } catch (err) {
-        console.warn(`[auth] resend verification failed: ${errorCode(err) ?? "unknown"}`);
-      }
-    }
+  try {
+    await resendVerification(typeof rawUsername === "string" ? rawUsername.slice(0, 200) : "", clientIp(await headers()));
+  } catch (err) {
+    console.warn(`[auth] resend verification action failed: ${err instanceof Error ? err.name : "unknown"}`);
   }
   return { ok: true, data: undefined };
 }
@@ -117,7 +153,18 @@ export async function signOutEverywhereAction(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function signupAction(input: SignupInput): Promise<FormResult<{ email: string }>> {
-  return registerStudent(input, await headers());
+  try {
+    const h = await headers();
+    const ip = clientIp(h);
+    // Only accounts actually created count, so typos and validation errors don't burn a shared address's quota.
+    const gate = await checkLimit(prisma, "signup-ip", ip, LIMITS.signupIp);
+    if (!gate.ok) return fail(`Too many sign-up attempts from this connection. Try again in ${minutesLabel(gate.retryAfterMs)}.`, { code: "RATE_LIMITED" });
+    const res = await registerStudent(input, h);
+    if (res.ok) await recordHit(prisma, "signup-ip", ip, LIMITS.signupIp);
+    return res;
+  } catch (err) {
+    return unexpected("sign-up", err);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -128,13 +175,16 @@ export async function signupAction(input: SignupInput): Promise<FormResult<{ ema
 export async function forgotPasswordAction(input: { username: string }): Promise<FormResult> {
   const parsed = forgotPasswordSchema.safeParse(input);
   if (!parsed.success) return fail("Fix the errors below.", { fieldErrors: fieldErrors(parsed.error) });
-  const user = await prisma.user.findUnique({ where: { username: parsed.data.username } });
-  if (user && !user.disabledAt) {
-    try {
-      await auth.api.requestPasswordReset({ body: { email: user.email, redirectTo: appUrl("/reset-password") } });
-    } catch (err) {
-      console.warn(`[auth] password reset request failed: ${errorCode(err) ?? "unknown"}`);
+  try {
+    // Over the limit looks exactly like success.
+    if (await mailAllowed(prisma, "forgot", parsed.data.username, clientIp(await headers()))) {
+      const user = await prisma.user.findUnique({ where: { username: parsed.data.username } });
+      if (user && !user.disabledAt) {
+        await auth.api.requestPasswordReset({ body: { email: user.email, redirectTo: appUrl("/reset-password") } });
+      }
     }
+  } catch (err) {
+    console.warn(`[auth] password reset request failed: ${errorCode(err) ?? "unknown"}`);
   }
   return { ok: true, data: undefined };
 }
@@ -142,8 +192,14 @@ export async function forgotPasswordAction(input: { username: string }): Promise
 export async function resetPasswordAction(input: { token: string; password: string; confirmPassword: string }): Promise<FormResult> {
   const parsed = resetPasswordSchema.safeParse(input);
   if (!parsed.success) return fail("Fix the errors below.", { fieldErrors: fieldErrors(parsed.error) });
-  const { token, password } = parsed.data;
+  try {
+    return await resetPassword(parsed.data);
+  } catch (err) {
+    return unexpected("password reset", err);
+  }
+}
 
+async function resetPassword({ token, password }: { token: string; password: string }): Promise<FormResult> {
   // Look up whose link this is, for the "can't contain your username" rule.
   const row = await prisma.verification.findFirst({ where: { identifier: `reset-password:${token}` } });
   if (!row || row.expiresAt < new Date()) return fail("This reset link is invalid or has expired. Request a new one.", { code: "EXPIRED" });
@@ -171,13 +227,17 @@ export async function resetPasswordAction(input: { token: string; password: stri
 export async function acceptInviteAction(input: { token: string; password: string; confirmPassword: string }): Promise<FormResult<{ username: string }>> {
   const parsed = resetPasswordSchema.safeParse(input);
   if (!parsed.success) return fail("Fix the errors below.", { fieldErrors: fieldErrors(parsed.error) });
-  const user = await inviteTokenUser(prisma, parsed.data.token);
-  if (!user) return fail("This invite link is invalid or has expired. Ask an administrator to send a new one.", { code: "EXPIRED" });
-  const problem = passwordProblem(parsed.data.password, user.username);
-  if (problem) return fail("Fix the errors below.", { fieldErrors: { password: problem } });
-  const res = await acceptInvite(prisma, parsed.data.token, parsed.data.password);
-  if (!res.ok) return fail(res.error, { fieldErrors: res.field ? { [res.field]: res.error } : undefined });
-  return { ok: true, data: { username: user.username ?? "" } };
+  try {
+    const user = await inviteTokenUser(prisma, parsed.data.token);
+    if (!user) return fail("This invite link is invalid or has expired. Ask an administrator to send a new one.", { code: "EXPIRED" });
+    const problem = passwordProblem(parsed.data.password, user.username);
+    if (problem) return fail("Fix the errors below.", { fieldErrors: { password: problem } });
+    const res = await acceptInvite(prisma, parsed.data.token, parsed.data.password);
+    if (!res.ok) return fail(res.error, { fieldErrors: res.field ? { [res.field]: res.error } : undefined });
+    return { ok: true, data: { username: user.username ?? "" } };
+  } catch (err) {
+    return unexpected("invite", err);
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ import {
   CATEGORIES,
   DEPARTMENTS,
   GENDERS,
+  SKILLS,
   STUDENT_YEARS,
 } from "./domain";
 
@@ -346,6 +347,12 @@ export const contractorProfileFields = {
   residenceHallAccess: z.boolean().default(false),
   maxActiveJobs: z.coerce.number().int("Use a whole number.").min(1, "At least 1.").max(50, "At most 50."),
   hourlyRate: money,
+  // Scheduling. Optional so callers that don't know about them leave them alone.
+  skills: z.array(z.enum(SKILLS, "Choose skills from the list.")).optional(),
+  shiftStartMinute: z.coerce.number().int().min(0).max(1439).optional(),
+  shiftEndMinute: z.coerce.number().int().min(1).max(1440).optional(),
+  workDays: z.array(z.number().int().min(0).max(6)).optional(),
+  onCall: z.boolean().optional(),
   contractStartsAt: dateField,
   contractEndsAt: dateField,
 };
@@ -369,7 +376,10 @@ export const contractorUpdateSchema = z
   .object({ userId: z.string().min(1), ...contractorProfileFields })
   .superRefine(contractDatesInOrder);
 
-function contractDatesInOrder(v: { contractStartsAt: Date | null; contractEndsAt: Date | null }, ctx: z.RefinementCtx) {
+function contractDatesInOrder(v: { contractStartsAt: Date | null; contractEndsAt: Date | null; shiftStartMinute?: number; shiftEndMinute?: number }, ctx: z.RefinementCtx) {
+  if (v.shiftStartMinute !== undefined && v.shiftEndMinute !== undefined && v.shiftEndMinute <= v.shiftStartMinute) {
+    ctx.addIssue({ code: "custom", path: ["shiftEndMinute"], message: "The shift has to end after it starts." });
+  }
   if (v.contractStartsAt && v.contractEndsAt && v.contractEndsAt < v.contractStartsAt) {
     ctx.addIssue({ code: "custom", path: ["contractEndsAt"], message: "The contract can't end before it starts." });
   }

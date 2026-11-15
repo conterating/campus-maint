@@ -3,7 +3,8 @@ import { prisma } from "./db";
 import { auth } from "./auth";
 import { findOrCreateRoom } from "./rooms";
 import { errorCode, errorMessage, type FormResult } from "./sign-in";
-import { emailForUsername, fieldErrors, signupSchema, type FieldErrors, type SignupInput } from "./auth-schemas";
+import { mailAllowed } from "./rate-limit";
+import { emailForUsername, fieldErrors, forgotPasswordSchema, signupSchema, type FieldErrors, type SignupInput } from "./auth-schemas";
 
 // Student self sign-up, shared by the server action and the tests.
 
@@ -92,3 +93,22 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
   }
 }
 
+
+/**
+ * Send the verification email again. Always resolves the same way, whether or
+ * not the account exists, is already verified, or the caller is rate limited,
+ * so it can't be used to probe accounts or to flood an inbox.
+ */
+export async function resendVerification(rawUsername: string, ip: string): Promise<void> {
+  const parsed = forgotPasswordSchema.safeParse({ username: rawUsername });
+  if (!parsed.success) return;
+  try {
+    if (!(await mailAllowed(prisma, "resend", parsed.data.username, ip))) return;
+    const user = await prisma.user.findUnique({ where: { username: parsed.data.username } });
+    if (user && !user.emailVerified && !user.disabledAt) {
+      await auth.api.sendVerificationEmail({ body: { email: user.email, callbackURL: "/login?verified=1" } });
+    }
+  } catch (err) {
+    console.warn(`[auth] resend verification failed: ${errorCode(err) ?? "unknown"}`);
+  }
+}

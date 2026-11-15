@@ -312,7 +312,10 @@ describe("comments", () => {
     (await db.notification.findMany({ where: { ticketId, createdAt: at }, orderBy: { userId: "asc" } })).map((n) => ({ userId: n.userId, message: n.message }));
 
   it("a student comments with photos on a public issue; watchers and the department hear about it", async () => {
-    const t = await ticketBySummary("Room 249 projector"); // public, IT, reported by Alex, unassigned
+    const t = await ticketBySummary("Room 249 projector"); // public, IT, reported by Alex
+    // The seeded scheduler dispatches it; this test is about an unassigned ticket (the department hears about it).
+    await db.scheduledJob.deleteMany({ where: { ticketId: t.id } });
+    await db.ticket.update({ where: { id: t.id }, data: { status: "TRIAGED", assigneeId: null } });
     await setFollow(db, as("u-priya"), t.id, true, now);
     await addComment(db, as("u-ethan"), t.id, { text: "  Still dead this morning, and the HDMI cable is frayed.  ", photoUrls: [photo(1), photo(2)] }, later(1));
 
@@ -426,7 +429,7 @@ describe("escalation", () => {
 
     const supervisorAlert = await db.notification.findFirstOrThrow({ where: { ticketId: t.id, userId: "u-aisha", tone: "danger" } });
     expect(supervisorAlert.message).toMatch(/missed its 4h response target/);
-    const reporterNote = await db.notification.findFirstOrThrow({ where: { ticketId: t.id, userId: "u-alex" } });
+    const reporterNote = await db.notification.findFirstOrThrow({ where: { ticketId: t.id, userId: "u-alex", message: { contains: "escalated" } } });
     expect(reporterNote.message).toMatch(/escalated to the IT supervisor/);
   });
 

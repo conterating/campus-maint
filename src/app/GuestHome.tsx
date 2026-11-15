@@ -8,15 +8,18 @@ import { OPEN_STATUSES } from "@/lib/domain";
 import type { Viewer } from "@/lib/visibility";
 import { TicketList } from "@/components/TicketTag";
 import { CampusStats, HowItWorks } from "@/components/Landing";
+import { AdvisoryBoard } from "@/components/AdvisoryBoard";
+import { listActiveAdvisories } from "@/lib/advisories";
 
 /** The home page for visitors who aren't signed in: what this is, public issues, and how to sign in. */
 export async function GuestHome({ viewer, now }: { viewer: Viewer; now: Date }) {
-  const open = await listVisibleTickets(prisma, viewer, { status: { in: OPEN_STATUSES } });
+  const [open, advisories] = await Promise.all([listVisibleTickets(prisma, viewer, { status: { in: OPEN_STATUSES } }), listActiveAdvisories(prisma, now)]);
   const busiest = [...open].sort((a, b) => b.meTooCount - a.meTooCount || compareQueue(a, b, now)).slice(0, 5);
 
   return (
     <div className="overflow-x-clip">
     <div className="mx-auto max-w-6xl px-4 pt-8 md:pt-14">
+      <AdvisoryBoard advisories={advisories} now={now} className="mb-8" />
       <section aria-labelledby="hero-title" className="relative isolate pb-6 lg:pb-12">
         <div aria-hidden className="pointer-events-none absolute inset-y-0 right-[calc(50%-50vw)] -z-10 w-screen lg:w-[64vw]">
           <div className="absolute inset-0 [mask-image:linear-gradient(to_bottom,black_0%,transparent_55%)] lg:[mask-image:linear-gradient(to_left,black_30%,transparent_92%)]">

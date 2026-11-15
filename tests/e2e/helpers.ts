@@ -27,7 +27,7 @@ export async function totp(secret = ADMIN_TOTP_SECRET) {
 /** Sign in through the real login form. */
 export async function loginWithForm(page: Page, username: string, opts: { password?: string; tab?: string; totpSecret?: string } = {}) {
   await page.goto(opts.tab ?? "/login");
-  await page.getByLabel(/username/i).fill(username);
+  await page.locator("#username").fill(username);
   await page.getByLabel("Password", { exact: true }).fill(opts.password ?? PASSWORD);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   if (opts.totpSecret) {

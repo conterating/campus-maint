@@ -225,11 +225,12 @@ export function isBackgroundCheckStatus(v: unknown): v is BackgroundCheckStatus 
   return typeof v === "string" && (BACKGROUND_CHECK_STATUSES as readonly string[]).includes(v);
 }
 
-export const AVAILABILITIES = ["AVAILABLE", "ON_JOB", "OFF_DUTY"] as const;
+export const AVAILABILITIES = ["AVAILABLE", "ON_JOB", "ON_BREAK", "OFF_DUTY"] as const;
 export type Availability = (typeof AVAILABILITIES)[number];
 export const AVAILABILITY_LABEL: Record<Availability, string> = {
   AVAILABLE: "Available",
   ON_JOB: "On a job",
+  ON_BREAK: "On a break",
   OFF_DUTY: "Off duty",
 };
 export function isAvailability(v: unknown): v is Availability {
@@ -254,6 +255,8 @@ export const AUDIT_ACTIONS = [
   "IMPERSONATION_STARTED",
   "IMPERSONATION_STOPPED",
   "DEMO_RESET",
+  "ADVISORY_POSTED",
+  "ADVISORY_CLEARED",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
@@ -274,6 +277,8 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   IMPERSONATION_STARTED: "Impersonation started",
   IMPERSONATION_STOPPED: "Impersonation stopped",
   DEMO_RESET: "Demo data reset",
+  ADVISORY_POSTED: "Advisory posted",
+  ADVISORY_CLEARED: "Advisory cleared",
 };
 export function isAuditAction(v: unknown): v is AuditAction {
   return typeof v === "string" && (AUDIT_ACTIONS as readonly string[]).includes(v);
@@ -371,3 +376,75 @@ export function parseEventPhotos(raw: string | null | undefined): string[] {
     return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Skills and schedules (contractor scheduling)
+// ---------------------------------------------------------------------------
+
+export const SKILLS = [
+  "ELECTRICIAN",
+  "PLUMBER",
+  "HVAC_TECH",
+  "CARPENTER",
+  "LOCKSMITH",
+  "APPLIANCE_REPAIR",
+  "NETWORK_TECH",
+  "AV_TECH",
+  "ELEVATOR_TECH",
+  "PAINTER",
+  "GENERAL_MAINTENANCE",
+  "CUSTODIAL",
+  "PEST_CONTROL",
+  "ROOFER",
+] as const;
+export type Skill = (typeof SKILLS)[number];
+
+export const SKILL_LABEL: Record<Skill, string> = {
+  ELECTRICIAN: "Electrician",
+  PLUMBER: "Plumber",
+  HVAC_TECH: "HVAC tech",
+  CARPENTER: "Carpenter",
+  LOCKSMITH: "Locksmith",
+  APPLIANCE_REPAIR: "Appliance repair",
+  NETWORK_TECH: "Network tech",
+  AV_TECH: "AV tech",
+  ELEVATOR_TECH: "Elevator tech",
+  PAINTER: "Painter",
+  GENERAL_MAINTENANCE: "General maintenance",
+  CUSTODIAL: "Custodial",
+  PEST_CONTROL: "Pest control",
+  ROOFER: "Roofer",
+};
+
+export function isSkill(v: unknown): v is Skill {
+  return typeof v === "string" && (SKILLS as readonly string[]).includes(v);
+}
+
+/** The skills a job in each category needs unless the description says more. */
+export const CATEGORY_SKILLS: Record<Category, Skill[]> = {
+  PLUMBING: ["PLUMBER"],
+  ELECTRICAL: ["ELECTRICIAN"],
+  HVAC: ["HVAC_TECH"],
+  ELEVATOR: ["ELEVATOR_TECH"],
+  APPLIANCE: ["APPLIANCE_REPAIR"],
+  NETWORK: ["NETWORK_TECH"],
+  AV_TECH: ["AV_TECH"],
+  FURNITURE: ["CARPENTER"],
+  DOORS_LOCKS: ["LOCKSMITH"],
+  CLEANING: ["CUSTODIAL"],
+  FOOD_SERVICE: ["APPLIANCE_REPAIR"],
+  FITNESS: ["GENERAL_MAINTENANCE"],
+  STRUCTURAL: ["CARPENTER"],
+  OTHER: ["GENERAL_MAINTENANCE"],
+};
+
+export const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5];
+export const DAY_NAME = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+export function parseWorkDays(csv: string | null | undefined): number[] {
+  if (!csv) return [];
+  return [...new Set(csv.split(",").map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort();
+}
+
+export const SCHEDULE_STATUSES = ["SCHEDULED", "IN_PROGRESS", "DONE", "CANCELLED"] as const;
+export type ScheduleStatus = (typeof SCHEDULE_STATUSES)[number];

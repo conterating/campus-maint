@@ -11,7 +11,12 @@ import { GtSsoButton } from "./GtSsoButton";
 const TABS: Record<LoginTab, { label: string; href: string; usernameLabel: string; usernameHint: string }> = {
   student: { label: "Student", href: "/login", usernameLabel: "GT username", usernameHint: "Like gburdell3. You can paste your @gatech.edu address." },
   contractor: { label: "Contractor", href: "/login/contractor", usernameLabel: "Contractor username", usernameHint: "The username in your invite email." },
-  staff: { label: "Staff & Administrator", href: "/login/staff", usernameLabel: "GT username", usernameHint: "Like gburdell3. You can paste your @gatech.edu address." },
+  staff: {
+    label: "Staff & Administrator",
+    href: "/login/staff",
+    usernameLabel: "GT username",
+    usernameHint: "Like gburdell3. You can paste your @gatech.edu address.",
+  },
 };
 
 type Step = "password" | "totp" | "backup";
@@ -20,10 +25,12 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
   const router = useRouter();
   const [tab, setTab] = useState<LoginTab>(initialTab);
   const [step, setStep] = useState<Step>("password");
+  const [resendOpen, setResendOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [code, setCode] = useState("");
+  const [resendUser, setResendUser] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [unverified, setUnverified] = useState(false);
@@ -103,9 +110,9 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
     });
   }
 
-  function resend() {
+  function resend(name = username) {
     start(async () => {
-      await resendVerificationAction(username);
+      await resendVerificationAction(name);
       setStatus("If that account is waiting for confirmation, we sent a new link. Check your email.");
     });
   }
@@ -116,7 +123,9 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
       <div className="card mt-6 p-5 md:p-6">
         <h2 className="h-section text-lg">{backup ? "Use a backup code" : "Enter your verification code"}</h2>
         <p className="mt-1 text-sm text-ink-2">
-          {backup ? "Enter one of the backup codes you saved when you set up two-factor sign-in. Each code works once." : "Open your authenticator app and enter the 6-digit code for Ramblin' Repairs."}
+          {backup
+            ? "Enter one of the backup codes you saved when you set up two-factor sign-in. Each code works once."
+            : "Open your authenticator app and enter the 6-digit code for Ramblin' Repairs."}
         </p>
         <form onSubmit={submitCode} noValidate className="mt-5 space-y-4">
           <ErrorSummary errors={errors} message={formError} version={version} />
@@ -140,10 +149,27 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
           </button>
         </form>
         <div className="mt-4 flex flex-wrap justify-between gap-2 text-sm">
-          <button type="button" className="min-h-6 font-bold text-navy underline underline-offset-2" onClick={() => { setStep(backup ? "totp" : "backup"); setCode(""); setErrors({}); setFormError(null); }}>
+          <button
+            type="button"
+            className="min-h-6 font-bold text-navy underline underline-offset-2"
+            onClick={() => {
+              setStep(backup ? "totp" : "backup");
+              setCode("");
+              setErrors({});
+              setFormError(null);
+            }}
+          >
             {backup ? "Use my authenticator app" : "Use a backup code"}
           </button>
-          <button type="button" className="min-h-6 font-bold text-ink-2 underline underline-offset-2" onClick={() => { setStep("password"); setPassword(""); setCode(""); }}>
+          <button
+            type="button"
+            className="min-h-6 font-bold text-ink-2 underline underline-offset-2"
+            onClick={() => {
+              setStep("password");
+              setPassword("");
+              setCode("");
+            }}
+          >
             Start over
           </button>
         </div>
@@ -186,7 +212,7 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
                 <>
                   <p>{formError}</p>
                   {unverified && (
-                    <button type="button" onClick={resend} disabled={pending} className="btn btn-secondary btn-sm mt-2">
+                    <button type="button" onClick={() => resend()} disabled={pending} className="btn btn-secondary btn-sm mt-2">
                       Resend the email
                     </button>
                   )}
@@ -210,7 +236,12 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
               />
             )}
           </Field>
-          <Field id="password" label="Password" hint={tab === "student" ? "Your Ramblin' Repairs password, not your Georgia Tech password." : undefined} error={errors.password}>
+          <Field
+            id="password"
+            label="Password"
+            hint={tab === "student" ? "Your Ramblin' Repairs password, not your Georgia Tech password." : undefined}
+            error={errors.password}
+          >
             {(a) => <PasswordInput {...a} name="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
           </Field>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -225,6 +256,37 @@ export function LoginForm({ tab: initialTab, next, notice }: { tab: LoginTab; ne
             {pending ? "Signing in…" : "Sign in"}
           </button>
         </form>
+
+        {/* The resend form only mounts when opened, so the page has a single username field otherwise. */}
+        <details className="mt-4 text-sm" onToggle={(e) => setResendOpen(e.currentTarget.open)}>
+          <summary className="min-h-6 cursor-pointer font-bold text-navy underline underline-offset-2">Didn&apos;t get your confirmation email?</summary>
+          {resendOpen && (
+            <form
+              className="mt-3 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                resend(resendUser);
+              }}
+            >
+              <label htmlFor={`${base}-resend-user`} className="block font-bold text-ink">
+                Your username
+              </label>
+              <input
+                id={`${base}-resend-user`}
+                className="field"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                value={resendUser}
+                onChange={(e) => setResendUser(e.target.value)}
+              />
+              <button type="submit" className="btn btn-secondary btn-sm" disabled={pending || !resendUser.trim()}>
+                Resend the email
+              </button>
+            </form>
+          )}
+        </details>
 
         {tab === "student" ? (
           <p className="mt-5 text-center text-sm text-ink-2">

@@ -4,7 +4,9 @@
 import type { PrismaClient } from "@prisma/client";
 import { hashPassword, symmetricEncrypt } from "better-auth/crypto";
 import { routeTicket } from "@/config/routing";
-import { locationTypeFor, type Role } from "@/lib/domain";
+import { SEVERITY_RANK, locationTypeFor, type Role, type Severity } from "@/lib/domain";
+import { autoAssignTicket, reflowContractor } from "@/lib/scheduling/service";
+import { campusDayStart } from "@/lib/scheduling/time";
 import {
   addMeToo,
   confirmResolution,
@@ -20,6 +22,7 @@ import {
   staffSetStatus,
 } from "@/lib/tickets";
 import { ALL_PERMISSIONS, type StaffPermissions, type Viewer } from "@/lib/visibility";
+import { seedAdvisories } from "./advisories";
 import { ASSETS, BUILDINGS, SPACES, TICKETS, USERS, type Step, type TicketSeed, type UserSeed } from "./data";
 
 const HOUR = 3_600_000;
@@ -43,6 +46,9 @@ export const DEMO_ADMIN_BACKUP_CODES = ["demo1-codes", "demo2-codes", "demo3-cod
 
 export async function wipeDatabase(db: PrismaClient) {
   await db.auditLog.deleteMany();
+  await db.advisory.deleteMany();
+  await db.scheduledJob.deleteMany();
+  await db.contractorBreak.deleteMany();
   await db.workLog.deleteMany();
   await db.loginAttempt.deleteMany();
   await db.session.deleteMany();
@@ -50,6 +56,7 @@ export async function wipeDatabase(db: PrismaClient) {
   await db.twoFactor.deleteMany();
   await db.verification.deleteMany();
   await db.rateLimit.deleteMany();
+  await db.rateLimitHit.deleteMany();
   await db.contractorProfile.deleteMany();
   await db.staffProfile.deleteMany();
   await db.notification.deleteMany();
@@ -132,6 +139,11 @@ export async function seedReferenceData(db: PrismaClient, now: Date = new Date()
           backgroundCheckedAt: c.backgroundCheckStatus === "CLEARED" ? new Date(now.getTime() - 120 * DAY) : null,
           residenceHallAccess: c.residenceHallAccess,
           availability: c.availability,
+          skills: c.skills.join(","),
+          shiftStartMinute: c.shiftStartMinute,
+          shiftEndMinute: c.shiftEndMinute,
+          workDays: c.workDays.join(","),
+          onCall: c.onCall,
           maxActiveJobs: c.maxActiveJobs,
           hourlyRate: c.hourlyRate,
           contractStartsAt: new Date(now.getTime() - 365 * DAY),
@@ -282,9 +294,30 @@ export async function seedDatabase(db: PrismaClient, opts: { now?: Date; quiet?:
   // Older notifications have been read; the last half day is still fresh.
   await db.notification.updateMany({ where: { createdAt: { lt: new Date(nowMs - 12 * HOUR) } }, data: { read: true } });
 
+  await seedSchedules(db, now);
+  await seedAdvisories(db, now);
+
   const count = await db.ticket.count();
   if (!opts.quiet) console.log(`Seeded ${BUILDINGS.length} buildings, ${USERS.length} users, ${count} tickets.`);
   return { tickets: count };
+}
+
+/** Lunch breaks, then the scheduler dispatches whatever is still waiting in the queue. */
+async function seedSchedules(db: PrismaClient, now: Date) {
+  const contractors = await db.contractorProfile.findMany({ where: { backgroundCheckStatus: "CLEARED" } });
+  const today = campusDayStart(now.getTime());
+  for (const [i, c] of contractors.entries()) {
+    for (const d of [0, 1]) {
+      const start = today + d * DAY + (720 + (i % 3) * 30) * 60_000;
+      if (start + 30 * 60_000 <= now.getTime()) continue;
+      await db.contractorBreak.create({ data: { contractorId: c.userId, startsAt: new Date(start), endsAt: new Date(start + 30 * 60_000), reason: "Lunch", createdAt: now } });
+    }
+  }
+  for (const c of contractors) await reflowContractor(db, c.userId, now);
+  const waiting = await db.ticket.findMany({ where: { status: "TRIAGED", assigneeId: null }, orderBy: [{ createdAt: "asc" }] });
+  // Most urgent first so Emergencies get the earliest slots.
+  waiting.sort((a, b) => (SEVERITY_RANK[b.severity as Severity] ?? 0) - (SEVERITY_RANK[a.severity as Severity] ?? 0));
+  for (const t of waiting) await autoAssignTicket(db, t.id, now);
 }
 
 function planTicket(db: PrismaClient, spec: TicketSeed, index: number, nowMs: number, ops: Op[]) {
@@ -321,6 +354,8 @@ function planTicket(db: PrismaClient, spec: TicketSeed, index: number, nowMs: nu
           },
         },
         new Date(created),
+        // The sample history dispatches by hand (see the "assign" step); the scheduler runs after it.
+        { autoAssign: false },
       );
       ref.id = id;
       if (spec.untriaged) {

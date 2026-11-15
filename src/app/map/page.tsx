@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { getContextOrGuest, requirePageRole } from "@/lib/session";
-import { listVisibleTickets } from "@/lib/tickets";
+import { listVisibleTickets, shortName } from "@/lib/tickets";
 import { CLOSED_STATUSES, OPEN_STATUSES } from "@/lib/domain";
 import { MapClient, type MapPoint } from "./MapClient";
 
@@ -24,6 +24,16 @@ export default async function MapPage() {
     prisma.follow.findMany({ where: { userId: viewer.id, ticketId: { in: ids } }, select: { ticketId: true } }),
     prisma.meToo.findMany({ where: { userId: viewer.id, ticketId: { in: ids } }, select: { ticketId: true } }),
   ]);
+  // Who is on the job. Only tickets the viewer can already see are queried;
+  // the worker's name goes to STAFF and ADMIN only.
+  const working = await prisma.workLog.findMany({
+    where: { ticketId: { in: tickets.filter((t) => t.status === "IN_PROGRESS").map((t) => t.id) }, endedAt: null },
+    orderBy: { startedAt: "desc" },
+    select: { ticketId: true, startedAt: true, contractor: { select: { name: true } } },
+  });
+  const workBy = new Map<string, (typeof working)[number]>();
+  for (const w of working) if (!workBy.has(w.ticketId)) workBy.set(w.ticketId, w);
+  const seesWorker = viewer.role === "STAFF" || viewer.role === "ADMIN";
   const followSet = new Set(follows.map((f) => f.ticketId));
   const meTooSet = new Set(meToos.map((m) => m.ticketId));
 
@@ -45,6 +55,8 @@ export default async function MapPage() {
     isOwner: t.ownerUserId === viewer.id,
     createdAt: t.createdAt.toISOString(),
     guest,
+    workingSince: workBy.get(t.id)?.startedAt.toISOString(),
+    workerName: seesWorker && workBy.has(t.id) ? shortName(workBy.get(t.id)!.contractor.name) : undefined,
   }));
 
   // A browser key for the Maps JavaScript API (restrict it to your domain in

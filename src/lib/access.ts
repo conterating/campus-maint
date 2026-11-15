@@ -3,10 +3,10 @@
 import type { Role } from "./domain";
 
 const ROLE_PREFIXES: Record<Role, string[]> = {
-  STUDENT: ["/", "/map", "/report", "/tickets", "/my-tickets", "/notifications", "/account"],
-  CONTRACTOR: ["/jobs", "/tickets", "/notifications", "/account"],
-  STAFF: ["/staff", "/map", "/report", "/tickets", "/notifications", "/account", "/qr", "/admin/users", "/admin/contractors", "/admin"],
-  ADMIN: ["/admin", "/staff", "/map", "/report", "/tickets", "/notifications", "/account", "/qr", "/demo"],
+  STUDENT: ["/", "/map", "/report", "/tickets", "/my-tickets", "/notifications", "/advisories", "/account"],
+  CONTRACTOR: ["/jobs", "/tickets", "/notifications", "/advisories", "/account"],
+  STAFF: ["/staff", "/map", "/report", "/tickets", "/notifications", "/advisories", "/account", "/qr", "/admin/users", "/admin/contractors", "/admin"],
+  ADMIN: ["/admin", "/staff", "/map", "/report", "/tickets", "/notifications", "/advisories", "/account", "/qr", "/demo"],
 };
 
 /** A same-origin path (no scheme, no "//") that this role is allowed to open. */

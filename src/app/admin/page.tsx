@@ -6,6 +6,8 @@ import { Repeat } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getContext, homeFor } from "@/lib/session";
 import { can } from "@/lib/visibility";
+import { AdvisoryBoard } from "@/components/AdvisoryBoard";
+import { listActiveAdvisories } from "@/lib/advisories";
 import { AdminNav } from "./AdminNav";
 import { money } from "@/app/tickets/[id]/WorkLogList";
 import {
@@ -31,6 +33,7 @@ export default async function AdminPage() {
   const { viewer, now } = await getContext();
   if (!can(viewer, "canViewAnalytics")) redirect(homeFor(viewer.role));
   const showCosts = viewer.role === "ADMIN";
+  const advisories = await listActiveAdvisories(prisma, now);
 
   const rows = await prisma.ticket.findMany({ include: { building: true, space: true, asset: true } });
   const tickets: AnalyticsTicket[] = rows.map((t) => ({
@@ -66,6 +69,7 @@ export default async function AdminPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-12 pt-8 md:px-6 md:pt-12">
+      {advisories.length > 0 && <AdvisoryBoard advisories={advisories} now={now} className="mb-8" />}
       <p className="wo-label">Campus Services, all departments</p>
       <h1 className="h-page mt-2">Insights</h1>
       <AdminNav viewer={viewer} current="insights" />

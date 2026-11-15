@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { appUrl } from "@/lib/email";
+import { appUrl, emailConfigured } from "@/lib/email";
 import { now } from "@/lib/clock";
 import { getActor, viewerFor } from "@/lib/session";
 import { AppError } from "@/lib/errors";
+import { ID, check, schemas } from "@/lib/action-schemas";
 import {
   FormError,
   createContractor,
@@ -61,7 +62,8 @@ export async function updateStaffAccountAction(input: unknown): Promise<FormResu
 
 export async function setDisabledAction(userId: string, disabled: boolean): Promise<FormResult> {
   try {
-    await setAccountDisabled(prisma, await actor(), userId, disabled);
+    const a = await actor();
+    await setAccountDisabled(prisma, a, check(ID, userId), check(schemas.follow, disabled));
     return done(undefined);
   } catch (err) {
     return failed(err);
@@ -70,8 +72,10 @@ export async function setDisabledAction(userId: string, disabled: boolean): Prom
 
 export async function residenceAction(input: { userId: string; decision: "verify" | "reject" | "edit"; residenceBuildingId?: string | null; roomId?: string | null }): Promise<FormResult> {
   try {
-    if (!["verify", "reject", "edit"].includes(input.decision)) throw new AppError("Choose verify, edit, or reject.");
-    await decideResidence(prisma, await actor(), input, await now());
+    const a = await actor();
+    const parsed = schemas.residence.safeParse(input);
+    if (!parsed.success) throw new AppError("Choose verify, edit, or reject.");
+    await decideResidence(prisma, a, parsed.data, await now());
     return done(undefined);
   } catch (err) {
     return failed(err);
@@ -81,10 +85,11 @@ export async function residenceAction(input: { userId: string; decision: "verify
 export async function resendInviteAction(userId: string): Promise<FormResult> {
   try {
     const a = await actor();
-    const target = await prisma.user.findUnique({ where: { id: userId } });
+    const target = await prisma.user.findUnique({ where: { id: check(ID, userId) } });
     if (!target) throw new AppError("That account doesn't exist.", "NOT_FOUND");
     if (!can(a, target.role === "CONTRACTOR" ? "canManageContractors" : "canManageUsers")) throw new AppError("You don't have permission to do that.", "FORBIDDEN");
-    await sendInvite(prisma, a.id, userId);
+    const sent = await sendInvite(prisma, a.id, userId);
+    if (!sent.emailOk) return failed(new AppError("The invite was created but the email could not be sent. Check the email configuration and try again."));
     return done(undefined);
   } catch (err) {
     return failed(err);
@@ -93,9 +98,11 @@ export async function resendInviteAction(userId: string): Promise<FormResult> {
 
 export async function sendResetAction(userId: string): Promise<FormResult> {
   try {
-    await sendPasswordResetFor(prisma, await actor(), userId, async (email) => {
+    const res = await sendPasswordResetFor(prisma, await actor(), check(ID, userId), async (email) => {
+      if (!emailConfigured()) return { ok: false };
       await auth.api.requestPasswordReset({ body: { email, redirectTo: appUrl("/reset-password") } });
     });
+    if (!res.ok) return failed(new AppError("The reset email could not be sent. Check the email configuration and try again."));
     return done(undefined);
   } catch (err) {
     return failed(err);
@@ -122,7 +129,7 @@ export async function updateContractorAction(input: unknown): Promise<FormResult
 
 export async function deactivateContractorAction(userId: string): Promise<FormResult> {
   try {
-    await deactivateContractor(prisma, await actor(), userId, await now());
+    await deactivateContractor(prisma, await actor(), check(ID, userId), await now());
     return done(undefined);
   } catch (err) {
     return failed(err);

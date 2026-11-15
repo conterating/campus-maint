@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
 import { APIProvider, ControlPosition, Map, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { X } from "lucide-react";
 import type { MapPoint } from "./MapClient";
-import { Pin, PinPopup, heatWeight, initialView, paintHeat, pinLabel } from "./mapShared";
+import { ContractorPin, ContractorPopup, Pin, PinPopup, contractorLabel, heatWeight, initialView, paintHeat, pinLabel, type ContractorLayerProps } from "./mapShared";
 
 /**
  * The map shows satellite imagery with street and place labels on top
@@ -34,9 +34,9 @@ const MAP_STYLE: google.maps.MapTypeStyle[] = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#cfe0f1" }] },
 ];
 
-type Props = { apiKey: string; points: MapPoint[]; showPins: boolean; showHeat: boolean; now: string; isStudent: boolean; onAuthFailure: () => void };
+type Props = { apiKey: string; points: MapPoint[]; showPins: boolean; showHeat: boolean; now: string; isStudent: boolean; onAuthFailure: () => void } & ContractorLayerProps;
 
-export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isStudent, onAuthFailure }: Props) {
+export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isStudent, onAuthFailure, contractors = [], selectedContractorId = null, onSelectContractor, faintPins }: Props) {
   const [view] = useState(initialView);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -50,6 +50,8 @@ export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isS
   }, [onAuthFailure]);
 
   const selectedPoint = points.find((p) => p.id === selected) ?? null;
+  const selectedContractor = contractors.find((c) => c.id === selectedContractorId) ?? null;
+  const placed = contractors.filter((c) => c.lat !== null && c.lng !== null);
 
   return (
     <APIProvider apiKey={apiKey} onError={onAuthFailure}>
@@ -66,7 +68,10 @@ export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isS
         clickableIcons={false}
         styles={MAP_STYLE}
         className="h-full w-full"
-        onClick={() => setSelected(null)}
+        onClick={() => {
+          setSelected(null);
+          onSelectContractor?.(null);
+        }}
       >
         {showHeat && points.length > 0 && <HeatOverlay points={points} />}
         <DomOverlay>
@@ -87,12 +92,53 @@ export default function GoogleMap({ apiKey, points, showPins, showHeat, now, isS
                   style={{ zIndex: selected === p.id ? 1000 : p.severity === "EMERGENCY" ? 500 : p.meTooCount }}
                   onClick={(e) => {
                     e.stopPropagation();
+                    onSelectContractor?.(null);
                     setSelected(selected === p.id ? null : p.id);
                   }}
                 >
-                  <Pin p={p} selected={selected === p.id} delay={Math.min(i * 30, 600)} />
+                  <Pin p={p} selected={selected === p.id} delay={Math.min(i * 30, 600)} faint={faintPins} />
                 </button>
               ))}
+          {placed.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className="fx-map-pin"
+              data-lat={c.lat!}
+              data-lng={c.lng!}
+              aria-label={contractorLabel(c)}
+              title={contractorLabel(c)}
+              aria-expanded={selectedContractorId === c.id}
+              style={{ zIndex: selectedContractorId === c.id ? 1100 : 600, transform: "translate(-50%, -50%)" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelected(null);
+                onSelectContractor?.(selectedContractorId === c.id ? null : c.id);
+              }}
+            >
+              <ContractorPin c={c} selected={selectedContractorId === c.id} />
+            </button>
+          ))}
+          {selectedContractor && selectedContractor.lat !== null && selectedContractor.lng !== null && (
+            <div
+              className="fx-map-popup"
+              data-lat={selectedContractor.lat}
+              data-lng={selectedContractor.lng}
+              data-offset={22}
+              role="dialog"
+              aria-label={selectedContractor.name}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") onSelectContractor?.(null);
+              }}
+            >
+              <div className="relative rounded-[6px] border-t-4 border-buzz bg-surface p-4 shadow-[var(--shadow-lg)] ring-1 ring-line">
+                <button type="button" className="absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-full text-ink-3 hover:bg-bg hover:text-ink" aria-label="Close" onClick={() => onSelectContractor?.(null)}>
+                  <X aria-hidden className="size-4" />
+                </button>
+                <ContractorPopup c={selectedContractor} now={now} />
+              </div>
+            </div>
+          )}
           {selectedPoint && (
             <div
               className="fx-map-popup"

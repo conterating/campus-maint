@@ -13,7 +13,9 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     environment: "node",
     globalSetup: ["tests/support/global-setup.ts"],
-    env: { DATABASE_URL: "file:./test.db", ANTHROPIC_API_KEY: "" },
+    // Hosted-service variables are blanked so a developer's .env can never point
+    // the tests at the live Turso database or Blob store.
+    env: { DATABASE_URL: "file:./test.db", ANTHROPIC_API_KEY: "", TURSO_DATABASE_URL: "", TURSO_AUTH_TOKEN: "", BLOB_READ_WRITE_TOKEN: "" },
     // Integration tests share one SQLite file.
     fileParallelism: false,
     testTimeout: 20_000,

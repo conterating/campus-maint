@@ -1,7 +1,8 @@
-import { PrismaClient } from "@prisma/client";
 import { seedDatabase } from "../src/lib/seed";
+import { createPrismaClient } from "../src/lib/prismaClient";
 
-const prisma = new PrismaClient();
+// Seeds the local SQLite file, or Turso when TURSO_DATABASE_URL is set.
+const prisma = createPrismaClient();
 
 seedDatabase(prisma)
   .catch((err) => {

@@ -175,3 +175,6 @@ next-env.d.ts
 
 # Development mail outbox (verification/reset links)
 /.mail/
+
+# Playwright sign-in state
+/tests/e2e/.auth/

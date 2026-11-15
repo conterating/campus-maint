@@ -86,7 +86,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       <p className="mb-2 mt-5 text-sm text-ink-3" aria-live="polite">
         {rows.length} {rows.length === 1 ? "entry" : "entries"}
       </p>
-      <div className="card overflow-x-auto">
+      {/* Focusable so keyboard users can scroll the table sideways on small screens. */}
+      <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Audit log entries">
         <table className="w-full min-w-[40rem] text-left text-sm">
           <caption className="sr-only">Audit log entries, newest first</caption>
           <thead className="border-b border-line text-xs text-ink-3">

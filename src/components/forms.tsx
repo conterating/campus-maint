@@ -26,7 +26,7 @@ export function Field({ id, label, hint, error, optional, children, className = 
     <div className={className}>
       <label htmlFor={id} className="label">
         {label}
-        {optional && <span className="ml-1 font-normal text-ink-3">(optional)</span>}
+        {optional && <span className="font-normal text-ink-3"> (optional)</span>}
       </label>
       {hint && (
         <p id={hintId} className="hint -mt-1 mb-1.5">

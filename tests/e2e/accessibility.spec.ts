@@ -10,11 +10,21 @@ test.beforeAll(async ({ browser }) => {
 });
 
 const PAGES: { user: string; paths: string[] }[] = [
-  { user: "u-maya", paths: ["/", "/report", "/tickets", "/tickets?view=open", "/notifications", "/demo", "/map", "/qr"] },
-  { user: "u-terrence", paths: ["/staff", "/staff?view=closed", "/qr?building=b-glenn"] },
-  { user: "u-linda", paths: ["/staff"] },
-  { user: "u-elena", paths: ["/admin", "/staff?dept=IT"] },
+  { user: "u-maya", paths: ["/", "/report", "/tickets", "/tickets?view=open", "/notifications", "/map", "/qr", "/my-tickets", "/my-tickets?tab=room", "/account", "/account/security"] },
+  { user: "u-terrence", paths: ["/jobs", "/account", "/notifications"] },
+  { user: "u-marcus", paths: ["/jobs"] },
+  { user: "u-rosa", paths: ["/staff", "/staff?view=closed", "/qr?building=b-glenn", "/admin/contractors"] },
+  { user: "u-linda", paths: ["/staff", "/admin/users"] },
+  { user: "u-elena", paths: ["/admin", "/staff?dept=IT", "/admin/users", "/admin/contractors", "/admin/audit", "/demo", "/account/security"] },
 ];
+
+// Signed-out pages.
+for (const path of ["/login", "/login/contractor", "/login/staff", "/signup", "/forgot-password", "/reset-password", "/invite"]) {
+  test(`signed out ${path} has no WCAG A/AA violations`, async ({ page }) => {
+    await page.goto(path);
+    await expectAccessible(page);
+  });
+}
 
 for (const { user, paths } of PAGES) {
   for (const path of paths) {
@@ -38,9 +48,17 @@ test("ticket pages (student and staff views) have no violations", async ({ page,
   await page.goto("/tickets?view=mine");
   await page.getByRole("link", { name: /Two showers with no pressure/ }).click();
   await expectAccessible(page);
-  await viewAs(context, "u-terrence");
+  await viewAs(context, "u-linda");
   await page.reload();
   for (const s of await page.locator("details summary").all()) await s.click();
+  await expectAccessible(page);
+});
+
+test("a contractor's ticket page (with the work panel) has no violations", async ({ page, context }) => {
+  await viewAs(context, "u-terrence");
+  await page.goto("/jobs");
+  await page.getByRole("link", { name: /Two showers with no pressure/ }).filter({ visible: true }).first().click();
+  await expect(page.getByRole("heading", { name: "Your job" })).toBeVisible();
   await expectAccessible(page);
 });
 

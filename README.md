@@ -13,9 +13,22 @@ Requirements: Node.js 20 or newer (developed on Node 24) and npm.
 ```bash
 npm install
 cp .env.example .env
-npm run setup        # generates the Prisma client, creates prisma/dev.db, seeds sample data
-npm run dev          # http://localhost:3000
+npm run setup        # fills in BETTER_AUTH_SECRET, generates the Prisma client, creates prisma/dev.db, seeds sample data
+npm run dev          # http://localhost:3000 → sign in (see "Accounts and sign-in" below)
 ```
+
+Environment variables (`.env`):
+
+| Variable | Needed? | What it does |
+|---|---|---|
+| `DATABASE_URL` | yes | SQLite file, relative to `prisma/schema.prisma`. Default `file:./dev.db`. |
+| `BETTER_AUTH_SECRET` | yes | Signs sessions and encrypts two-factor secrets. `npm run setup` generates one if it's empty (or use `openssl rand -base64 32`). Changing it signs everyone out and breaks enrolled authenticators; run `npm run db:reset` afterwards. |
+| `BETTER_AUTH_URL` | yes | The URL people open the app at (`http://localhost:3000` locally). Used in email links and as the trusted origin for Better Auth's CSRF checks. Cookies are `Secure` when it's https. |
+| `RESEND_API_KEY` | no | Sends verification, password-reset and invite emails through [Resend](https://resend.com). Without it, emails are printed in the `npm run dev` terminal and appended to `.mail/outbox.jsonl`, so you can click the links yourself. |
+| `EMAIL_FROM` | no | Sender for those emails, e.g. `Ramblin' Repairs <repairs@yourdomain.edu>`. |
+| `DEMO_MODE` | no | `true` keeps the Demo page (view as, fast-forward clock, reset data) for signed-in administrators. Use `false` for anything real. |
+| `SEED_DEMO_PASSWORD` | no | Password for every seeded account (12+ characters). Defaults to `buzz-fixes-everything`. |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `TRIAGE_SIGNING_SECRET`, `PUBLIC_BASE_URL`, `GOOGLE_MAPS_API_KEY` | no | See the sections below. |
 
 npm 11 blocks dependency install scripts by default. `package.json` already approves the four that are needed (Prisma's engines and esbuild). If your npm asks anyway, run `npm install-scripts approve @prisma/client @prisma/engines prisma esbuild`.
 
@@ -42,20 +55,57 @@ GOOGLE_MAPS_API_KEY=AIza...
 
 Restrict the key to your site's domain (HTTP referrers) in Google Cloud, since browsers can see it. Without a key the map uses OpenStreetMap tiles, and everything else works the same.
 
-## How the demo works
+## Accounts and sign-in
 
-There's no real login. The person chip in the header opens **Demo**, where you can:
+Everyone signs in with a username and a password they create **for Ramblin' Repairs**. It is not their Georgia Tech password, and every password field says so. Georgia Tech single sign-on (Microsoft Entra ID / GT CAS) comes later, once OIT approves an app registration; the login page shows a placeholder **Sign in with Georgia Tech SSO** button until then (`SSO_ENABLED` in `src/config/app.ts`).
 
-- **View as** any seeded person: 14 students across East Campus, West Campus, North Avenue, and graduate housing (one off campus), a technician and a supervisor for each of the six departments, and an administrator.
+There are four kinds of account:
+
+| Role | Who | Lands on | Can |
+|---|---|---|---|
+| **Student** | Signs up at `/signup` | Home | Report issues; see public issues, their hall and room (once Housing confirms it), and their own reports; me too, follow, confirm, reopen. |
+| **Contractor** | Created by an admin (invite email) | `/jobs` | See only the tickets assigned to them, start and finish work (with a work log), post public notes, set availability. |
+| **Staff** | Created by an admin | `/staff` | Their department's queue: triage, assign to contractors, reassign, override, internal notes. Housing supervisors verify residences. |
+| **Administrator** | Created by an admin | `/admin` | Everything, across departments: people, contractors, audit log, analytics, demo controls. Must use two-factor sign-in. |
+
+The login page has three tabs (Student, Contractor, Staff & Administrator, also at `/login/contractor` and `/login/staff`). The tab only changes the labels: where you land always comes from the role on your account.
+
+**Seeded accounts.** Every seeded person's password is `buzz-fixes-everything` (or your `SEED_DEMO_PASSWORD`).
+
+| Person | Username | Role |
+|---|---|---|
+| Maya Patel | `mpatel3` | Student, Glenn 214 |
+| Ethan Brooks | `ebrooks7` | Student, Glenn 309 |
+| Alex Kim | `akim88` | Student, off campus |
+| Terrence Wallace | `twallace` | Contractor, Housing (Peachtree Mechanical) |
+| Marcus Bell | `mbell` | Contractor, Facilities (license expires in 12 days) |
+| Kevin Tran | `ktran` | Contractor, IT |
+| Victor Ramos | `vramos` | Contractor waiting on a background check (can't sign in) |
+| Linda Okafor | `lokafor3` | Staff, Housing supervisor (verifies residences) |
+| Rosa Delgado | `rdelgado7` | Staff, Facilities supervisor (manages contractors) |
+| Aisha Rahman | `arahman5` | Staff, IT supervisor |
+| Elena Vasquez | `evasquez1` | Administrator (two-factor sign-in) |
+
+All 14 students, 7 contractors, 6 supervisors and the admin are in `src/lib/seed/data.ts`.
+
+**Signing in as the admin.** Elena's account has two-factor sign-in with a demo authenticator key. After her password, run `npm run demo:totp` for the current 6-digit code, or add the printed `otpauth://` key to any authenticator app.
+
+**Email.** Without `RESEND_API_KEY`, sign-up confirmation, password-reset and invite links appear in the `npm run dev` terminal (and in `.mail/outbox.jsonl`). Open the link in your browser.
+
+### How the demo works
+
+With `DEMO_MODE=true`, an administrator gets **Demo controls** in the account menu:
+
+- **View as** any student, contractor or staff member. It's real impersonation through a signed cookie, shown by a "Viewing as … — Stop" banner, and recorded in the audit log.
 - **Fast-forward the clock** by 30 minutes up to 2 days, to watch tickets pass their response target and escalate. The header shows how far ahead the demo clock is.
-- **Reset demo data.**
+- **Reset demo data.** You stay signed in.
 
 ## 3-minute demo script
 
-Before you start: run `npm run db:reset` (or **Demo → Reset demo data**) so ticket numbers and timers match. The app opens as **Maya Patel**, who lives in Glenn Residence Hall, Room 214.
+Before you start: run `npm run db:reset` so ticket numbers and timers match. Sign in on the **Staff & Administrator** tab as `evasquez1` with `buzz-fixes-everything` and the code from `npm run demo:totp`. Then use **Demo → View as** to switch people quickly. (You can also sign out and sign in as each person; the usernames are above.)
 
 **0:00 · A student reports a leak in her dorm room (45 s)**
-1. On Home, type `Water is leaking from under the bathroom sink and pooling on the floor.` into **What needs fixing?**, leave **My room** selected, and click **Continue**.
+1. **Demo → View as Maya Patel** (Glenn Residence Hall, Room 214). On Home, type `Water is leaking from under the bathroom sink and pooling on the floor.` into **What needs fixing?**, leave **My room** selected, and click **Continue**.
 2. The report form opens with Glenn, Room 214, and the description filled in. It notes that only Maya, her roommate, and staff will see this report. Optionally add a photo.
 3. Click **Check and route it**.
 
@@ -64,24 +114,25 @@ Before you start: run `npm run db:reset` (or **Demo → Reset demo data**) so ti
 5. Optional: change the category to Wi-Fi and back. The department re-routes live (the rules are in `src/config/routing.ts`).
 6. Click **Submit report**. Ticket **RR-1061** opens, owned by Maya and marked private to her room, with the repair tracker (Reported → Assigned → In progress → Fixed) and a live response countdown.
 
-**0:45 · Staff update it (40 s)**
-7. Header chip → **Terrence Wallace** (Housing technician). His queue opens, sorted by severity and time remaining, with RR-1061 near the top.
-8. Open it. In **Staff controls**, set **Assigned** and add the message `On my way with a new trap.`, then **Save status**. The timeline updates and the countdown becomes "Responded within target". Set **In progress** next.
-9. Switch back to **Maya**. The bell shows new alerts, one per change.
+**0:45 · Staff dispatch it; the contractor does the work (40 s)**
+7. **Stop** viewing as Maya, then **View as Linda Okafor** (Housing supervisor). Her queue opens, sorted by severity and time remaining, with RR-1061 near the top and an **Assign** picker that lists only eligible contractors.
+8. Open it. In **Staff controls**, set **Assigned**, pick **Terrence Wallace**, add `On my way with a new trap.`, and **Save status**. The countdown becomes "Responded within target".
+9. **View as Terrence Wallace** (contractor). **My jobs** lists RR-1061 (and only his jobs). Open it, **Start work**, then fill in what he did and **Finish and mark resolved**. The work log records the time in the room and the materials.
+10. **View as Maya**. The bell shows the alerts: a contractor was assigned, work started, it's resolved. She clicks **Yes, it's fixed**.
 
 **1:25 · A second student hits the duplicate check on a public issue (45 s)**
-10. Switch to **Ethan Brooks** (Glenn, Room 309). Optional: paste Maya's ticket URL and you get "not found", because room issues are private to that room's residents.
-11. **Report a problem** → Building **Price Gilbert Memorial Library** → **2nd floor quiet study** → `wifi keeps disconnecting on the 2nd floor quiet study` → **Check and route it**.
-12. **Already reported?** shows RR-1032 (Wi-Fi dropping, 5 me too). Click **Me too**. The ticket now shows 7 people affected, and Ethan is following it.
-13. Open **Map**: pins colored by severity with the category icon inside, "people affected" badges, and the heat layer. Tap a pin for **Me too / Follow**. Switch the view to **List** for the same issues without the map.
+11. **View as Ethan Brooks** (Glenn, Room 309). Optional: paste Maya's ticket URL and you get "not found", because room issues are private to that room's residents.
+12. **Report a problem** → Building **Price Gilbert Memorial Library** → **2nd floor quiet study** → `wifi keeps disconnecting on the 2nd floor quiet study` → **Check and route it**.
+13. **Already reported?** shows RR-1032 (Wi-Fi dropping, 5 me too). Click **Me too**. The ticket now shows 7 people affected, and Ethan is following it.
+14. Open **Map**: pins colored by severity with the category icon inside, "people affected" badges, and the heat layer. Tap a pin for **Me too / Follow**. Switch the view to **List** for the same issues without the map.
 
 **2:10 · An overdue ticket escalates (50 s)**
-14. Switch to **Aisha Rahman** (IT supervisor). In the IT queue, "Room 249 projector won't turn on before 2pm class" is Urgent with about **45 minutes** left and no response.
-15. **Demo → +1 hour**. The confirmation reports the escalation.
-16. Back in **Queue**: an **Escalated to you** banner, a red **Overdue** timer, and a new alert in the bell. The ticket's timeline reads "No response within the 4-hour target. Escalated to the IT supervisor (Aisha R.)." The student who reported it was notified too.
-17. To close: switch to **Elena Vasquez** (administrator) → **Insights**: on-time first-response rate, average resolution time by department, issues by building, and recurring problems (Washer 3, Treadmill 12, the Room 1443 projector).
+15. **View as Aisha Rahman** (IT supervisor). In the IT queue, "Room 249 projector won't turn on before 2pm class" is Urgent with about **45 minutes** left and no response.
+16. **Demo → +1 hour** (the Demo page works while viewing as someone). The confirmation reports the escalation.
+17. Back in **Queue**: an **Escalated to you** banner, a red **Overdue** timer, and a new alert in the bell. The ticket's timeline reads "No response within the 4-hour target. Escalated to the IT supervisor (Aisha R.)." The student who reported it was notified too.
+18. To close: **Stop** viewing → **Insights** as Elena: on-time first-response rate, average resolution time by department, issues by building, recurring problems, and **Contractor work** (jobs done, average time on the job, cost by department). **People** shows rooms waiting for Housing; **Contractors** flags Marcus Bell's license expiring; **Audit log** lists every impersonation.
 
-Bonus beats if you have time: type `There is smoke coming out of the outlet` as a report to see the Emergency banner with the GT Police number and the severity locked at Emergency, or open **QR codes** as staff and click **Test this code** on a washer label.
+Bonus beats if you have time: type `There is smoke coming out of the outlet` as a report to see the Emergency banner with the GT Police number and the severity locked at Emergency; sign up a new student at `/signup` and confirm them from the link in the terminal; or open **QR codes** as staff and click **Test this code** on a washer label.
 
 ## Features
 
@@ -98,7 +149,11 @@ Bonus beats if you have time: type `There is smoke coming out of the outlet` as 
 | Safety: Emergency for gas, flooding, wiring, smoke, stuck elevators, and more | `src/lib/triage/safety.ts` |
 | Campus map (Google Maps, or OpenStreetMap without a key) with severity pins, heat layer, filters, list view | `/map`, `src/app/map/` |
 | Staff queue: sort, status changes, reassign, override, notes (public or internal) | `/staff`, `src/app/tickets/[id]/StaffPanel.tsx` |
-| Administrator analytics | `/admin`, `src/lib/analytics.ts` |
+| Administrator analytics, including contractor work from work logs | `/admin`, `src/lib/analytics.ts` |
+| Accounts: sign-in (three tabs), sign-up, email verification, password reset, invites, two-factor sign-in, lockout | `/login`, `/signup`, `/account/security`, `src/lib/auth.ts`, `src/app/auth-actions.ts`, `src/lib/sign-in.ts` |
+| Permissions: one `getViewer()`, `requireRole`, staff permission flags | `src/lib/session.ts`, `src/lib/visibility.ts`, `src/proxy.ts` |
+| Contractors: jobs, work log, availability, credentials, eligibility for assignment | `/jobs`, `src/lib/eligibility.ts`, `contractor*` in `src/lib/tickets.ts` |
+| People, residence verification, contractors, audit log | `/admin/users`, `/admin/contractors`, `/admin/audit`, `src/lib/accounts.ts` |
 
 ### Visibility rules
 
@@ -107,15 +162,20 @@ Visibility is enforced in the database queries. Every list, count, map point, du
 - A **dorm room** issue is visible only to that room's residents and staff.
 - A **dorm shared-area** issue (hallway, bathroom, lounge, laundry) is visible only to that hall's residents and staff.
 - Students who don't live in a hall see nothing from it: no tickets, pins, heat, counts, or duplicate matches. A hidden ticket's URL returns 404, exactly like a missing one.
-- **Public building** issues are visible to everyone.
+- **Public building** issues are visible to every student, staff member and admin.
+- Students always see **their own reports**.
+- **Contractors** see only the tickets assigned to them, with the room details the job needs and the reporter's first name, nothing else about students.
+- A student whose room **Housing hasn't confirmed yet** sees only public issues and their own reports, and can only report in public buildings. This stops anyone from claiming someone else's room to read its tickets.
 
-Students can also only *file* reports in public buildings, their own hall's shared areas, and their own room, so nobody creates a ticket they can't see. Other students appear anonymously on timelines; staff names are shown.
+Students can also only *file* reports in public buildings, their own hall's shared areas, and their own room, so nobody creates a ticket they can't see. Other students appear anonymously on timelines; staff names are shown. GT ID and gender are visible only to the student and administrators; pay rates and costs only to administrators (and the contractor's own work log). Photos are served only to people who can see their ticket.
+
+Staff act only on their own department's tickets (administrators on all), and every server action derives the user from `getViewer()` and checks the role, never trusting ids from the browser.
 
 ## Testing
 
 ```bash
-npm test             # unit + integration (Vitest): 171 tests, ~25 s
-npm run test:e2e     # browser tests (Playwright): 32 scenarios × phone and desktop
+npm test             # unit + integration (Vitest): 225 tests, ~35 s
+npm run test:e2e     # browser tests (Playwright): 66 scenarios × phone and desktop
 npm run test:all     # typecheck, lint, Vitest, Playwright
 ```
 
@@ -123,7 +183,8 @@ The first Playwright run needs a browser: `npx playwright install chromium`.
 
 - **Unit** (`tests/unit`): routing for every category × location type, safety-phrase detection (including false positives like a chirping smoke detector), keyword classification, triage orchestration with Claude mocked (success, failure fallback, safety override), response-target math, queue ordering, text similarity, and analytics.
 - **Integration** (`tests/integration`), against a real seeded SQLite database (`prisma/test.db`): every visibility rule; cross-checks that the database filter and the in-memory check agree for every user and ticket; that no notification, follow, or me-too ever reached someone who can't see the ticket; and the full ticket lifecycle (creation, ownership, duplicates, me-too priority raise, staff actions, confirm/reopen, escalation).
-- **End to end** (`tests/e2e`), against a production build on its own database (`prisma/e2e.db`): all five demo beats, visibility in the browser (404s, map, lists, QR codes for other halls), the emergency banner, and accessibility. axe-core checks every page as each role for WCAG 2.2 A/AA. There are also keyboard-only tests for the report flow and map pins, a skip-link test, and a 24 px minimum target-size check.
+- **Accounts** (`tests/unit/auth-schemas.test.ts`, `tests/unit/eligibility.test.ts`, `tests/integration/accounts.test.ts`): every sign-up rule, contractor eligibility, sign-up through Better Auth with every field saved and privileged fields ignored, email verification, lockout after 5 failures, disabled and ineligible accounts, admin two-factor, password reset, invites, the audit log, and photo permissions.
+- **End to end** (`tests/e2e`), against a production build on its own database (`prisma/e2e.db`): sign-up → email link → sign-in → report → sign-out; contractor start/finish; staff dispatch; admin 2FA → new contractor → audit log; forgot/reset password; keyboard-only sign-in on each tab; the SSO placeholder; all five demo beats, visibility in the browser (404s, map, lists, QR codes for other halls), the emergency banner, and accessibility. axe-core checks every page as each role for WCAG 2.2 A/AA. There are also keyboard-only tests for the report flow and map pins, a skip-link test, and a 24 px minimum target-size check.
 
 ## Accessibility
 
@@ -136,11 +197,13 @@ The first Playwright run needs a browser: `npx playwright install chromium`.
 
 ## Tech notes and decisions
 
-- **Next.js 16** (App Router) with Tailwind 4. `cacheComponents` is off: every page depends on the "view as" cookie, so request-time rendering is the simpler, correct model.
+- **Next.js 16** (App Router) with Tailwind 4. `cacheComponents` is off: every page depends on the signed-in user, so request-time rendering is the simpler, correct model.
+- **Better Auth** with the Prisma adapter on the same SQLite database: email + password with required email verification, the username plugin, Have I Been Pwned (only the first five characters of the password's SHA-1 hash leave the server), TOTP two-factor, database sessions (7 days with "remember me", otherwise a browser-session cookie; staff and admins at most 12 hours), and database-backed rate limiting. Passwords are hashed with scrypt. Sign-in, sign-up and password changes run as server actions that validate with the shared Zod schemas in `src/lib/auth-schemas.ts`; the matching HTTP endpoints are disabled so nobody can skip that validation or the lockout.
+- **Roles live on the existing User table** (`role` is `input: false`, as are department, supervisor, residence verification, disabled and last login), so no sign-up or profile update can grant access. `proxy.ts` only redirects when there's no session cookie; `getViewer()` is the real check on every page and action.
 - **Prisma 6.19 + SQLite.** Prisma's `latest` npm tag pointed at a 8.0 release candidate during development, so the stable 6.x line is pinned. SQLite has no enums; allowed values live in `src/lib/domain.ts` and are validated before writes.
 - **The seed replays history through the real services**, in time order, with the escalation sweep running hourly. Seeded data therefore obeys exactly the same rules as live data.
 - **Department comes from the routing rules, not the model.** The AI suggests category and severity, and the config decides the department, so routing is auditable and editable in one file. Students correct the category (the department follows); staff can reassign departments directly.
 - **The AI's original verdict is signed** between the analyze and submit steps, so the "what the AI said vs. what was filed" record can't be tampered with from the browser.
-- Photos are downscaled in the browser, checked by magic bytes, stored in `uploads/`, and served by a route handler. Their URLs are unguessable UUIDs but aren't permission-checked. Fine for a demo; a real deployment would put them behind the same visibility check.
+- Photos are downscaled in the browser, checked by magic bytes, stored in `uploads/`, and served by a route handler that requires a session and the same visibility check as the ticket.
 - **All 38 residence halls** are in the sample data (East Campus, West Campus, North Avenue, graduate housing), each with generated hallways, bathrooms (traditional halls), lounges, laundry rooms, washers, dryers, and elevators. Coordinates and addresses come from OpenStreetMap (Nominatim). The building picker groups them by area, with the student's own hall first.
 - **Maps.** With `GOOGLE_MAPS_API_KEY` set, the map uses Google Maps with a quiet custom style; pins, popups, and the heat layer are drawn as our own DOM and canvas overlays, so no Map ID is needed and pins stay keyboard-focusable buttons. Without a key, or if Google rejects the key, it falls back to OpenStreetMap tiles through Leaflet.

@@ -83,6 +83,9 @@ export async function registerStudent(input: SignupInput, reqHeaders: Headers): 
     if (code === "USERNAME_IS_ALREADY_TAKEN" || code === "USER_ALREADY_EXISTS" || code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
       return fail("An account already exists for this username.", { code: "DUPLICATE", fieldErrors: { username: "An account already exists for this username." } });
     }
+    if (/Failed to check password/i.test(errorMessage(err) ?? "")) {
+      return fail("Fix the errors below.", { fieldErrors: { password: "We couldn't check this password against known breaches right now. Try again in a moment." } });
+    }
     if (code === "PASSWORD_TOO_SHORT" || code === "PASSWORD_TOO_LONG") return fail("Fix the errors below.", { fieldErrors: { password: errorMessage(err) ?? "Choose a different password." } });
     console.error(`[auth] sign-up failed: ${code ?? (err instanceof Error ? err.message : "unknown")}`);
     return fail("We couldn't create your account. Try again in a moment.");

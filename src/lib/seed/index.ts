@@ -231,6 +231,9 @@ export async function seedDatabase(db: PrismaClient, opts: { now?: Date; quiet?:
   const nowMs = now.getTime();
   // "Reset demo data" keeps the signed-in admin's session, password and
   // authenticator, so they stay signed in and can sign in again afterwards.
+  // Everyone else's sessions survive too (seeded ids are stable), so people
+  // signed in on other devices aren't thrown out by a demo reset.
+  const otherSessions = opts.preserveUserId ? await db.session.findMany({ where: { userId: { not: opts.preserveUserId } } }) : [];
   const keep = opts.preserveUserId
     ? await Promise.all([
         db.session.findMany({ where: { userId: opts.preserveUserId } }),
@@ -250,6 +253,9 @@ export async function seedDatabase(db: PrismaClient, opts: { now?: Date; quiet?:
     if (factors.length) await db.twoFactor.createMany({ data: factors });
     if (sessions.length) await db.session.createMany({ data: sessions });
     await db.user.update({ where: { id }, data: { twoFactorEnabled: flags?.twoFactorEnabled ?? false } });
+    const seeded = new Set(USERS.map((u) => u.id));
+    const restorable = otherSessions.filter((x) => seeded.has(x.userId));
+    if (restorable.length) await db.session.createMany({ data: restorable });
   }
 
   const ops: Op[] = [];

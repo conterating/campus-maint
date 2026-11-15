@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { appUrl } from "@/lib/email";
 import { getActor, getViewer, homeFor } from "@/lib/session";
-import { afterSignIn, attemptLogin, errorCode, type FormResult, type LoginOutcome } from "@/lib/sign-in";
+import { afterSignIn, attemptLogin, errorCode, errorMessage, type FormResult, type LoginOutcome } from "@/lib/sign-in";
 import { registerStudent } from "@/lib/registration";
 import { acceptInvite, inviteTokenUser } from "@/lib/accounts";
 import { isRole } from "@/lib/domain";
@@ -158,6 +158,7 @@ export async function resetPasswordAction(input: { token: string; password: stri
   } catch (err) {
     const code = errorCode(err);
     if (code === "PASSWORD_COMPROMISED") return fail("Fix the errors below.", { fieldErrors: { password: "That password has appeared in a data breach. Choose a different one." } });
+    if (/Failed to check password/i.test(errorMessage(err) ?? "")) return fail("Fix the errors below.", { fieldErrors: { password: "We couldn't check this password against known breaches right now. Try again in a moment." } });
     return fail("This reset link is invalid or has expired. Request a new one.", { code: "EXPIRED" });
   }
 }
@@ -196,6 +197,7 @@ export async function changePasswordAction(input: { currentPassword: string; pas
     const code = errorCode(err);
     if (code === "INVALID_PASSWORD") return fail("Fix the errors below.", { fieldErrors: { currentPassword: "That isn't your current password." } });
     if (code === "PASSWORD_COMPROMISED") return fail("Fix the errors below.", { fieldErrors: { password: "That password has appeared in a data breach. Choose a different one." } });
+    if (/Failed to check password/i.test(errorMessage(err) ?? "")) return fail("Fix the errors below.", { fieldErrors: { password: "We couldn't check this password against known breaches right now. Try again in a moment." } });
     return fail("We couldn't change your password. Try again.");
   }
 }
